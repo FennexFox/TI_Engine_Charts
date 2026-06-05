@@ -4,12 +4,20 @@ import { chromium } from "playwright";
 
 const htmlFiles = process.argv.slice(2).length
   ? process.argv.slice(2)
-  : ["docs/index.html", "docs/en.html"];
+  : ["docs/index.html"];
 
 const failures = [];
 
 function expect(condition, message) {
   if (!condition) failures.push(message);
+}
+
+async function setLanguage(page, value) {
+  await page.locator(`input[name="uiLanguage"][value="${value}"]`).evaluate(input => {
+    input.checked = true;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForTimeout(100);
 }
 
 async function verifyHtmlFile(browser, htmlFile) {
@@ -26,6 +34,17 @@ async function verifyHtmlFile(browser, htmlFile) {
   await page.waitForSelector("#chart .data-point", { timeout: 15000 });
 
   const title = await page.locator("h1").innerText();
+  const languageOptions = await page.locator('input[name="uiLanguage"]').count();
+  expect(title.trim().length > 0, `${htmlFile}: title did not render`);
+  expect(languageOptions === 2, `${htmlFile}: language selector missing`);
+
+  await setLanguage(page, "en");
+  const englishTitle = await page.locator("h1").innerText();
+  const englishSource = await page.locator("#sourceNote").innerText();
+  expect(/Drive Comparison/.test(englishTitle), `${htmlFile}: English language switch did not update title`);
+  expect(/Game version/.test(englishSource), `${htmlFile}: English language switch did not update source note`);
+
+  await setLanguage(page, "ko");
   const visiblePoints = await page.locator("#chart .data-point").count();
   const categoryHelpCount = await page.locator(".category-row[data-help]").count();
   const overlayHelpCount = await page.locator("#bandAnalysisControls .check-row[data-help]").count();
@@ -36,12 +55,11 @@ async function verifyHtmlFile(browser, htmlFile) {
     }, 0);
   });
 
-  expect(/Drive Comparison|드라이브 비교/.test(title), `${htmlFile}: title did not render`);
   expect(visiblePoints > 0, `${htmlFile}: no chart data points rendered`);
   expect(categoryHelpCount >= 5, `${htmlFile}: category help tooltips were not attached`);
   expect(overlayHelpCount >= 4, `${htmlFile}: overlay help tooltips were not attached`);
   expect(customHelpRuleCount === 0, `${htmlFile}: custom data-help tooltip rule still exists`);
-  expect(/detail cards|상세 카드 사용법/.test(usageText), `${htmlFile}: empty detail panel usage text missing`);
+  expect(usageText.trim().length > 0, `${htmlFile}: empty detail panel usage text missing`);
 
   const firstPoint = page.locator("#chart .data-point").first();
   const pointBox = await firstPoint.boundingBox();

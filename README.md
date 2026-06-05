@@ -2,10 +2,9 @@
 
 Standalone builder and GitHub Pages site for Terra Invicta engine comparison charts.
 
-The generated Pages site lives in `docs/`:
-
-- `docs/index.html`: Korean chart
-- `docs/en.html`: English chart
+The generated Pages site lives in `docs/index.html`. The page includes a
+language selector for Korean and English instead of generating one chart per
+language.
 
 The chart is generated from a local Terra Invicta install. It embeds the template
 source names and the detected game version at the bottom of the page. Version
@@ -49,6 +48,5 @@ The deploy script only stages these generated files:
 - `data/research_catalog.json`
 - `docs/research_catalog.md`
 - `docs/index.html`
-- `docs/en.html`
 
 Other local changes are left untouched.

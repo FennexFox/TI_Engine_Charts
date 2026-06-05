@@ -15,7 +15,6 @@ GENERATED_PATHS = (
     "data/research_catalog.json",
     "docs/research_catalog.md",
     "docs/index.html",
-    "docs/en.html",
 )
 
 
@@ -87,8 +86,7 @@ def build_pages(args: argparse.Namespace) -> None:
     if args.game_version:
         common_chart_args.extend(["--game-version", args.game_version])
 
-    run([python, "tools/build_drive_comparison.py", *common_chart_args, "--lang", "ko", "--output", GENERATED_PATHS[2]])
-    run([python, "tools/build_drive_comparison.py", *common_chart_args, "--lang", "en", "--output", GENERATED_PATHS[3]])
+    run([python, "tools/build_drive_comparison.py", *common_chart_args, "--output", GENERATED_PATHS[2]])
 
     if not args.skip_verify:
         run([npm, "run", "verify:browser"])

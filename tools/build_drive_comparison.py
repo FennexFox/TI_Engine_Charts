@@ -768,6 +768,14 @@ HTML_TEMPLATE = r"""<!doctype html>
       border-bottom: 1px solid var(--line);
       background: #151614;
     }
+    .language-control {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+    .language-control .segmented {
+      width: 150px;
+    }
     h1 {
       margin: 0 0 6px;
       font-size: 24px;
@@ -1485,6 +1493,12 @@ HTML_TEMPLATE = r"""<!doctype html>
     <div class="subtle">
       X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.
     </div>
+    <div class="language-control" aria-label="Language">
+      <div class="segmented compact">
+        <label><input type="radio" name="uiLanguage" value="ko" checked>한국어</label>
+        <label><input type="radio" name="uiLanguage" value="en">English</label>
+      </div>
+    </div>
   </header>
   <main>
     <aside class="controls">
@@ -1600,15 +1614,19 @@ HTML_TEMPLATE = r"""<!doctype html>
       </table>
     </section>
     <section class="notes">
-      <p><strong>계산 메모.</strong> 총질량은 기준 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 dV에 필요한 추진체 질량을 합산합니다. 드라이브 출력 요구량, 드라이브 질량, 전원 질량, 라디에이터 질량은 이 저장소의 기존 ship-plan 계산식과 같은 항을 사용하며, 무장/유틸리티 전력은 제외해 드라이브-전원-라디에이터 비교만 분리했습니다.</p>
+      <p id="calculationNote"><strong>계산 메모.</strong> 총질량은 기준 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 dV에 필요한 추진체 질량을 합산합니다. 드라이브 출력 요구량, 드라이브 질량, 전원 질량, 라디에이터 질량은 이 저장소의 기존 ship-plan 계산식과 같은 항을 사용하며, 무장/유틸리티 전력은 제외해 드라이브-전원-라디에이터 비교만 분리했습니다.</p>
       <span id="sourceNote" class="source-note"></span>
     </section>
   </main>
   <script id="ti-data" type="application/json">__DATA_JSON__</script>
   <script>
     const DATA = JSON.parse(document.getElementById("ti-data").textContent);
+    const STATIC_TRANSLATIONS = __STATIC_TRANSLATIONS__;
+    const NOTE_HTML = __NOTE_HTML__;
     const STANDARD_GRAVITY_MPS2 = 9.80665;
-    const UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
+    let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
+    const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
+    if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
     const state = {
       metric: "totalMassTons",
       thrusters: DATA.defaults.thrusterCount,
@@ -1639,6 +1657,81 @@ HTML_TEMPLATE = r"""<!doctype html>
       categories: Object.fromEntries(DATA.categories.map(category => [category.key, !!category.defaultVisible])),
       families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, true])),
     };
+
+    function translateText(value, lang = UI_LANG) {
+      let result = String(value ?? "");
+      const pairs = lang === "en"
+        ? STATIC_TRANSLATIONS
+        : STATIC_TRANSLATIONS.map(([ko, en]) => [en, ko]);
+      pairs.forEach(([from, to]) => {
+        if (from) result = result.split(from).join(to);
+      });
+      return result;
+    }
+
+    function localText(ko, en) {
+      return UI_LANG === "en" ? en : ko;
+    }
+
+    function applyStaticLanguage() {
+      document.documentElement.lang = UI_LANG;
+      document.querySelectorAll('input[name="uiLanguage"]').forEach(input => {
+        input.checked = input.value === UI_LANG;
+      });
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const parent = node.parentElement;
+          if (!parent || ["SCRIPT", "STYLE"].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      });
+      const textNodes = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+      textNodes.forEach(node => {
+        node.nodeValue = translateText(node.nodeValue);
+      });
+      document.querySelectorAll("[placeholder],[aria-label]").forEach(element => {
+        ["placeholder", "aria-label"].forEach(attribute => {
+          if (element.hasAttribute(attribute)) {
+            element.setAttribute(attribute, translateText(element.getAttribute(attribute)));
+          }
+        });
+      });
+      const note = document.getElementById("calculationNote");
+      if (note) note.innerHTML = NOTE_HTML[UI_LANG] || NOTE_HTML.ko;
+    }
+
+    function setLanguage(lang, { rerender = true } = {}) {
+      UI_LANG = lang === "en" ? "en" : "ko";
+      localStorage.setItem("tiEngineChartLanguage", UI_LANG);
+      applyStaticLanguage();
+      refreshLocalizedControls();
+      refreshSourceNote();
+      if (rerender) render();
+    }
+
+    function refreshLocalizedControls() {
+      document.querySelectorAll(".category-row").forEach(row => {
+        const category = DATA.categories.find(item => item.key === row.dataset.categoryKey);
+        const text = row.querySelector(".category-name");
+        if (category && text) text.textContent = localLabel(category);
+        if (category) applyHelp(row, localCategoryHelp(category));
+      });
+      document.querySelectorAll(".family-row").forEach(row => {
+        const family = DATA.subfamilies.find(item => item.key === row.dataset.familyKey);
+        const text = row.querySelector(".family-name");
+        if (family && text) text.textContent = localLabel(family);
+      });
+      const showTwrInfo = document.getElementById("showTwrInfo");
+      const showMassInfo = document.getElementById("showMassInfo");
+      const paretoHighlight = document.getElementById("paretoHighlight");
+      const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
+      if (showTwrInfo) applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
+      if (showMassInfo) applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));
+      if (paretoHighlight) applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
+      if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
+      applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
+    }
 
     const metricDefs = {
       thrustMN: {
@@ -1684,6 +1777,14 @@ HTML_TEMPLATE = r"""<!doctype html>
         format: value => formatTwr(value, ""),
       },
     };
+
+    function metricLabel(key) {
+      return translateText(metricDefs[key].label);
+    }
+
+    function metricHint(key) {
+      return translateText(metricDefs[key].hint);
+    }
 
     const chart = document.getElementById("chart");
     const tooltip = document.getElementById("tooltip");
@@ -1752,6 +1853,12 @@ HTML_TEMPLATE = r"""<!doctype html>
       const minTwrNumber = document.getElementById("minTwrNumber");
       const nameSearch = document.getElementById("nameSearch");
 
+      document.querySelectorAll('input[name="uiLanguage"]').forEach(input => {
+        input.addEventListener("change", () => {
+          if (input.checked) setLanguage(input.value);
+        });
+      });
+      applyStaticLanguage();
       applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
       applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));
       applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
@@ -1818,6 +1925,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         swatch.className = "family-swatch";
         swatch.setAttribute("style", backgroundStyle(category.color, category.colorOklch || category.color));
         const text = document.createElement("span");
+        text.className = "category-name";
         text.textContent = localLabel(category);
         label.append(input, swatch, text);
         categoryRoot.appendChild(label);
@@ -1974,13 +2082,20 @@ HTML_TEMPLATE = r"""<!doctype html>
         syncFilterInputs();
         render();
       });
-      const gameVersionParts = [`Game version: ${DATA.source.gameVersion || "unknown"}`];
-      if (DATA.source.steamBuildId) gameVersionParts.push(`Steam build ${DATA.source.steamBuildId}`);
-      document.getElementById("sourceNote").textContent = ` Source: ${DATA.source.driveTemplate}; ${DATA.source.radiatorTemplate}; ${gameVersionParts.join("; ")}`;
+      refreshSourceNote();
+      refreshLocalizedControls();
       syncFilterInputs();
       setupChartInteraction();
       updateChartControls();
       updateSortHeaders();
+    }
+
+    function refreshSourceNote() {
+      const gameVersionParts = [
+        `${localText("게임 버전", "Game version")}: ${DATA.source.gameVersion || "unknown"}`,
+      ];
+      if (DATA.source.steamBuildId) gameVersionParts.push(`Steam build ${DATA.source.steamBuildId}`);
+      document.getElementById("sourceNote").textContent = `${localText("소스", "Source")}: ${DATA.source.driveTemplate}; ${DATA.source.radiatorTemplate}; ${gameVersionParts.join("; ")}`;
     }
 
     function setupChartInteraction() {
@@ -2389,8 +2504,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       const rows = diagnostics.visibleRows;
       const metric = metricDefs[state.metric];
       document.getElementById("visibleCount").textContent = rows.length;
-      document.getElementById("metricHint").textContent = metric.hint;
-      document.getElementById("metricColumn").textContent = metric.label;
+      document.getElementById("metricHint").textContent = metricHint(state.metric);
+      document.getElementById("metricColumn").textContent = metricLabel(state.metric);
       updateChartControls();
       renderFamilyDiagnostics(diagnostics);
       renderChartDiagnostic(diagnostics);
@@ -2538,8 +2653,8 @@ HTML_TEMPLATE = r"""<!doctype html>
         const item = document.createElement("span");
         item.className = "legend-item";
         item.textContent = state.usePowerResearch
-          ? `${metricDefs[state.metric].label} 밴드: 추가 전원 연구력 포함`
-          : `${metricDefs[state.metric].label} 밴드: 최초 전원 연구력 기준`;
+          ? `${metricLabel(state.metric)} ${localText("밴드: 추가 전원 연구력 포함", "band: including additional power research")}`
+          : `${metricLabel(state.metric)} ${localText("밴드: 최초 전원 연구력 기준", "band: first power research basis")}`;
         legend.appendChild(item);
         const powerResearch = document.createElement("span");
         powerResearch.className = "legend-item";
@@ -2967,7 +3082,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         transform: `rotate(-90 18 ${margin.top + innerH / 2})`,
         "text-anchor": "middle",
       });
-      yTitle.textContent = `${metricDefs[state.metric].label}${state.logY ? " (log)" : ""}`;
+      yTitle.textContent = `${metricLabel(state.metric)}${state.logY ? " (log)" : ""}`;
       axis.appendChild(yTitle);
       chart.appendChild(axis);
     }
@@ -4088,21 +4203,30 @@ def portable_data(data: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def build_html(data: dict[str, Any], lang: str = "ko", portable: bool = False) -> str:
+def client_translation_pairs() -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for korean, english in (*ENGLISH_BLOCK_REPLACEMENTS, *ENGLISH_REPLACEMENTS):
+        if korean.startswith("<html "):
+            continue
+        pairs.append((korean, english))
+    return pairs
+
+
+def note_html_translations() -> dict[str, str]:
+    korean, english = ENGLISH_BLOCK_REPLACEMENTS[0]
+    return {"ko": korean, "en": english}
+
+
+def build_html(data: dict[str, Any], portable: bool = False) -> str:
     if portable:
         data = portable_data(data)
     html = HTML_TEMPLATE
-    if lang == "en":
-        for korean, english in ENGLISH_BLOCK_REPLACEMENTS:
-            html = html.replace(korean, english)
-        for korean, english in ENGLISH_REPLACEMENTS:
-            html = html.replace(korean, english)
-        html = html.replace(
-            "row.requiredProjectDisplay.ko || row.requiredProjectDisplay.en || row.requiredProject",
-            "row.requiredProjectDisplay.en || row.requiredProjectDisplay.ko || row.requiredProject",
-        )
     data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     html = html.replace("__DATA_JSON__", data_json.replace("</script", "<\\/script"))
+    translation_json = json.dumps(client_translation_pairs(), ensure_ascii=False, separators=(",", ":"))
+    note_json = json.dumps(note_html_translations(), ensure_ascii=False, separators=(",", ":"))
+    html = html.replace("__STATIC_TRANSLATIONS__", translation_json.replace("</script", "<\\/script"))
+    html = html.replace("__NOTE_HTML__", note_json.replace("</script", "<\\/script"))
     return html
 
 
@@ -4118,12 +4242,6 @@ def parse_args() -> argparse.Namespace:
         "--output",
         default=None,
         help="Standalone HTML output path.",
-    )
-    parser.add_argument(
-        "--lang",
-        choices=("ko", "en"),
-        default="ko",
-        help="Dashboard UI language.",
     )
     parser.add_argument(
         "--portable",
@@ -4147,14 +4265,12 @@ def main() -> None:
         raise SystemExit(f"Research catalog not found: {research_catalog}")
     if args.output:
         default_output = Path(args.output)
-    elif args.portable:
-        default_output = ROOT / ("drive_comparison_en_portable.html" if args.lang == "en" else "drive_comparison_portable.html")
     else:
-        default_output = ROOT / ("drive_comparison_en.html" if args.lang == "en" else "drive_comparison.html")
+        default_output = ROOT / "docs" / "index.html"
     output = default_output.expanduser().resolve()
     game_version = detect_game_version(templates_dir, args.game_version)
     data = build_data(templates_dir, research_catalog, game_version)
-    html = build_html(data, args.lang, args.portable)
+    html = build_html(data, args.portable)
     output.write_text(html, encoding="utf-8")
     print(f"Wrote {output}")
     print(f"Drive variants: {len(data['drives'])}")
