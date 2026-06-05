@@ -1,0 +1,15 @@
+{
+  "name": "terra-invicta-engine-charts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Terra Invicta engine chart builder and GitHub Pages publisher.",
+  "scripts": {
+    "build": "python scripts/rebuild_pages.py --no-commit --no-push",
+    "deploy": "python scripts/rebuild_pages.py",
+    "verify:browser": "node tools/verify_drive_comparison_browser.mjs",
+    "playwright:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}
