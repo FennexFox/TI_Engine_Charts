@@ -2354,12 +2354,6 @@ HTML_TEMPLATE = r"""<!doctype html>
       return Number(row.cumulativeResearch);
     }
 
-    function rowUnlockResearchValue(row) {
-      const value = Number(row.unlockCumulativeResearch);
-      if (Number.isFinite(value) && value > 0) return value;
-      return Number(row.cumulativeResearch);
-    }
-
     function selectedRadiator() {
       return DATA.radiators.find(item => item.id === state.radiatorId) || DATA.radiators[0] || null;
     }
