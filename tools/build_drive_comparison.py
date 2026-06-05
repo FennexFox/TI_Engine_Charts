@@ -629,12 +629,15 @@ def build_data(
                 project,
                 str(option.get("requiredProject") or "") or None,
             )
+        first_power_option = row["powerOptions"][0] if row["powerOptions"] else None
         first_power_research = (
-            as_float(row["powerOptions"][0].get("combinedCumulativeResearch"), 0.0)
-            if row["powerOptions"]
-            else 0.0
+          0.0
+          if not first_power_option or first_power_option.get("selfContained")
+          else as_float(first_power_option.get("combinedCumulativeResearch"), 0.0)
         )
-        row["unlockCumulativeResearch"] = max(cumulative, first_power_research)
+        row["powerResearchCumulative"] = first_power_research
+        row["powerResearchCost"] = first_power_research
+        row["unlockCumulativeResearch"] = cumulative + row["powerResearchCost"]
         drive_rows.append(row)
 
     present_categories = {row["categoryKey"] for row in drive_rows}
@@ -1337,10 +1340,108 @@ HTML_TEMPLATE = r"""<!doctype html>
       font-weight: 600;
     }
     .tooltip .muted { color: #a9b5ad; }
-    .tooltip-breakdown {
-      margin-top: 6px;
-      padding-top: 6px;
+    .tooltip-section {
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px solid var(--line);
+    }
+    .tooltip-section summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+      color: var(--ink);
+      outline: none;
+    }
+    .tooltip-section summary::-webkit-details-marker {
+      display: none;
+    }
+    .tooltip-section summary::after {
+      content: "▾";
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1;
+      transition: transform 140ms ease;
+    }
+    .tooltip-section[open] summary::after {
+      transform: rotate(180deg);
+    }
+    .tooltip-section-body {
+      margin-top: 8px;
+    }
+    .tooltip-metrics {
+      display: grid;
+      gap: 2px;
+    }
+    .tooltip-ratio {
+      display: flex;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #0e100f;
+      border: 1px solid #2d342f;
+      margin: 7px 0 6px;
+    }
+    .tooltip-ratio span {
+      box-shadow: inset -1px 0 rgb(0 0 0 / 0.28), inset 1px 0 rgb(255 255 255 / 0.05);
+    }
+    .research-drive {
+      background: #2563eb;
+      background: oklch(62% 0.175 260);
+    }
+    .research-project {
+      background: #0891b2;
+      background: oklch(65% 0.135 220);
+    }
+    .research-power {
+      background: #7c3aed;
+      background: oklch(62% 0.170 300);
+    }
+    .tooltip-metric-group + .tooltip-metric-group {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+    }
+    .tooltip-metric-group-title {
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tooltip-metric {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: baseline;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(40, 47, 42, 0.75);
+    }
+    .tooltip-metric:last-child { border-bottom: 0; }
+    .tooltip-metric.is-emphasis {
+      padding-top: 0;
+      padding-bottom: 6px;
+      font-weight: 700;
+    }
+    .tooltip-metric-label {
+      color: #a9b5ad;
+      font-size: 11px;
+      line-height: 1.25;
+    }
+    .tooltip-metric-value {
+      margin-top: 0;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    .tooltip-breakdown {
+      margin-top: 0;
     }
     .tooltip-breakdown-grid {
       display: grid;
@@ -2653,21 +2754,21 @@ HTML_TEMPLATE = r"""<!doctype html>
         const powerResearch = document.createElement("span");
         powerResearch.className = "legend-item";
         powerResearch.textContent = state.usePowerResearch
-          ? "X축: 최초+추가 전원 포함 연구력"
-          : "X축: 최초 전원 포함 연구력";
+          ? localText("X축: 최초+추가 전원 포함 연구력", "X axis: first + additional power research")
+          : localText("X축: 최초 전원 포함 연구력", "X axis: first power-inclusive research");
         legend.appendChild(powerResearch);
         if (secondaryEncodingEnabled()) {
           const secondary = document.createElement("span");
           secondary.className = "legend-item";
           secondary.textContent = state.metric === "totalMassTons"
-            ? "점 밝기: TWR 높을수록 밝음"
-            : "점 밝기: 총질량 낮을수록 밝음";
+            ? localText("점 밝기: TWR 높을수록 밝음", "Point brightness: brighter means higher TWR")
+            : localText("점 밝기: 총질량 낮을수록 밝음", "Point brightness: brighter means lower total mass");
           legend.appendChild(secondary);
         }
         if (state.paretoHighlight) {
           const pareto = document.createElement("span");
           pareto.className = "legend-item";
-          pareto.textContent = "흐린 점: Pareto 지배 후보";
+          pareto.textContent = localText("흐린 점: Pareto 지배 후보", "Dim points: Pareto-dominated candidates");
           legend.appendChild(pareto);
         }
       }
@@ -3067,7 +3168,9 @@ HTML_TEMPLATE = r"""<!doctype html>
         axis.appendChild(text);
       });
       const xTitle = svgEl("text", { class: "axis-title", x: margin.left + innerW / 2, y: height - 22, "text-anchor": "middle" });
-      xTitle.textContent = `${state.usePowerResearch && isBandMetric() ? "누적 연구력 (최초+추가 전원 포함)" : "누적 연구력 (최초 전원 포함)"}${state.logX ? " (log)" : ""}`;
+      xTitle.textContent = `${state.usePowerResearch && isBandMetric()
+        ? localText("누적 연구력 (최초+추가 전원 포함)", "Cumulative research (first + additional power included)")
+        : localText("누적 연구력 (최초 전원 포함)", "Cumulative research (first power included)")}${state.logX ? " (log)" : ""}`;
       axis.appendChild(xTitle);
       const yTitle = svgEl("text", {
         class: "axis-title",
@@ -3564,15 +3667,11 @@ HTML_TEMPLATE = r"""<!doctype html>
     }
 
     function tooltipHtml(row, option = null, key = "", index = 0, itemCount = 1) {
-      const radiator = selectedRadiator();
+      const metrics = tooltipMetricsHtml(row, option);
       const selected = option ? tooltipBreakdownHtml(row, option) : "";
       const powerName = option ? option.displayName : (UI_LANG === "en" ? "No power plant candidate" : "전원 후보 없음");
       const pinned = isPinnedTooltipKey(key);
       const pinLabel = UI_LANG === "en" ? (pinned ? "Unpin this card" : "Pin this card") : (pinned ? "이 카드 고정 해제" : "이 카드 고정");
-      const unlockResearch = rowUnlockResearchValue(row);
-      const powerResearch = option && state.usePowerResearch
-        ? `<div>추가 전원 포함 연구력: <strong>${formatResearch(optionResearchValue(row, option))}</strong></div>`
-        : "";
       return `
         <section class="tooltip-item${pinned ? " is-pinned" : ""}" data-tooltip-key="${escapeHtml(key)}">
           <div class="tooltip-item-order" aria-label="순서 변경">
@@ -3585,19 +3684,76 @@ HTML_TEMPLATE = r"""<!doctype html>
           </div>
           <h2>${escapeHtml(row.displayName)}<span class="tooltip-title-power">${escapeHtml(powerName)}</span></h2>
           <div class="muted">${escapeHtml(rowCategoryLabel(row))} / ${escapeHtml(rowFamilyLabel(row))} · ${escapeHtml(rowProjectLabel(row))}</div>
-          <div>개방 연구력: <strong>${formatResearch(unlockResearch)}</strong> · 추진기 연구: ${formatResearch(row.cumulativeResearch)} · 자체 프로젝트: ${formatResearch(row.ownResearchCost)}</div>
-          ${powerResearch}
-          <div>추력: ${formatNumber(row.thrustN / 1e6, " MN")} · EV: ${formatNumber(row.exhaustVelocityKps, " km/s")} · Isp: ${formatNumber(row.specificImpulseSeconds, " s")}</div>
-          <div>효율: ${formatPercent(row.efficiency)} · 출력 요구량: ${formatNumber(row.powerRequirementGW, " GW")}</div>
-          <div>라디에이터: ${escapeHtml(radiator ? radiator.displayName : "-")}</div>
+          ${metrics}
           ${selected}
         </section>
       `;
     }
 
+    function tooltipMetricsHtml(row, option = null) {
+      const powerResearch = Math.max(
+        0,
+        option && !option.selfContained ? (Number(option.cumulativeResearch) || 0) : (row.powerResearchCost || 0),
+      );
+      const driveResearch = Math.max(0, row.cumulativeResearch - row.ownResearchCost);
+      const projectResearch = Math.max(0, row.ownResearchCost);
+      const unlockResearch = Math.max(0, driveResearch + projectResearch + powerResearch);
+      const researchTotal = Math.max(driveResearch + projectResearch + powerResearch, 1e-9);
+      const twrValue = option ? option.twr : (defaultTooltipOption(row)?.twr ?? NaN);
+      const researchRows = [
+        [UI_LANG === "en" ? "Unlock research" : "개방 연구력", formatResearch(unlockResearch), true],
+        [UI_LANG === "en" ? "Drive research" : "드라이브 연구", formatResearch(driveResearch), false],
+        [UI_LANG === "en" ? "Project research" : "프로젝트 연구", formatResearch(projectResearch), false],
+        [UI_LANG === "en" ? "Power research" : "전원 연구", formatResearch(powerResearch), false],
+      ];
+      const performanceRows = [
+        [UI_LANG === "en" ? "Thrust" : "추력", formatNumber(row.thrustN / 1e6, " MN")],
+        [UI_LANG === "en" ? "TWR" : "TWR", formatTwr(twrValue, " g")],
+        [UI_LANG === "en" ? "Exhaust velocity" : "EV", formatNumber(row.exhaustVelocityKps, " km/s")],
+        [UI_LANG === "en" ? "Efficiency" : "효율", formatPercent(row.efficiency)],
+        [UI_LANG === "en" ? "Power requirement" : "출력 요구량", formatNumber(row.powerRequirementGW, " GW")],
+      ];
+      return `
+        <details class="tooltip-section" open>
+          <summary>${UI_LANG === "en" ? "Performance detail" : "성능 상세"}</summary>
+          <div class="tooltip-section-body">
+            <div class="tooltip-metrics">
+              ${performanceRows.map(([label, value]) => `
+                <div class="tooltip-metric">
+                  <div class="tooltip-metric-label">${escapeHtml(label)}</div>
+                  <div class="tooltip-metric-value">${escapeHtml(value)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </details>
+        <details class="tooltip-section" open>
+          <summary>${UI_LANG === "en" ? "Research detail" : "연구 상세"}</summary>
+          <div class="tooltip-section-body">
+            <div class="tooltip-metric is-emphasis">
+              <div class="tooltip-metric-label">${escapeHtml(UI_LANG === "en" ? "Unlock research total" : "개방 연구력 합계")}</div>
+              <div class="tooltip-metric-value">${escapeHtml(formatResearch(unlockResearch))}</div>
+            </div>
+            <div class="tooltip-ratio" aria-hidden="true">
+              <span class="research-drive" style="width:${clamp(driveResearch / researchTotal * 100, 0, 100).toFixed(2)}%" title="${escapeHtml(UI_LANG === "en" ? "Drive research" : "드라이브 연구")}: ${escapeHtml(formatResearch(driveResearch))}"></span>
+              <span class="research-project" style="width:${clamp(projectResearch / researchTotal * 100, 0, 100).toFixed(2)}%" title="${escapeHtml(UI_LANG === "en" ? "Project research" : "프로젝트 연구")}: ${escapeHtml(formatResearch(projectResearch))}"></span>
+              <span class="research-power" style="width:${clamp(powerResearch / researchTotal * 100, 0, 100).toFixed(2)}%" title="${escapeHtml(UI_LANG === "en" ? "Power research" : "전원 연구")}: ${escapeHtml(formatResearch(powerResearch))}"></span>
+            </div>
+            <div class="tooltip-metrics">
+              ${researchRows.slice(1).map(([label, value]) => `
+                <div class="tooltip-metric">
+                  <div class="tooltip-metric-label">${escapeHtml(label)}</div>
+                  <div class="tooltip-metric-value">${escapeHtml(value)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </details>
+      `;
+    }
+
     function tooltipBreakdownHtml(row, option) {
       const totalLabel = UI_LANG === "en" ? "Total mass" : "총질량";
-      const twrLabel = UI_LANG === "en" ? "TWR" : "TWR";
       const components = [
         [UI_LANG === "en" ? "Hull" : "선체", option.baseDryTons, "stack-hull"],
         [UI_LANG === "en" ? "Drive" : "드라이브", row.driveMassTons, "stack-drive"],
@@ -3617,17 +3773,20 @@ HTML_TEMPLATE = r"""<!doctype html>
         return `<span class="${className}" style="width:${share.toFixed(2)}%" title="${label}: ${formatNumber(value, " t")}"></span>`;
       }).join("");
       return `
-        <div class="tooltip-breakdown">
-          <div><strong>${totalLabel}</strong>: ${formatNumber(option.totalMassTons, " t")} · ${twrLabel}: ${formatTwr(option.twr, " g")}</div>
-          ${impracticalNote}
-          <div class="tooltip-breakdown-grid">
-            ${componentRows}
+        <details class="tooltip-section tooltip-breakdown" open>
+          <summary>${UI_LANG === "en" ? "Mass breakdown" : "총질량 breakdown"}</summary>
+          <div class="tooltip-section-body">
+            <div><strong>${totalLabel}</strong>: ${formatNumber(option.totalMassTons, " t")}</div>
+            ${impracticalNote}
+            <div class="tooltip-breakdown-grid">
+              ${componentRows}
+            </div>
+            <div class="tooltip-stack" aria-hidden="true">
+              ${componentSegments}
+            </div>
+            <div class="muted">${UI_LANG === "en" ? "Waste heat" : "폐열"}: ${formatNumber(option.wasteHeatGW, " GW")}</div>
           </div>
-          <div class="tooltip-stack" aria-hidden="true">
-            ${componentSegments}
-          </div>
-          <div class="muted">${UI_LANG === "en" ? "Waste heat" : "폐열"}: ${formatNumber(option.wasteHeatGW, " GW")}</div>
-        </div>
+        </details>
       `;
     }
 
