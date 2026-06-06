@@ -1108,10 +1108,32 @@ HTML_TEMPLATE = r"""<!doctype html>
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: 8px;
       color: var(--muted);
       font-size: 12px;
+    }
+    .summary-left {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      min-width: 0;
+    }
+    .preset-io {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+    .preset-status {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .preset-status.error {
+      color: var(--danger);
     }
     .summary-controls {
       display: flex;
@@ -1594,6 +1616,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       header { padding: 18px 14px 12px; }
       .controls { position: static; max-height: none; }
       .chart-body { grid-template-columns: 1fr; }
+      .summary-strip { flex-direction: column; }
+      .summary-controls { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
       .table-shell { grid-column: 1; }
       .notes { grid-column: 1; }
       #chart { height: 560px; }
@@ -1619,8 +1643,9 @@ HTML_TEMPLATE = r"""<!doctype html>
       <section class="control-block">
         <label class="label" for="metric">세로축</label>
         <select id="metric">
-          <optgroup label="시뮬레이션(총 질량, TWR)">
+          <optgroup label="시뮬레이션(총 질량, 연료질량, TWR)">
             <option value="totalMassTons">목표 dV 총질량 (t)</option>
+            <option value="fuelMassTons">목표 dV 연료질량 (t)</option>
             <option value="twr">TWR</option>
           </optgroup>
           <optgroup label="기본 정보(추력, 효율, 출력)">
@@ -1660,7 +1685,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         <select id="radiator"></select>
       </section>
       <section id="bandAnalysisControls" class="control-block">
-        <span class="label">총질량/TWR 보조 표시</span>
+        <span class="label">총질량/연료질량/TWR 보조 표시</span>
         <label id="showTwrInfoRow" class="check-row"><input id="showTwrInfo" type="checkbox" checked> TWR 정보 표시</label>
         <label id="showMassInfoRow" class="check-row" style="display: none;"><input id="showMassInfo" type="checkbox" checked> 총질량 정보 표시</label>
         <label class="check-row"><input id="paretoHighlight" type="checkbox" checked> 파레토 후보 강조</label>
@@ -1672,6 +1697,14 @@ HTML_TEMPLATE = r"""<!doctype html>
             <input id="minTwrNumber" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
           </div>
           <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.0001 g</div>
+        </div>
+        <div id="minDvControl" style="margin-top: 10px; display: none;">
+          <label class="label" for="minDv">최소 dV (km/s)</label>
+          <div class="split">
+            <input id="minDv" type="range" min="0" max="2000" value="0" step="5">
+            <input id="minDvNumber" type="number" min="0" max="100000" value="0" step="1">
+          </div>
+          <div id="minDvReadout" class="control-hint">표시: dV >= 0 km/s</div>
         </div>
       </section>
       <section class="control-block">
@@ -1695,7 +1728,14 @@ HTML_TEMPLATE = r"""<!doctype html>
     </aside>
     <section class="chart-shell">
       <div class="summary-strip">
-        <div><strong id="visibleCount">0</strong>개 드라이브 표시</div>
+        <div class="summary-left">
+          <div id="presetClipboard" class="preset-io" aria-label="설정 가져오기/내보내기">
+            <button id="presetExport" class="compact-command" type="button">설정 Export</button>
+            <button id="presetImport" class="compact-command" type="button">설정 Import</button>
+            <span id="presetStatus" class="preset-status" aria-live="polite"></span>
+          </div>
+          <div><strong id="visibleCount">0</strong>개 드라이브 표시</div>
+        </div>
         <div class="summary-controls">
           <div id="chartFuelUnit" class="segmented compact" style="display: none;">
             <label><input type="radio" name="fuelUnit" value="kps" checked>km/s</label>
@@ -1756,6 +1796,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       showImpracticalCandidates: false,
       usePowerResearch: false,
       minTwr: 0.0001,
+      minDvKps: 0,
       searchTerm: "",
       sortKey: "research",
       sortDirection: "asc",
@@ -1767,6 +1808,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       hoverHitSignature: "",
       zoom: null,
       zoomContext: "",
+      preserveViewportOnce: false,
       pan: null,
       categories: Object.fromEntries(DATA.categories.map(category => [category.key, !!category.defaultVisible])),
       families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, true])),
@@ -1845,6 +1887,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (paretoHighlight) applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
       if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
+      applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
+      setPresetUiText();
     }
 
     const metricDefs = {
@@ -1881,6 +1925,15 @@ HTML_TEMPLATE = r"""<!doctype html>
         },
         format: value => formatNumber(value, " t"),
       },
+      fuelMassTons: {
+        label: "목표 dV 연료질량 (t)",
+        hint: "연료질량 = (기준 건조질량 + 드라이브 + 전원 + 라디에이터) * (질량비 - 1)",
+        value: row => {
+          const values = chartMassOptions(row);
+          return values.length ? values[0].propellantTons : NaN;
+        },
+        format: value => formatNumber(value, " t"),
+      },
       twr: {
         label: "TWR",
         hint: "추력 / (목표 dV 총질량 * g)",
@@ -1910,6 +1963,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     const MASS_RATIO_OVERFLOW_EXPONENT = 709;
     const HIDDEN_REASON_PRIORITY = [
       "minTwr",
+      "minDv",
       "targetDvOrMassRatio",
       "researchFilter",
       "invalidPowerPlant",
@@ -1920,8 +1974,8 @@ HTML_TEMPLATE = r"""<!doctype html>
     ];
     const HELP_TEXT = {
       showTwrInfo: {
-        ko: "목표 dV 총질량 그래프에서 각 점의 밝기를 TWR로 인코딩합니다. 같은 총질량이라도 실제로 가속이 가능한 후보인지 빠르게 구분할 때 유용합니다.",
-        en: "On the target-dV total-mass chart, point brightness encodes TWR. This helps separate low-mass candidates that can actually accelerate from low-mass but sluggish designs.",
+        ko: "목표 dV 총질량/연료질량 그래프에서 각 점의 밝기를 TWR로 인코딩합니다. 같은 질량대라도 실제로 가속이 가능한 후보인지 빠르게 구분할 때 유용합니다.",
+        en: "On the target-dV total-mass/fuel-mass charts, point brightness encodes TWR. This helps separate candidates that can actually accelerate from sluggish designs at similar mass.",
       },
       showMassInfo: {
         ko: "TWR 그래프에서 각 점의 밝기를 총질량의 역수로 인코딩합니다. 높은 TWR 후보 중에서도 같은 목표 dV를 더 가벼운 총질량으로 달성하는 조합을 찾는 데 도움을 줍니다.",
@@ -1938,6 +1992,10 @@ HTML_TEMPLATE = r"""<!doctype html>
       minTwr: {
         ko: "총질량 그래프에서 습질량 기준 TWR이 이 값보다 낮은 후보를 숨깁니다. 값을 낮추면 장거리 dV에는 가능하지만 가속이 매우 느린 조합까지 확인할 수 있습니다.",
         en: "On total-mass charts, hides candidates whose wet-mass TWR is below this threshold. Lower it to inspect designs that can reach the dV but accelerate very slowly.",
+      },
+      minDv: {
+        ko: "TWR 그래프에서 실용 질량비 한계(극단적 질량비 기준)로 계산한 최대 dV가 이 값보다 낮은 후보를 숨깁니다.",
+        en: "On the TWR chart, hides candidates whose maximum practical dV (using the extreme mass-ratio bound) is below this threshold.",
       },
     };
     let chartViewport = null;
@@ -1965,6 +2023,10 @@ HTML_TEMPLATE = r"""<!doctype html>
       const powerResearchToggle = document.getElementById("powerResearchToggle");
       const minTwrExp = document.getElementById("minTwrExp");
       const minTwrNumber = document.getElementById("minTwrNumber");
+      const minDv = document.getElementById("minDv");
+      const minDvNumber = document.getElementById("minDvNumber");
+      const presetExport = document.getElementById("presetExport");
+      const presetImport = document.getElementById("presetImport");
       const nameSearch = document.getElementById("nameSearch");
 
       document.querySelectorAll('input[name="uiLanguage"]').forEach(input => {
@@ -1978,6 +2040,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
       applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
+      applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
 
       metric.value = state.metric;
       dryMass.value = String(clamp(state.dryMassTons, Number(dryMass.min), Number(dryMass.max)));
@@ -2164,6 +2227,13 @@ HTML_TEMPLATE = r"""<!doctype html>
         render();
       });
       powerResearchToggle.addEventListener("click", () => {
+        if (chartViewport && chartViewport.xDomain && chartViewport.yDomain) {
+          state.zoom = {
+            xDomain: chartViewport.xDomain.slice(),
+            yDomain: chartViewport.yDomain.slice(),
+          };
+          state.preserveViewportOnce = true;
+        }
         state.usePowerResearch = !state.usePowerResearch;
         render();
       });
@@ -2177,6 +2247,54 @@ HTML_TEMPLATE = r"""<!doctype html>
         state.minTwr = clamp(Number(minTwrNumber.value) || 0.0001, 0.0001, 10);
         syncMinTwrInputs();
         render();
+      });
+      minDv.addEventListener("input", () => {
+        state.minDvKps = clamp(Number(minDv.value) || 0, 0, 100000);
+        syncMinDvInputs();
+        render();
+      });
+      minDvNumber.addEventListener("input", () => {
+        state.minDvKps = clamp(Number(minDvNumber.value) || 0, 0, 100000);
+        syncMinDvInputs();
+        render();
+      });
+      presetExport.addEventListener("click", async () => {
+        try {
+          const payload = await serializePresetPayload();
+          const copied = await copyToClipboard(payload);
+          showPresetStatus(copied
+            ? localText("압축 설정 문자열을 클립보드에 복사했습니다.", "Compressed preset copied to clipboard.")
+            : localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."), !copied);
+        } catch {
+          showPresetStatus(localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."), true);
+        }
+      });
+      presetImport.addEventListener("click", async () => {
+        const clip = (await readFromClipboard()).trim();
+        const promptText = localText(
+          "설정 문자열을 붙여넣으세요 (압축 문자열 지원)",
+          "Paste preset string (compressed payload supported)",
+        );
+        const payload = window.prompt(promptText, clip || "");
+        if (payload === null) {
+          showPresetStatus(localText("가져오기를 취소했습니다.", "Preset import canceled."));
+          return;
+        }
+        if (!payload.trim()) {
+          showPresetStatus(localText("가져올 설정 문자열이 없습니다.", "No preset string to import."), true);
+          return;
+        }
+        try {
+          const parsed = await parsePresetPayload(payload);
+          if (!applyPresetToState(parsed)) {
+            showPresetStatus(localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format."), true);
+            return;
+          }
+          syncUiFromState();
+          showPresetStatus(localText("설정을 불러왔습니다.", "Preset imported."));
+        } catch {
+          showPresetStatus(localText("설정 문자열을 해석할 수 없습니다.", "Failed to parse preset payload."), true);
+        }
       });
       nameSearch.addEventListener("input", () => {
         state.searchTerm = nameSearch.value.trim().toLocaleLowerCase();
@@ -2238,17 +2356,20 @@ HTML_TEMPLATE = r"""<!doctype html>
       const showTwrInfoRow = document.getElementById("showTwrInfoRow");
       const showMassInfoRow = document.getElementById("showMassInfoRow");
       const minTwrControl = document.getElementById("minTwrControl");
+      const minDvControl = document.getElementById("minDvControl");
       const powerResearchToggle = document.getElementById("powerResearchToggle");
       fuelUnitBlock.style.display = state.metric === "fuelEfficiency" ? "" : "none";
       bandAnalysisControls.style.display = isBandMetric() ? "" : "none";
-      showTwrInfoRow.style.display = state.metric === "totalMassTons" ? "" : "none";
+      showTwrInfoRow.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
       showMassInfoRow.style.display = state.metric === "twr" ? "" : "none";
-      minTwrControl.style.display = state.metric === "totalMassTons" ? "" : "none";
+      minTwrControl.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
+      minDvControl.style.display = state.metric === "twr" ? "" : "none";
       powerResearchToggle.style.display = isBandMetric() ? "" : "none";
       powerResearchToggle.setAttribute("aria-pressed", state.usePowerResearch ? "true" : "false");
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
       if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
       syncMinTwrInputs();
+      syncMinDvInputs();
     }
 
     function syncMinTwrInputs() {
@@ -2260,7 +2381,18 @@ HTML_TEMPLATE = r"""<!doctype html>
       const exponent = clamp(Math.log10(state.minTwr), Number(slider.min), Number(slider.max));
       slider.value = String(exponent);
       number.value = String(Number(state.minTwr.toPrecision(4)));
-      readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: TWR >= ${formatTwr(state.minTwr, " g")}`;
+      readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: TWR >= ${formatTwrDynamicUnit(state.minTwr)}`;
+    }
+
+    function syncMinDvInputs() {
+      const slider = document.getElementById("minDv");
+      const number = document.getElementById("minDvNumber");
+      const readout = document.getElementById("minDvReadout");
+      if (!slider || !number || !readout) return;
+      state.minDvKps = clamp(state.minDvKps || 0, 0, 100000);
+      slider.value = String(clamp(state.minDvKps, Number(slider.min), Number(slider.max)));
+      number.value = String(Math.round(state.minDvKps));
+      readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: dV >= ${formatNumber(state.minDvKps, " km/s")}`;
     }
 
     function localLabel(item) {
@@ -2282,6 +2414,219 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (!element || !text) return;
       element.dataset.help = text;
       element.title = text;
+    }
+
+    function setPresetUiText() {
+      const exportButton = document.getElementById("presetExport");
+      const importButton = document.getElementById("presetImport");
+      if (exportButton) exportButton.textContent = localText("설정 Export", "Export Preset");
+      if (importButton) importButton.textContent = localText("설정 Import", "Import Preset");
+    }
+
+    function showPresetStatus(message, isError = false) {
+      const status = document.getElementById("presetStatus");
+      if (!status) return;
+      status.textContent = message || "";
+      status.classList.toggle("error", !!isError);
+    }
+
+    function exportedPreset() {
+      return {
+        format: "ti-engine-chart-preset/v1",
+        lang: UI_LANG,
+        metric: state.metric,
+        thrusters: state.thrusters,
+        fuelEfficiencyUnit: state.fuelEfficiencyUnit,
+        dryMassTons: state.dryMassTons,
+        targetDvKps: state.targetDvKps,
+        radiatorId: state.radiatorId,
+        logX: !!state.logX,
+        logY: !!state.logY,
+        showTwrInfo: !!state.showTwrInfo,
+        showMassInfo: !!state.showMassInfo,
+        paretoHighlight: !!state.paretoHighlight,
+        showImpracticalCandidates: !!state.showImpracticalCandidates,
+        usePowerResearch: !!state.usePowerResearch,
+        minTwr: state.minTwr,
+        minDvKps: state.minDvKps,
+        categories: Object.fromEntries(DATA.categories.map(category => [category.key, !!state.categories[category.key]])),
+        families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, !!state.families[family.key]])),
+      };
+    }
+
+    async function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      const hidden = document.createElement("textarea");
+      hidden.value = text;
+      hidden.setAttribute("readonly", "");
+      hidden.style.position = "fixed";
+      hidden.style.opacity = "0";
+      document.body.appendChild(hidden);
+      hidden.select();
+      let copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } finally {
+        document.body.removeChild(hidden);
+      }
+      return copied;
+    }
+
+    async function readFromClipboard() {
+      if (!(navigator.clipboard && window.isSecureContext)) return "";
+      try {
+        return (await navigator.clipboard.readText()) || "";
+      } catch {
+        return "";
+      }
+    }
+
+    function bytesToBase64(bytes) {
+      let binary = "";
+      const chunkSize = 0x8000;
+      for (let index = 0; index < bytes.length; index += chunkSize) {
+        const chunk = bytes.subarray(index, index + chunkSize);
+        binary += String.fromCharCode(...chunk);
+      }
+      return btoa(binary);
+    }
+
+    function base64ToBytes(text) {
+      const binary = atob(text);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      return bytes;
+    }
+
+    async function gzipBytes(bytes) {
+      if (typeof CompressionStream !== "function") return null;
+      const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    async function gunzipBytes(bytes) {
+      if (typeof DecompressionStream !== "function") return null;
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    async function serializePresetPayload() {
+      const jsonText = JSON.stringify(exportedPreset());
+      const sourceBytes = new TextEncoder().encode(jsonText);
+      const gzipped = await gzipBytes(sourceBytes);
+      if (gzipped) return `ticp1:${bytesToBase64(gzipped)}`;
+      return `tijp1:${bytesToBase64(sourceBytes)}`;
+    }
+
+    async function parsePresetPayload(payloadText) {
+      const payload = String(payloadText || "").trim();
+      if (!payload) throw new Error("empty");
+
+      if (payload.startsWith("ticp1:")) {
+        const compressed = base64ToBytes(payload.slice("ticp1:".length));
+        const plain = await gunzipBytes(compressed);
+        if (!plain) throw new Error("no-gunzip");
+        return JSON.parse(new TextDecoder().decode(plain));
+      }
+
+      if (payload.startsWith("tijp1:")) {
+        const plain = base64ToBytes(payload.slice("tijp1:".length));
+        return JSON.parse(new TextDecoder().decode(plain));
+      }
+
+      return JSON.parse(payload);
+    }
+
+    function applyPresetToState(rawPreset) {
+      const preset = rawPreset && rawPreset.settings ? rawPreset.settings : rawPreset;
+      if (!preset || typeof preset !== "object") return false;
+
+      if (preset.lang === "ko" || preset.lang === "en") {
+        setLanguage(preset.lang, { rerender: false });
+      }
+
+      const metricKeys = Object.keys(metricDefs);
+      if (metricKeys.includes(preset.metric)) state.metric = preset.metric;
+      if (Number.isFinite(Number(preset.thrusters))) state.thrusters = Math.round(clamp(Number(preset.thrusters), 1, 6));
+      if (preset.fuelEfficiencyUnit === "kps" || preset.fuelEfficiencyUnit === "seconds") state.fuelEfficiencyUnit = preset.fuelEfficiencyUnit;
+      if (Number.isFinite(Number(preset.dryMassTons))) state.dryMassTons = clamp(Number(preset.dryMassTons), 0, 1000000);
+      if (Number.isFinite(Number(preset.targetDvKps))) state.targetDvKps = clamp(Number(preset.targetDvKps), 0, 100000);
+
+      if (typeof preset.radiatorId === "string" && DATA.radiators.some(item => item.id === preset.radiatorId)) {
+        state.radiatorId = preset.radiatorId;
+      }
+
+      if (typeof preset.logX === "boolean") state.logX = preset.logX;
+      if (typeof preset.logY === "boolean") state.logY = preset.logY;
+      if (typeof preset.showTwrInfo === "boolean") state.showTwrInfo = preset.showTwrInfo;
+      if (typeof preset.showMassInfo === "boolean") state.showMassInfo = preset.showMassInfo;
+      if (typeof preset.paretoHighlight === "boolean") state.paretoHighlight = preset.paretoHighlight;
+      if (typeof preset.showImpracticalCandidates === "boolean") state.showImpracticalCandidates = preset.showImpracticalCandidates;
+      if (typeof preset.usePowerResearch === "boolean") state.usePowerResearch = preset.usePowerResearch;
+      if (Number.isFinite(Number(preset.minTwr))) state.minTwr = clamp(Number(preset.minTwr), 0.0001, 10);
+      if (Number.isFinite(Number(preset.minDvKps))) state.minDvKps = clamp(Number(preset.minDvKps), 0, 100000);
+
+      if (preset.categories && typeof preset.categories === "object") {
+        DATA.categories.forEach(category => {
+          if (typeof preset.categories[category.key] === "boolean") {
+            state.categories[category.key] = preset.categories[category.key];
+          }
+        });
+      }
+      if (preset.families && typeof preset.families === "object") {
+        DATA.subfamilies.forEach(family => {
+          if (typeof preset.families[family.key] === "boolean") {
+            state.families[family.key] = preset.families[family.key];
+          }
+        });
+      }
+
+      return true;
+    }
+
+    function syncUiFromState() {
+      const metric = document.getElementById("metric");
+      const thrusters = document.getElementById("thrusters");
+      const thrustersNumber = document.getElementById("thrustersNumber");
+      const dryMass = document.getElementById("dryMass");
+      const dryMassNumber = document.getElementById("dryMassNumber");
+      const targetDv = document.getElementById("targetDv");
+      const targetDvNumber = document.getElementById("targetDvNumber");
+      const radiator = document.getElementById("radiator");
+      const logX = document.getElementById("logX");
+      const logY = document.getElementById("logY");
+      const showTwrInfo = document.getElementById("showTwrInfo");
+      const showMassInfo = document.getElementById("showMassInfo");
+      const paretoHighlight = document.getElementById("paretoHighlight");
+      const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
+
+      if (metric) metric.value = state.metric;
+      if (thrusters) thrusters.value = String(state.thrusters);
+      if (thrustersNumber) thrustersNumber.value = String(state.thrusters);
+      if (dryMass) dryMass.value = String(clamp(state.dryMassTons, Number(dryMass.min), Number(dryMass.max)));
+      if (dryMassNumber) dryMassNumber.value = String(Math.round(state.dryMassTons));
+      if (targetDv) targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
+      if (targetDvNumber) targetDvNumber.value = String(Math.round(state.targetDvKps));
+      if (radiator) radiator.value = state.radiatorId;
+      if (logX) logX.checked = !!state.logX;
+      if (logY) logY.checked = !!state.logY;
+      if (showTwrInfo) showTwrInfo.checked = !!state.showTwrInfo;
+      if (showMassInfo) showMassInfo.checked = !!state.showMassInfo;
+      if (paretoHighlight) paretoHighlight.checked = !!state.paretoHighlight;
+      if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
+      document.querySelectorAll('input[name="fuelUnit"]').forEach(input => {
+        input.checked = input.value === state.fuelEfficiencyUnit;
+      });
+
+      state.zoom = null;
+      syncFilterInputs();
+      syncMinTwrInputs();
+      syncMinDvInputs();
+      updateChartControls();
+      render();
     }
 
     function rowCategoryLabel(row) {
@@ -2414,7 +2759,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       const finiteMetricOptions = options.filter(option => Number.isFinite(optionMetricValue(option)) && optionMetricValue(option) > 0);
       if (!finiteMetricOptions.length) return ["invalidComputation"];
       const reasons = [];
-      if (state.metric === "totalMassTons" && state.minTwr > 0 && !state.showImpracticalCandidates) {
+      if ((state.metric === "totalMassTons" || state.metric === "fuelMassTons") && state.minTwr > 0 && !state.showImpracticalCandidates) {
         const twrPassing = finiteMetricOptions.some(option => Number.isFinite(option.twr) && option.twr >= state.minTwr);
         if (!twrPassing) {
           reasons.push("minTwr");
@@ -2422,6 +2767,12 @@ HTML_TEMPLATE = r"""<!doctype html>
             reasons.push("targetDvOrMassRatio");
           }
         }
+      }
+      if (state.metric === "twr" && state.minDvKps > 0 && !state.showImpracticalCandidates) {
+        const dvPassing = finiteMetricOptions.some(
+          option => Number.isFinite(option.maxPracticalDvKps) && option.maxPracticalDvKps >= state.minDvKps,
+        );
+        if (!dvPassing) reasons.push("minDv");
       }
       return reasons;
     }
@@ -2454,7 +2805,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 
     function isImpracticalOption(option) {
       if (!state.showImpracticalCandidates) return false;
-      return (state.metric === "totalMassTons" && state.minTwr > 0 && Number.isFinite(option.twr) && option.twr < state.minTwr)
+      return ((state.metric === "totalMassTons" || state.metric === "fuelMassTons") && state.minTwr > 0 && Number.isFinite(option.twr) && option.twr < state.minTwr)
         || isExtremeMassRatioOption(option);
     }
 
@@ -2505,6 +2856,7 @@ HTML_TEMPLATE = r"""<!doctype html>
           propellantTons,
           totalMassTons,
           twr,
+          maxPracticalDvKps: row.exhaustVelocityKps * Math.log(EXTREME_MASS_RATIO),
           massRatio,
           massRatioMinusOne,
         };
@@ -2514,8 +2866,11 @@ HTML_TEMPLATE = r"""<!doctype html>
 
     function chartMassOptions(row, metric = state.metric) {
       const options = massOptions(row);
-      if (metric === "totalMassTons" && state.minTwr > 0 && !state.showImpracticalCandidates) {
+      if ((metric === "totalMassTons" || metric === "fuelMassTons") && state.minTwr > 0 && !state.showImpracticalCandidates) {
         return options.filter(option => Number.isFinite(option.twr) && option.twr >= state.minTwr);
+      }
+      if (metric === "twr" && state.minDvKps > 0 && !state.showImpracticalCandidates) {
+        return options.filter(option => Number.isFinite(option.maxPracticalDvKps) && option.maxPracticalDvKps >= state.minDvKps);
       }
       return options;
     }
@@ -2791,6 +3146,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       }
       const phrases = {
         minTwr: UI_LANG === "en" ? "the current minimum TWR filter" : "현재 최소 TWR 필터",
+        minDv: UI_LANG === "en" ? "the current minimum dV filter" : "현재 최소 dV 필터",
         targetDvOrMassRatio: UI_LANG === "en" ? "the current target dV / mass-ratio scenario" : "현재 목표 dV / 질량비 시나리오",
         researchFilter: UI_LANG === "en" ? "research unlock constraints" : "연구 개방 조건",
         invalidPowerPlant: UI_LANG === "en" ? "missing compatible power candidates" : "호환 전원 후보 부족",
@@ -2846,7 +3202,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         if (secondaryEncodingEnabled()) {
           const secondary = document.createElement("span");
           secondary.className = "legend-item";
-          secondary.textContent = state.metric === "totalMassTons"
+          secondary.textContent = (state.metric === "totalMassTons" || state.metric === "fuelMassTons")
             ? localText("점 밝기: TWR 높을수록 밝음", "Point brightness: brighter means higher TWR")
             : localText("점 밝기: 총질량 낮을수록 밝음", "Point brightness: brighter means lower total mass");
           legend.appendChild(secondary);
@@ -2900,11 +3256,17 @@ HTML_TEMPLATE = r"""<!doctype html>
       const xValues = chartResearchValues(rows);
       const baseXDomain = paddedDomain(xValues, state.logX);
       const baseYDomain = valueDomain(rows);
-      const xDomain = state.zoom ? constrainDomain(state.zoom.xDomain, baseXDomain, state.logX) : baseXDomain;
-      const yDomain = state.zoom ? constrainDomain(state.zoom.yDomain, baseYDomain, state.logY) : baseYDomain;
+      const preserveViewport = !!(state.preserveViewportOnce && state.zoom);
+      const xDomain = preserveViewport
+        ? state.zoom.xDomain.slice()
+        : (state.zoom ? constrainDomain(state.zoom.xDomain, baseXDomain, state.logX) : baseXDomain);
+      const yDomain = preserveViewport
+        ? state.zoom.yDomain.slice()
+        : (state.zoom ? constrainDomain(state.zoom.yDomain, baseYDomain, state.logY) : baseYDomain);
       if (state.zoom) {
         state.zoom = { xDomain, yDomain };
       }
+      state.preserveViewportOnce = false;
       const x = makeScale(xDomain, [margin.left, margin.left + innerW], state.logX);
       const y = makeScale(yDomain, [margin.top + innerH, margin.top], state.logY);
       chartViewport = { width, height, margin, innerW, innerH, xDomain, yDomain, baseXDomain, baseYDomain };
@@ -3704,7 +4066,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     }
 
     function secondaryEncodingEnabled() {
-      return (state.metric === "totalMassTons" && state.showTwrInfo)
+      return ((state.metric === "totalMassTons" || state.metric === "fuelMassTons") && state.showTwrInfo)
         || (state.metric === "twr" && state.showMassInfo);
     }
 
@@ -3716,7 +4078,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     }
 
     function secondaryScore(option) {
-      if (state.metric === "totalMassTons") {
+      if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
         return Math.log10(Math.max(option.twr, 1e-12));
       }
       if (state.metric === "twr") {
@@ -3756,11 +4118,13 @@ HTML_TEMPLATE = r"""<!doctype html>
     }
 
     function isBandMetric(metric = state.metric) {
-      return metric === "totalMassTons" || metric === "twr";
+      return metric === "totalMassTons" || metric === "fuelMassTons" || metric === "twr";
     }
 
     function optionMetricValue(option, metric = state.metric) {
-      return metric === "twr" ? option.twr : option.totalMassTons;
+      if (metric === "twr") return option.twr;
+      if (metric === "fuelMassTons") return option.propellantTons;
+      return option.totalMassTons;
     }
 
     function defaultTooltipOption(row) {
@@ -4260,7 +4624,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (!positive.length) return false;
       const min = Math.min(...positive);
       const max = Math.max(...positive);
-      if (state.metric === "totalMassTons") return true;
+      if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") return true;
       return min > 0 && max / min >= 50;
     }
 
@@ -4371,6 +4735,30 @@ HTML_TEMPLATE = r"""<!doctype html>
       return `${text}${suffix}`;
     }
 
+    function formatTwrDynamicUnit(value) {
+      if (!Number.isFinite(value)) return "-";
+      const abs = Math.abs(value);
+      if (abs === 0) return "0g";
+      const units = [
+        ["g", 1],
+        ["mg", 1e3],
+        ["ug", 1e6],
+        ["ng", 1e9],
+      ];
+      let selected = units[units.length - 1];
+      for (const unit of units) {
+        if (abs * unit[1] >= 0.1) {
+          selected = unit;
+          break;
+        }
+      }
+      const scaled = value * selected[1];
+      const text = Math.abs(scaled) > 0 && Math.abs(scaled) < 0.001
+        ? Number(scaled.toPrecision(2)).toString()
+        : formatCompact(scaled, 1_000_000);
+      return `${text}${selected[0]}`;
+    }
+
     function formatCompact(value, threshold = 1_000) {
       if (!Number.isFinite(value)) return "-";
       const abs = Math.abs(value);
@@ -4428,7 +4816,7 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
         "The X axis is cumulative research including the first compatible power plant. Use it to compare total mass, TWR, thrust, and efficiency at similar research costs and decide which drive path to invest in.",
     ),
     ("세로축", "Vertical axis"),
-    ("시뮬레이션(총 질량, TWR)", "Simulation (total mass, TWR)"),
+    ("시뮬레이션(총 질량, 연료질량, TWR)", "Simulation (total mass, fuel mass, TWR)"),
     ("기본 정보(추력, 효율, 출력)", "Basic information (thrust, efficiency, power)"),
     ("이름 검색", "Name search"),
     ("드라이브 또는 프로젝트", "Drive or project"),
@@ -4438,12 +4826,13 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("연료효율 (s)", "Fuel efficiency (s)"),
     ("출력 요구량 (GW)", "Power requirement (GW)"),
     ("목표 dV 총질량 (t)", "Target dV total mass (t)"),
+    ("목표 dV 연료질량 (t)", "Target dV fuel mass (t)"),
     ("엔진 수", "Engine count"),
     ("기준 선체 건조 질량 (t)", "Base hull dry mass (t)"),
     ("목표 dV (km/s)", "Target dV (km/s)"),
     ("라디에이터", "Radiator"),
     ("축 스케일", "Axis scale"),
-    ("총질량/TWR 보조 표시", "Total mass/TWR overlay"),
+    ("총질량/연료질량/TWR 보조 표시", "Total mass/fuel mass/TWR overlay"),
     ("TWR 정보 표시", "Show TWR information"),
     ("총질량 정보 표시", "Show total mass information"),
     ("파레토 후보 강조", "Highlight Pareto candidates"),
@@ -4479,6 +4868,10 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("전원 단계", "Power plant tier"),
     ("템플릿 thrust_N을 MN으로 환산", "Template thrust_N converted to MN"),
     ("템플릿 EV_kps", "Template EV_kps"),
+    (
+      "연료질량 = (기준 건조질량 + 드라이브 + 전원 + 라디에이터) * (질량비 - 1)",
+      "Fuel mass = (base dry mass + drive + power plant + radiator) * (mass ratio - 1)",
+    ),
     ("추력 / (목표 dV 총질량 * g)", "Thrust / (target dV total mass * g)"),
     ("추력:", "Thrust:"),
     ("출력 요구량:", "Power requirement:"),
