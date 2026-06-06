@@ -3359,8 +3359,12 @@ HTML_TEMPLATE = r"""<!doctype html>
       state.hoverHitSignature = "";
       state.dismissedTooltipKeys.clear();
       const pinned = pinnedTooltipRefs();
+      if (!pinned.length) {
+        clearTooltip({ keepPinned: true });
+        return;
+      }
       setHoverPoints(pinned);
-      if (pinned.length && !sameTooltipRefs(pinned, state.lastTooltipItems)) {
+      if (!sameTooltipRefs(pinned, state.lastTooltipItems)) {
         state.lastTooltipItems = pinned;
         refreshTooltip(currentChartRows);
       }
@@ -3467,8 +3471,12 @@ HTML_TEMPLATE = r"""<!doctype html>
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
         const pinned = pinnedTooltipRefs();
+        if (!pinned.length) {
+          clearTooltip({ keepPinned: true });
+          return;
+        }
         setHoverPoints(pinned);
-        if (pinned.length && !sameTooltipRefs(pinned, state.lastTooltipItems)) {
+        if (!sameTooltipRefs(pinned, state.lastTooltipItems)) {
           state.lastTooltipItems = pinned;
           refreshTooltip(currentChartRows);
         }
@@ -3479,8 +3487,12 @@ HTML_TEMPLATE = r"""<!doctype html>
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
         const pinned = pinnedTooltipRefs();
+        if (!pinned.length) {
+          clearTooltip({ keepPinned: true });
+          return;
+        }
         setHoverPoints(pinned);
-        if (pinned.length && !sameTooltipRefs(pinned, state.lastTooltipItems)) {
+        if (!sameTooltipRefs(pinned, state.lastTooltipItems)) {
           state.lastTooltipItems = pinned;
           refreshTooltip(currentChartRows);
         }

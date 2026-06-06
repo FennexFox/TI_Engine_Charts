@@ -71,6 +71,11 @@ async function verifyHtmlFile(browser, htmlFile) {
   const cardCountAfterHover = await page.locator("#tooltip .tooltip-item").count();
   expect(cardCountAfterHover > 0, `${htmlFile}: hover did not create detail card`);
 
+  if (pointBox) {
+    await page.mouse.click(pointBox.x + pointBox.width / 2, pointBox.y + pointBox.height / 2);
+  }
+  await page.waitForTimeout(80);
+
   const firstPin = page.locator("#tooltip .tooltip-item-pin").first();
   await firstPin.click();
   expect(await firstPin.getAttribute("aria-pressed") === "true", `${htmlFile}: card pin did not toggle on`);
