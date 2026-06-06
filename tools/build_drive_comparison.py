@@ -630,14 +630,15 @@ def build_data(
                 str(option.get("requiredProject") or "") or None,
             )
         first_power_option = row["powerOptions"][0] if row["powerOptions"] else None
-        first_power_research = (
-          0.0
-          if not first_power_option or first_power_option.get("selfContained")
-          else as_float(first_power_option.get("combinedCumulativeResearch"), 0.0)
+        first_power_combined = (
+          cumulative
+          if not first_power_option
+          else as_float(first_power_option.get("combinedCumulativeResearch"), cumulative)
         )
-        row["powerResearchCumulative"] = first_power_research
-        row["powerResearchCost"] = first_power_research
-        row["unlockCumulativeResearch"] = cumulative + row["powerResearchCost"]
+        first_power_additional = max(0.0, first_power_combined - cumulative)
+        row["powerResearchCumulative"] = first_power_combined
+        row["powerResearchCost"] = first_power_additional
+        row["unlockCumulativeResearch"] = first_power_combined
         drive_rows.append(row)
 
     present_categories = {row["categoryKey"] for row in drive_rows}
@@ -1053,9 +1054,21 @@ HTML_TEMPLATE = r"""<!doctype html>
       stroke: var(--strong-line);
       shape-rendering: crispEdges;
     }
+    .axis line.minor-tick {
+      stroke: #3a433d;
+    }
+    .axis line.major-tick {
+      stroke: var(--strong-line);
+    }
     .grid line {
       stroke: #2a302c;
       shape-rendering: crispEdges;
+    }
+    .grid line.minor-grid {
+      stroke: #222824;
+    }
+    .grid line.major-grid {
+      stroke: #2d3530;
     }
     .axis .axis-title {
       fill: #d8e1db;
@@ -2555,10 +2568,17 @@ HTML_TEMPLATE = r"""<!doctype html>
 
     function logTicks(min, max, maxTicks = 9) {
       min = Math.max(min, 1e-9);
+      if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [min];
+      const lMin = Math.log10(min);
+      const lMax = Math.log10(Math.max(max, min * (1 + 1e-9)));
+      const logSpan = Math.max(0, lMax - lMin);
       const start = Math.floor(Math.log10(min));
       const end = Math.ceil(Math.log10(max));
       const exponentSpan = Math.max(0, end - start);
-      const denseTicks = denseLogTicks(min, max, start, end);
+      const denseTicks = denseLogTicks(min, max, start, end, maxTicks);
+      if (!denseTicks.length || logSpan < 0.9) {
+        return logInterpolatedTicks(min, max, maxTicks);
+      }
       if (denseTicks.length <= maxTicks + 2) return denseTicks;
       const exponentStep = niceTickStep(Math.max(1, exponentSpan / Math.max(maxTicks - 1, 1)));
       const ticks = [];
@@ -2567,18 +2587,41 @@ HTML_TEMPLATE = r"""<!doctype html>
         const value = Math.pow(10, exp);
         if (value >= min * 0.999 && value <= max * 1.001) ticks.push(value);
       }
-      if (!ticks.length) ticks.push(Math.sqrt(min * max));
+      if (!ticks.length) return logInterpolatedTicks(min, max, maxTicks);
       return ticks.slice(0, maxTicks + 1);
     }
 
-    function denseLogTicks(min, max, start, end) {
+    function logInterpolatedTicks(min, max, maxTicks = 9) {
+      const safeMin = Math.max(min, 1e-9);
+      const safeMax = Math.max(max, safeMin * (1 + 1e-9));
+      const lMin = Math.log10(safeMin);
+      const lMax = Math.log10(safeMax);
+      const count = clamp(Math.floor(maxTicks) + 1, 2, 60);
       const ticks = [];
-      for (let exp = start; exp <= end; exp++) {
-        [1, 2, 5].forEach(multiplier => {
-          const value = multiplier * Math.pow(10, exp);
-          if (value >= min * 0.999 && value <= max * 1.001) ticks.push(value);
-        });
+      for (let index = 0; index < count; index++) {
+        const ratio = count <= 1 ? 0 : index / (count - 1);
+        const value = Math.pow(10, lMin + (lMax - lMin) * ratio);
+        if (!ticks.length || value > ticks[ticks.length - 1] * (1 + 1e-12)) {
+          ticks.push(value);
+        }
       }
+      return ticks;
+    }
+
+    function denseLogTicks(min, max, start, end, maxTicks = 9) {
+      const ticks = [];
+      const decadeCount = Math.max(1, end - start);
+      const perDecade = clamp(Math.floor(maxTicks / decadeCount), 1, 12);
+      for (let exp = start; exp < end; exp++) {
+        for (let step = 0; step < perDecade; step++) {
+          // Subdivide each decade uniformly in log space (geometric spacing in value space).
+          const fraction = step / perDecade;
+          const value = Math.pow(10, exp + fraction);
+          if (value >= min * 0.999 && value <= max * 1.001) ticks.push(value);
+        }
+      }
+      const last = Math.pow(10, end);
+      if (last >= min * 0.999 && last <= max * 1.001) ticks.push(last);
       return ticks;
     }
 
@@ -2591,6 +2634,49 @@ HTML_TEMPLATE = r"""<!doctype html>
 
     function maxAxisTicks(pixelSpan, minPixelGap = 54) {
       return Math.max(3, Math.floor(pixelSpan / minPixelGap) + 1);
+    }
+
+    function axisDomainSpan(domain, logScale) {
+      if (!domain || domain.length < 2) return NaN;
+      if (logScale) {
+        const d0 = Math.log10(Math.max(domain[0], 1e-9));
+        const d1 = Math.log10(Math.max(domain[1], 1e-9));
+        return Math.abs(d1 - d0);
+      }
+      return Math.abs(domain[1] - domain[0]);
+    }
+
+    function dynamicYAxisMaxTicks(yDomain, innerH) {
+      const baseTicks = maxAxisTicks(innerH);
+      if (!chartViewport || !chartViewport.baseYDomain) return baseTicks;
+      const baseSpan = axisDomainSpan(chartViewport.baseYDomain, state.logY);
+      const currentSpan = axisDomainSpan(yDomain, state.logY);
+      if (!Number.isFinite(baseSpan) || !Number.isFinite(currentSpan) || baseSpan <= 0 || currentSpan <= 0) {
+        return baseTicks;
+      }
+      const zoomRatio = clamp(baseSpan / currentSpan, 1, 20);
+      const growth = 1 + 0.28 * Math.log10(zoomRatio + 1);
+      const scaledTicks = Math.round(baseTicks * growth);
+      return clamp(scaledTicks, 3, 18);
+    }
+
+    function isPowerOfTen(value) {
+      if (!Number.isFinite(value) || value <= 0) return false;
+      const exponent = Math.log10(value);
+      return Math.abs(exponent - Math.round(exponent)) <= 1e-8;
+    }
+
+    function classifyTickLevels(ticks, labelStride, logScale) {
+      const safeStride = Math.max(1, labelStride);
+      return ticks.map((tick, index) => {
+        const edge = index === 0 || index === ticks.length - 1;
+        const decade = logScale && isPowerOfTen(tick);
+        const cadence = index % safeStride === 0;
+        return {
+          tick,
+          major: edge || decade || cadence,
+        };
+      });
     }
 
     function render() {
@@ -2844,15 +2930,22 @@ HTML_TEMPLATE = r"""<!doctype html>
     function handleChartWheel(event) {
       if (!chartViewport) return;
       const point = svgPointFromEvent(event);
-      if (!pointInPlot(point)) return;
+      const axisMode = resolveWheelZoomAxisMode(point, event);
+      if (!axisMode) return;
       event.preventDefault();
       const focal = clampPointToPlot(point);
       const zoomFactor = Math.exp(Math.sign(event.deltaY) * 0.22);
       const xValue = invertScale(focal.x, chartViewport.xDomain, [chartViewport.margin.left, chartViewport.margin.left + chartViewport.innerW], state.logX);
       const yValue = invertScale(focal.y, chartViewport.yDomain, [chartViewport.margin.top + chartViewport.innerH, chartViewport.margin.top], state.logY);
+      const nextXDomain = axisMode.includes("x")
+        ? zoomDomainAround(chartViewport.xDomain, xValue, zoomFactor, state.logX)
+        : chartViewport.xDomain.slice();
+      const nextYDomain = axisMode.includes("y")
+        ? zoomDomainAround(chartViewport.yDomain, yValue, zoomFactor, state.logY)
+        : chartViewport.yDomain.slice();
       setZoomDomains(
-        zoomDomainAround(chartViewport.xDomain, xValue, zoomFactor, state.logX),
-        zoomDomainAround(chartViewport.yDomain, yValue, zoomFactor, state.logY),
+        nextXDomain,
+        nextYDomain,
       );
     }
 
@@ -2967,6 +3060,33 @@ HTML_TEMPLATE = r"""<!doctype html>
         && point.x <= margin.left + innerW
         && point.y >= margin.top
         && point.y <= margin.top + innerH;
+    }
+
+    function pointInXAxisZone(point) {
+      const { margin, innerW, innerH, height } = chartViewport;
+      return point.x >= margin.left
+        && point.x <= margin.left + innerW
+        && point.y >= margin.top + innerH - 12
+        && point.y <= Math.min(height, margin.top + innerH + Math.max(24, margin.bottom));
+    }
+
+    function pointInYAxisZone(point) {
+      const { margin, innerH } = chartViewport;
+      return point.x >= Math.max(0, margin.left - Math.max(24, margin.left))
+        && point.x <= margin.left + 12
+        && point.y >= margin.top
+        && point.y <= margin.top + innerH;
+    }
+
+    function resolveWheelZoomAxisMode(point, event) {
+      if (pointInPlot(point)) {
+        if (event.shiftKey && !event.altKey) return "y";
+        if (event.altKey && !event.shiftKey) return "x";
+        return "xy";
+      }
+      if (pointInXAxisZone(point)) return "x";
+      if (pointInYAxisZone(point)) return "y";
+      return "";
     }
 
     function clampPointToPlot(point) {
@@ -3139,30 +3259,62 @@ HTML_TEMPLATE = r"""<!doctype html>
     function drawGridAndAxes(ctx) {
       const { width, height, margin, innerW, innerH, x, y, xDomain, yDomain } = ctx;
       const xTicks = state.logX ? logTicks(...xDomain) : linearTicks(...xDomain, 7);
-      const yMaxTicks = maxAxisTicks(innerH);
+      const yMaxTicks = dynamicYAxisMaxTicks(yDomain, innerH);
       const yTicks = state.logY ? logTicks(...yDomain, yMaxTicks) : linearTicks(...yDomain, yMaxTicks);
+      const xLabelBudget = Math.max(2, Math.floor(innerW / 110));
+      const yLabelBudget = Math.max(2, Math.floor(innerH / 22));
+      const xLabelStride = Math.max(1, Math.ceil(xTicks.length / xLabelBudget));
+      const yLabelStride = Math.max(1, Math.ceil(yTicks.length / yLabelBudget));
+      const xTickLevels = classifyTickLevels(xTicks, xLabelStride, state.logX);
+      const yTickLevels = classifyTickLevels(yTicks, yLabelStride, state.logY);
       const grid = svgEl("g", { class: "grid" });
-      yTicks.forEach(tick => {
-        grid.appendChild(svgEl("line", { x1: margin.left, x2: margin.left + innerW, y1: y(tick), y2: y(tick) }));
+      yTickLevels.forEach(({ tick, major }) => {
+        grid.appendChild(svgEl("line", {
+          class: major ? "major-grid" : "minor-grid",
+          x1: margin.left,
+          x2: margin.left + innerW,
+          y1: y(tick),
+          y2: y(tick),
+        }));
       });
-      xTicks.forEach(tick => {
-        grid.appendChild(svgEl("line", { x1: x(tick), x2: x(tick), y1: margin.top, y2: margin.top + innerH }));
+      xTickLevels.forEach(({ tick, major }) => {
+        grid.appendChild(svgEl("line", {
+          class: major ? "major-grid" : "minor-grid",
+          x1: x(tick),
+          x2: x(tick),
+          y1: margin.top,
+          y2: margin.top + innerH,
+        }));
       });
       chart.appendChild(grid);
 
       const axis = svgEl("g", { class: "axis" });
       axis.appendChild(svgEl("line", { x1: margin.left, x2: margin.left + innerW, y1: margin.top + innerH, y2: margin.top + innerH }));
       axis.appendChild(svgEl("line", { x1: margin.left, x2: margin.left, y1: margin.top, y2: margin.top + innerH }));
-      xTicks.forEach(tick => {
+      xTickLevels.forEach(({ tick, major }) => {
         const gx = x(tick);
-        axis.appendChild(svgEl("line", { x1: gx, x2: gx, y1: margin.top + innerH, y2: margin.top + innerH + 5 }));
+        axis.appendChild(svgEl("line", {
+          class: major ? "major-tick" : "minor-tick",
+          x1: gx,
+          x2: gx,
+          y1: margin.top + innerH,
+          y2: margin.top + innerH + (major ? 5 : 3),
+        }));
+        if (!major) return;
         const text = svgEl("text", { x: gx, y: margin.top + innerH + 22, "text-anchor": "middle" });
         text.textContent = formatResearch(tick);
         axis.appendChild(text);
       });
-      yTicks.forEach(tick => {
+      yTickLevels.forEach(({ tick, major }) => {
         const gy = y(tick);
-        axis.appendChild(svgEl("line", { x1: margin.left - 5, x2: margin.left, y1: gy, y2: gy }));
+        axis.appendChild(svgEl("line", {
+          class: major ? "major-tick" : "minor-tick",
+          x1: margin.left - (major ? 5 : 3),
+          x2: margin.left,
+          y1: gy,
+          y2: gy,
+        }));
+        if (!major) return;
         const text = svgEl("text", { x: margin.left - 10, y: gy + 4, "text-anchor": "end" });
         text.textContent = formatTick(tick);
         axis.appendChild(text);
@@ -3335,10 +3487,14 @@ HTML_TEMPLATE = r"""<!doctype html>
 
     function chartResearchValues(rows) {
       const values = isBandMetric()
-        ? rows.flatMap(row => [
-          rowUnlockResearchValue(row),
-          ...chartMassOptions(row).map(option => optionAdditionalResearchValue(row, option)),
-        ])
+        ? rows.flatMap(row => {
+          const base = rowUnlockResearchValue(row);
+          if (!state.usePowerResearch) return [base];
+          return [
+            base,
+            ...chartMassOptions(row).map(option => optionAdditionalResearchValue(row, option)),
+          ];
+        })
         : rows.map(row => rowUnlockResearchValue(row));
       return values.filter(value => Number.isFinite(value) && value > 0);
     }
@@ -3349,6 +3505,15 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (Number.isFinite(combined) && combined > 0) return combined;
       const plantResearch = Number(option.cumulativeResearch);
       return Math.max(rowUnlockResearchValue(row), Number.isFinite(plantResearch) ? plantResearch : 0);
+    }
+
+    function optionPowerResearchDelta(row, option = null) {
+      if (!option || option.selfContained) return 0;
+      const base = Number(row.cumulativeResearch) || 0;
+      const combined = Number(option.combinedCumulativeResearch);
+      if (Number.isFinite(combined)) return Math.max(0, combined - base);
+      const plantResearch = Number(option.cumulativeResearch);
+      return Math.max(0, (Number.isFinite(plantResearch) ? plantResearch : base) - base);
     }
 
     function optionResearchValue(row, option = null) {
@@ -3693,7 +3858,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     function tooltipMetricsHtml(row, option = null) {
       const powerResearch = Math.max(
         0,
-        option && !option.selfContained ? (Number(option.cumulativeResearch) || 0) : (row.powerResearchCost || 0),
+        option ? optionPowerResearchDelta(row, option) : (row.powerResearchCost || 0),
       );
       const driveResearch = Math.max(0, row.cumulativeResearch - row.ownResearchCost);
       const projectResearch = Math.max(0, row.ownResearchCost);
