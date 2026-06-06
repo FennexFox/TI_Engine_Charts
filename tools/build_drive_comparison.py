@@ -523,12 +523,22 @@ def compatible_power_sequence(
     return sequence
 
 
+def load_json_file(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8-sig") as handle:
+        raw = json.load(handle)
+    if not isinstance(raw, dict):
+        raise ValueError(f"Expected JSON object: {path}")
+    return raw
+
+
 def build_data(
     templates_dir: Path,
     research_catalog_path: Path,
+    ship_catalog_path: Path,
     game_version: dict[str, str | None] | None = None,
 ) -> dict[str, Any]:
     research = ResearchCostIndex(research_catalog_path)
+    ship_catalog = load_json_file(ship_catalog_path)
     drive_templates = load_named_templates(templates_dir, "TIDriveTemplate.json")
     power_plant_templates = load_named_templates(templates_dir, "TIPowerPlantTemplate.json")
     radiator_templates = load_named_templates(templates_dir, "TIRadiatorTemplate.json")
@@ -697,12 +707,13 @@ def build_data(
         "powerPlantTemplate": str(templates_dir / "TIPowerPlantTemplate.json"),
         "radiatorTemplate": str(templates_dir / "TIRadiatorTemplate.json"),
         "researchCatalog": str(research_catalog_path),
+        "shipCatalog": str(ship_catalog_path),
         "gameVersion": (game_version or {}).get("version") or "unknown",
         "gameVersionSource": (game_version or {}).get("source"),
         "steamBuildId": (game_version or {}).get("steamBuildId"),
     }
     return {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "source": source_files,
         "defaults": {
             "targetDvKps": TARGET_DV_KPS,
@@ -723,6 +734,7 @@ def build_data(
         "subfamilies": subfamilies,
         "families": subfamilies,
         "radiators": radiators,
+        "shipCatalog": ship_catalog,
         "drives": sorted(
             drive_rows,
             key=lambda item: (
@@ -772,25 +784,76 @@ HTML_TEMPLATE = r"""<!doctype html>
       border-bottom: 1px solid var(--line);
       background: #151614;
     }
-    .language-control {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 12px;
-    }
-    .language-control .segmented {
-      width: 150px;
-    }
     h1 {
       margin: 0 0 6px;
       font-size: 24px;
       line-height: 1.2;
       letter-spacing: 0;
     }
+    .header-summary {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+    }
     .subtle {
       color: var(--muted);
       font-size: 13px;
       line-height: 1.45;
-      max-width: 1100px;
+      flex: 1 1 auto;
+      max-width: none;
+      min-width: 0;
+    }
+    .header-links {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex: 0 0 auto;
+      gap: 8px;
+    }
+    .header-language {
+      min-width: 112px;
+      height: 30px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: #202421;
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      line-height: 1;
+    }
+    .header-language:focus {
+      outline: 2px solid rgba(20, 184, 166, 0.35);
+      outline-offset: 1px;
+    }
+    .header-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 5px 10px;
+      color: var(--ink);
+      background: #202421;
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .header-link:hover {
+      border-color: var(--strong-line);
+    }
+    .kofi-link {
+      border-color: rgba(255, 92, 84, 0.55);
+      background: #ff5f5a;
+      color: #fff;
+    }
+    .kofi-link:hover {
+      border-color: #ffbeb9;
+      background: #ff6e69;
     }
     main {
       padding: 18px 28px 28px;
@@ -863,6 +926,27 @@ HTML_TEMPLATE = r"""<!doctype html>
       font-weight: 650;
       font-size: 12px;
       margin-bottom: 8px;
+    }
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .label-row .label {
+      margin-bottom: 0;
+      flex: 1 1 auto;
+    }
+    .icon-button {
+      min-height: 26px;
+      width: 28px;
+      padding: 0;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     select, input[type="number"] {
       width: 100%;
@@ -1145,6 +1229,177 @@ HTML_TEMPLATE = r"""<!doctype html>
     .summary-strip strong {
       color: var(--ink);
       font-weight: 700;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5, 8, 7, 0.72);
+      z-index: 40;
+      padding: 18px;
+    }
+    .modal.is-open {
+      display: flex;
+    }
+    .modal-dialog {
+      width: min(980px, 96vw);
+      max-height: 88vh;
+      overflow: auto;
+      border: 1px solid var(--strong-line);
+      border-radius: 10px;
+      background: #141816;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      padding: 14px;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .modal-title {
+      margin: 0;
+      font-size: 15px;
+      color: var(--ink);
+    }
+    .calculator-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 0.9fr) minmax(360px, 1.2fr);
+      gap: 14px;
+    }
+    .calculator-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #101412;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+    .calculator-panel-wide {
+      grid-column: 1 / -1;
+    }
+    .calc-info-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 8px;
+      font-size: 12px;
+    }
+    .calc-info-grid strong {
+      justify-self: end;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .calc-slot-row {
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr) 72px;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    #dryMassCalcArmor {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .calc-armor-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 7px;
+      align-content: start;
+      min-width: 0;
+      padding: 0;
+      font-size: 12px;
+    }
+    .calc-armor-row + .calc-armor-row {
+      border-left: 1px solid var(--line);
+      padding-left: 8px;
+    }
+    .calc-armor-title {
+      color: var(--ink);
+      font-weight: 650;
+    }
+    .calc-armor-point-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 68px;
+      gap: 6px;
+      align-items: center;
+    }
+    .calc-armor-row select,
+    .calc-armor-row input {
+      min-width: 0;
+    }
+    .calc-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 650;
+      margin: 2px 0 8px;
+    }
+    .calc-capacity {
+      color: var(--muted);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+    #dryMassCalcWeapons {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .calc-weapon-group + .calc-weapon-group {
+      border-left: 1px solid var(--line);
+      padding-left: 10px;
+    }
+    .calc-slot-mass {
+      color: var(--muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .calc-empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+    .calc-breakdown {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .calc-breakdown span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #151917;
+    }
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .calc-total {
+      color: #cde9df;
+      font-size: 15px;
+      font-weight: 650;
     }
     .diagnostic-banner {
       margin: 0 0 10px;
@@ -1618,24 +1873,54 @@ HTML_TEMPLATE = r"""<!doctype html>
       .chart-body { grid-template-columns: 1fr; }
       .summary-strip { flex-direction: column; }
       .summary-controls { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+      .calculator-grid { grid-template-columns: 1fr; }
+      #dryMassCalcArmor,
+      #dryMassCalcWeapons { grid-template-columns: 1fr; }
+      .calc-weapon-group + .calc-weapon-group {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        padding-left: 0;
+        padding-top: 10px;
+      }
+      .calc-armor-row + .calc-armor-row {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        padding-left: 0;
+        padding-top: 10px;
+      }
       .table-shell { grid-column: 1; }
       .notes { grid-column: 1; }
       #chart { height: 560px; }
       .tooltip { height: min(52vh, 520px); min-height: 220px; }
+    }
+    @media (max-width: 520px) {
+      .header-summary {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .header-links {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
     }
   </style>
 </head>
 <body>
   <header>
     <h1>Terra Invicta 드라이브 비교</h1>
-    <div class="subtle">
-      X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.
-    </div>
-    <div class="language-control" aria-label="Language">
-      <div class="segmented compact">
-        <label><input type="radio" name="uiLanguage" value="ko" checked>한국어</label>
-        <label><input type="radio" name="uiLanguage" value="en">English</label>
+    <div class="header-summary">
+      <div class="subtle">
+        X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.
       </div>
+      <nav class="header-links" aria-label="프로젝트 링크">
+        <a class="header-link" href="https://github.com/FennexFox/TI_Engine_Charts" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="header-link kofi-link" href="https://ko-fi.com/fennexfox" target="_blank" rel="noopener noreferrer">Ko-fi 후원</a>
+        <select id="uiLanguageSelect" class="header-language" aria-label="Language">
+          <option value="ko">한국어</option>
+          <option value="en" selected>English</option>
+        </select>
+      </nav>
     </div>
   </header>
   <main>
@@ -1667,7 +1952,10 @@ HTML_TEMPLATE = r"""<!doctype html>
         </div>
       </section>
       <section class="control-block">
-        <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
+        <div class="label-row">
+          <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
+          <button id="dryMassCalcButton" class="icon-button" type="button" aria-label="건조질량 계산기" title="건조질량 계산기">🧮</button>
+        </div>
         <div class="split">
           <input id="dryMass" type="range" min="100" max="100000" value="10000" step="100">
           <input id="dryMassNumber" type="number" min="0" max="1000000" value="10000" step="10">
@@ -1772,6 +2060,43 @@ HTML_TEMPLATE = r"""<!doctype html>
       <span id="sourceNote" class="source-note"></span>
     </section>
   </main>
+  <div id="dryMassCalcModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dryMassCalcTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="dryMassCalcTitle" class="modal-title">건조질량 계산기</h2>
+        <button id="dryMassCalcClose" class="compact-command" type="button">닫기</button>
+      </div>
+      <div class="calculator-grid">
+        <section class="calculator-panel">
+          <label id="dryMassCalcClassLabel" class="label" for="dryMassCalcClass">함급</label>
+          <select id="dryMassCalcClass"></select>
+          <div id="dryMassCalcInfo" class="calc-info-grid"></div>
+        </section>
+        <section class="calculator-panel">
+          <div class="label" id="dryMassCalcArmorLabel">장갑</div>
+          <div id="dryMassCalcArmor"></div>
+        </section>
+        <section class="calculator-panel calculator-panel-wide">
+          <div class="label" id="dryMassCalcWeaponsLabel">무장 하드포인트</div>
+          <div id="dryMassCalcWeapons"></div>
+        </section>
+        <section class="calculator-panel calculator-panel-wide">
+          <div class="label" id="dryMassCalcSlotsLabel">내부 유틸리티 모듈</div>
+          <div id="dryMassCalcSlots"></div>
+        </section>
+      </div>
+      <div class="modal-footer">
+        <div>
+          <div id="dryMassCalcTotal" class="calc-total"></div>
+          <div id="dryMassCalcBreakdown" class="calc-breakdown"></div>
+        </div>
+        <div class="modal-actions">
+          <button id="dryMassCalcReset" class="compact-command" type="button">초기화</button>
+          <button id="dryMassCalcApply" class="compact-command" type="button">건조질량에 적용</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <script id="ti-data" type="application/json">__DATA_JSON__</script>
   <script>
     const DATA = JSON.parse(document.getElementById("ti-data").textContent);
@@ -1829,11 +2154,22 @@ HTML_TEMPLATE = r"""<!doctype html>
       return UI_LANG === "en" ? en : ko;
     }
 
+    function syncMetricGroupLabels() {
+      const metric = document.getElementById("metric");
+      if (!metric) return;
+      const selectedValue = metric.value;
+      const groups = metric.querySelectorAll("optgroup");
+      if (groups[0]) groups[0].label = localText("시뮬레이션(총 질량, 연료질량, TWR)", "Simulation (total mass, fuel mass, TWR)");
+      if (groups[1]) groups[1].label = localText("기본 정보(추력, 효율, 출력)", "Basic information (thrust, efficiency, power)");
+      metric.innerHTML = metric.innerHTML;
+      metric.value = selectedValue;
+    }
+
     function applyStaticLanguage() {
       document.documentElement.lang = UI_LANG;
-      document.querySelectorAll('input[name="uiLanguage"]').forEach(input => {
-        input.checked = input.value === UI_LANG;
-      });
+      const languageSelect = document.getElementById("uiLanguageSelect");
+      if (languageSelect) languageSelect.value = UI_LANG;
+      syncMetricGroupLabels();
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
           const parent = node.parentElement;
@@ -1878,6 +2214,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         const text = row.querySelector(".family-name");
         if (family && text) text.textContent = localLabel(family);
       });
+      syncMetricGroupLabels();
       const showTwrInfo = document.getElementById("showTwrInfo");
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
@@ -1889,6 +2226,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
       applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
       setPresetUiText();
+      renderDryMassCalcModal();
     }
 
     const metricDefs = {
@@ -2003,6 +2341,50 @@ HTML_TEMPLATE = r"""<!doctype html>
     let currentChartRows = [];
     let currentDiagnostics = null;
     const allDriveRowsById = new Map(DATA.drives.map(row => [row.id, row]));
+    const SHIP_CATALOG = DATA.shipCatalog || {};
+    const ALL_SHIP_HULLS = Array.isArray(SHIP_CATALOG.hulls) ? SHIP_CATALOG.hulls : [];
+    const HUMAN_BUILDABLE_HULLS = ALL_SHIP_HULLS.filter(item => !item.alien && !item.noShipyardBuild && !item.simpleHull);
+    const SHIP_CLASS_OPTIONS = HUMAN_BUILDABLE_HULLS.length ? HUMAN_BUILDABLE_HULLS : ALL_SHIP_HULLS;
+    const ALL_UTILITY_MODULES = Array.isArray(SHIP_CATALOG.utilityModules) ? SHIP_CATALOG.utilityModules : [];
+    const EMPTY_UTILITY_MODULE = ALL_UTILITY_MODULES.find(item => item.dataName === "Empty") || {
+      dataName: "Empty",
+      friendlyName: "Empty",
+      displayName: { kor: "비움", en: "Empty" },
+      massTons: 0,
+      crew: 0,
+      powerRequirementMW: 0,
+      minConstructionTier: 0,
+      alien: false,
+    };
+    const ALL_WEAPON_MODULES = Array.isArray(SHIP_CATALOG.weaponModules) ? SHIP_CATALOG.weaponModules : [];
+    const EMPTY_WEAPON_MODULE = {
+      dataName: "EmptyWeapon",
+      friendlyName: "Empty",
+      displayName: { kor: "비움", en: "Empty" },
+      massTons: 0,
+      crew: 0,
+      mount: "",
+      slotClass: "any",
+      slotSize: 0,
+      alien: false,
+    };
+    const ALL_ARMORS = Array.isArray(SHIP_CATALOG.armors) ? SHIP_CATALOG.armors : [];
+    const HUMAN_ARMORS = ALL_ARMORS.filter(item => item && !item.alien);
+    const ARMOR_OPTIONS = HUMAN_ARMORS.length ? HUMAN_ARMORS : ALL_ARMORS;
+    const DEFAULT_ARMOR_ID = (ARMOR_OPTIONS.find(item => item.dataName === "SteelArmor") || ARMOR_OPTIONS[0] || {}).dataName || "";
+    const dryMassCalcState = {
+      classId: SHIP_CLASS_OPTIONS[0] ? SHIP_CLASS_OPTIONS[0].dataName : "",
+      slotModules: [],
+      weaponModules: {
+        nose: [],
+        hull: [],
+      },
+      armor: {
+        tail: { armorId: DEFAULT_ARMOR_ID, points: 0 },
+        hull: { armorId: DEFAULT_ARMOR_ID, points: 0 },
+        nose: { armorId: DEFAULT_ARMOR_ID, points: 0 },
+      },
+    };
 
     function setupControls() {
       const metric = document.getElementById("metric");
@@ -2029,11 +2411,10 @@ HTML_TEMPLATE = r"""<!doctype html>
       const presetImport = document.getElementById("presetImport");
       const nameSearch = document.getElementById("nameSearch");
 
-      document.querySelectorAll('input[name="uiLanguage"]').forEach(input => {
-        input.addEventListener("change", () => {
-          if (input.checked) setLanguage(input.value);
-        });
-      });
+      const languageSelect = document.getElementById("uiLanguageSelect");
+      if (languageSelect) {
+        languageSelect.addEventListener("change", () => setLanguage(languageSelect.value));
+      }
       applyStaticLanguage();
       applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
       applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));
@@ -2314,6 +2695,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         syncFilterInputs();
         render();
       });
+      setupDryMassCalculator();
       refreshSourceNote();
       refreshLocalizedControls();
       syncFilterInputs();
@@ -2327,7 +2709,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         `${localText("게임 버전", "Game version")}: ${DATA.source.gameVersion || "unknown"}`,
       ];
       if (DATA.source.steamBuildId) gameVersionParts.push(`Steam build ${DATA.source.steamBuildId}`);
-      document.getElementById("sourceNote").textContent = `${localText("소스", "Source")}: ${DATA.source.driveTemplate}; ${DATA.source.radiatorTemplate}; ${gameVersionParts.join("; ")}`;
+      document.getElementById("sourceNote").textContent = `${localText("소스", "Source")}: ${DATA.source.driveTemplate}; ${DATA.source.radiatorTemplate}; ${DATA.source.shipCatalog}; ${gameVersionParts.join("; ")}`;
     }
 
     function setupChartInteraction() {
@@ -2395,6 +2777,682 @@ HTML_TEMPLATE = r"""<!doctype html>
       readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: dV >= ${formatNumber(state.minDvKps, " km/s")}`;
     }
 
+    function catalogDisplayName(item) {
+      const display = item && item.displayName;
+      if (display && typeof display === "object") {
+        return UI_LANG === "en"
+          ? display.en || display.kor || item.friendlyName || item.dataName
+          : display.kor || display.en || item.friendlyName || item.dataName;
+      }
+      return item ? (item.friendlyName || item.dataName || "") : "";
+    }
+
+    function compareCatalogTitles(left, right) {
+      const locale = UI_LANG === "en" ? "en" : "ko-KR";
+      const titleCompare = catalogDisplayName(left).localeCompare(catalogDisplayName(right), locale, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      if (titleCompare) return titleCompare;
+      return String(left && left.dataName || "").localeCompare(String(right && right.dataName || ""), "en", {
+        numeric: true,
+        sensitivity: "base",
+      });
+    }
+
+    function sortedByCatalogTitle(items) {
+      return [...items].sort(compareCatalogTitles);
+    }
+
+    function selectedShipClass() {
+      return SHIP_CLASS_OPTIONS.find(item => item.dataName === dryMassCalcState.classId) || SHIP_CLASS_OPTIONS[0] || null;
+    }
+
+    function utilityModulesForShipClass(shipClass) {
+      const hullTier = Number(shipClass && shipClass.constructionTier) || 0;
+      const modules = ALL_UTILITY_MODULES.filter(item => {
+        if (!item || item.dataName === "Empty") return false;
+        if (item.alien) return false;
+        return (Number(item.minConstructionTier) || 0) <= hullTier;
+      });
+      return [EMPTY_UTILITY_MODULE, ...sortedByCatalogTitle(modules)];
+    }
+
+    function selectedModuleById(id) {
+      return ALL_UTILITY_MODULES.find(item => item.dataName === id) || EMPTY_UTILITY_MODULE;
+    }
+
+    function selectedWeaponById(id) {
+      return ALL_WEAPON_MODULES.find(item => item.dataName === id) || EMPTY_WEAPON_MODULE;
+    }
+
+    function selectedArmorById(id) {
+      return ARMOR_OPTIONS.find(item => item.dataName === id) || ARMOR_OPTIONS[0] || null;
+    }
+
+    function armorSelection(section) {
+      if (!dryMassCalcState.armor || typeof dryMassCalcState.armor !== "object") dryMassCalcState.armor = {};
+      if (!dryMassCalcState.armor[section] || typeof dryMassCalcState.armor[section] !== "object") {
+        dryMassCalcState.armor[section] = { armorId: DEFAULT_ARMOR_ID, points: 0 };
+      }
+      if (!dryMassCalcState.armor[section].armorId) dryMassCalcState.armor[section].armorId = DEFAULT_ARMOR_ID;
+      dryMassCalcState.armor[section].points = Math.max(0, Math.round(Number(dryMassCalcState.armor[section].points) || 0));
+      return dryMassCalcState.armor[section];
+    }
+
+    function armorPlateThicknessM(armor) {
+      const density = Number(armor && armor.densityKgM3) || 0;
+      const heat = Number(armor && armor.heatOfVaporizationMJkg) || 0;
+      if (density <= 0 || heat <= 0) return 0;
+      const massDamagePointKg = 20 / heat;
+      const volumeDamagePointM3 = massDamagePointKg / density;
+      return volumeDamagePointM3 / 0.005;
+    }
+
+    function armorSectionThicknessM(armor, points) {
+      return armorPlateThicknessM(armor) * Math.max(0, Number(points) || 0);
+    }
+
+    function selectedArmorMaxBonus() {
+      return dryMassCalcState.slotModules
+        .map(selectedModuleById)
+        .reduce((sum, module) => {
+          const rules = Array.isArray(module.specialRules) ? module.specialRules : [];
+          return sum + (rules.includes("ArmorStruts") ? (Number(module.specialValue) || 0) : 0);
+        }, 0);
+    }
+
+    function armorMaxDepthM(shipClass, section) {
+      if (!shipClass) return 0;
+      const length = Number(shipClass.lengthM) || 0;
+      const width = Number(shipClass.widthM) || 0;
+      const simple = !!shipClass.simpleHull;
+      const base = section === "hull"
+        ? width * (simple ? 0.06 : 0.12)
+        : length * (simple ? (section === "tail" ? 0 : 0.018) : 0.036);
+      return base * (1 + selectedArmorMaxBonus());
+    }
+
+    function armorMaxPoints(shipClass, section, armor) {
+      const plate = armorPlateThicknessM(armor);
+      if (plate <= 0) return 0;
+      return Math.max(0, Math.trunc(armorMaxDepthM(shipClass, section) / plate));
+    }
+
+    function normalizeDryMassCalcArmor() {
+      const shipClass = selectedShipClass();
+      for (const section of ["tail", "hull", "nose"]) {
+        const selection = armorSelection(section);
+        const armor = selectedArmorById(selection.armorId);
+        if (!armor) {
+          selection.armorId = DEFAULT_ARMOR_ID;
+          selection.points = 0;
+          continue;
+        }
+        selection.armorId = armor.dataName;
+        selection.points = clamp(Math.round(selection.points), 0, armorMaxPoints(shipClass, section, armor));
+      }
+    }
+
+    function armorSectionVolumeM3(armor, points, shipClass, lateralArmorDepthM, lateral) {
+      const length = Number(shipClass && shipClass.lengthM) || 0;
+      const width = Number(shipClass && shipClass.widthM) || 0;
+      if (!armor || points <= 0 || length <= 0 || width <= 0) return 0;
+      const radiusWithArmor = (width + lateralArmorDepthM + lateralArmorDepthM) / 2;
+      const enlargedCapArea = Math.PI * radiusWithArmor * radiusWithArmor;
+      if (lateral) {
+        const baseVolume = Math.PI * (width / 2) * (width / 2) * length;
+        return Math.max(0, (enlargedCapArea * length - baseVolume) / 2);
+      }
+      return armorSectionThicknessM(armor, points) * enlargedCapArea * 3;
+    }
+
+    function armorMassTons(section, shipClass) {
+      const hullSelection = armorSelection("hull");
+      const hullArmor = selectedArmorById(hullSelection.armorId);
+      const lateralArmorDepthM = armorSectionThicknessM(hullArmor, hullSelection.points);
+      const selection = armorSelection(section);
+      const armor = selectedArmorById(selection.armorId);
+      const points = Math.max(0, Number(selection.points) || 0);
+      const volumeM3 = armorSectionVolumeM3(armor, points, shipClass, lateralArmorDepthM, section === "hull");
+      return Math.max(0, volumeM3 * (Number(armor && armor.densityKgM3) || 0) / 1000);
+    }
+
+    function dryMassCalcArmorTotals(shipClass = selectedShipClass()) {
+      const tailMassTons = armorMassTons("tail", shipClass);
+      const hullMassTons = armorMassTons("hull", shipClass);
+      const noseMassTons = armorMassTons("nose", shipClass);
+      return {
+        tailMassTons,
+        hullMassTons,
+        noseMassTons,
+        massTons: tailMassTons + hullMassTons + noseMassTons,
+      };
+    }
+
+    function hardpointCapacity(shipClass, section) {
+      if (!shipClass) return 0;
+      return Math.max(0, Number(section === "nose" ? shipClass.noseHardpoints : shipClass.hullHardpoints) || 0);
+    }
+
+    function weaponSlotSize(module) {
+      if (!module || module.dataName === EMPTY_WEAPON_MODULE.dataName) return 0;
+      return Math.max(0, Number(module.slotSize) || 1);
+    }
+
+    function weaponSlotClass(module) {
+      return String(module && module.slotClass || "");
+    }
+
+    function weaponFitsSection(module, section) {
+      const slotClass = weaponSlotClass(module);
+      return slotClass === section || slotClass === "any";
+    }
+
+    function weaponModulesForSection(section) {
+      const modules = ALL_WEAPON_MODULES.filter(item => {
+        if (!item || item.alien) return false;
+        return weaponFitsSection(item, section) && weaponSlotSize(item) > 0;
+      });
+      return [EMPTY_WEAPON_MODULE, ...sortedByCatalogTitle(modules)];
+    }
+
+    function weaponSelections(section) {
+      if (!dryMassCalcState.weaponModules || typeof dryMassCalcState.weaponModules !== "object") {
+        dryMassCalcState.weaponModules = { nose: [], hull: [] };
+      }
+      if (!Array.isArray(dryMassCalcState.weaponModules[section])) {
+        dryMassCalcState.weaponModules[section] = [];
+      }
+      return dryMassCalcState.weaponModules[section];
+    }
+
+    function usedWeaponHardpoints(section) {
+      return weaponSelections(section)
+        .map(selectedWeaponById)
+        .reduce((sum, module) => sum + weaponSlotSize(module), 0);
+    }
+
+    function formatHardpointSize(value) {
+      return Number.isFinite(value) ? trim(value) : "-";
+    }
+
+    function formatDays(value) {
+      const days = Number(value);
+      if (!Number.isFinite(days) || days <= 0) return "-";
+      return formatCompact(days, 1_000);
+    }
+
+    function shipyardBuildTimeRow(shipClass) {
+      const times = shipClass && shipClass.shipyardBuildTimesDays || {};
+      const value = [
+        formatDays(times.t1 ?? shipClass.baseConstructionTimeDays),
+        formatDays(times.t2 ?? shipClass.baseConstructionTimeDays),
+        formatDays(times.t3 ?? shipClass.baseConstructionTimeDays),
+      ].join(" / ");
+      return [localText("조선소 건조일수 (T1/T2/T3)", "Shipyard build days (T1/T2/T3)"), value];
+    }
+
+    function groupedShipClassOptionsHtml() {
+      const groups = new Map();
+      SHIP_CLASS_OPTIONS.forEach(item => {
+        const missionControl = Number(item.missionControl) || 0;
+        if (!groups.has(missionControl)) groups.set(missionControl, []);
+        groups.get(missionControl).push(item);
+      });
+      return Array.from(groups.entries())
+        .sort(([left], [right]) => left - right)
+        .map(([missionControl, items]) => {
+          const groupLabel = `${localText("MC 소모", "MC cost")} ${formatHardpointSize(missionControl)}`;
+          const options = sortedByCatalogTitle(items)
+            .map(item => `<option value="${escapeHtml(item.dataName)}">${escapeHtml(catalogDisplayName(item))}</option>`)
+            .join("");
+          return `<optgroup label="${escapeHtml(groupLabel)}">${options}</optgroup>`;
+        })
+        .join("");
+    }
+
+    function weaponOptionLabel(item) {
+      if (item.dataName === EMPTY_WEAPON_MODULE.dataName) return catalogDisplayName(item);
+      return `${catalogDisplayName(item)} (${formatHardpointSize(weaponSlotSize(item))} HP, ${formatNumber(Number(item.massTons) || 0, " t")})`;
+    }
+
+    function normalizeDryMassCalcWeapons() {
+      const shipClass = selectedShipClass();
+      for (const section of ["nose", "hull"]) {
+        const capacity = hardpointCapacity(shipClass, section);
+        const allowedIds = new Set(weaponModulesForSection(section).map(item => item.dataName));
+        const normalized = [];
+        let used = 0;
+        for (const id of weaponSelections(section)) {
+          if (!allowedIds.has(id)) continue;
+          const module = selectedWeaponById(id);
+          const size = weaponSlotSize(module);
+          if (size <= 0) continue;
+          if (used + size <= capacity + 1e-9) {
+            normalized.push(id);
+            used += size;
+          }
+        }
+        dryMassCalcState.weaponModules[section] = normalized;
+      }
+    }
+
+    function normalizeDryMassCalcSlots() {
+      const shipClass = selectedShipClass();
+      if (!shipClass) {
+        dryMassCalcState.slotModules = [];
+        dryMassCalcState.weaponModules = { nose: [], hull: [] };
+        normalizeDryMassCalcArmor();
+        return;
+      }
+      normalizeDryMassCalcWeapons();
+      const desired = Math.max(0, Number(shipClass.utilitySlots ?? shipClass.internalModules) || 0);
+      const allowedIds = new Set(utilityModulesForShipClass(shipClass).map(item => item.dataName));
+      if (dryMassCalcState.slotModules.length > desired) {
+        dryMassCalcState.slotModules = dryMassCalcState.slotModules.slice(0, desired);
+      }
+      dryMassCalcState.slotModules = dryMassCalcState.slotModules.map(id => allowedIds.has(id) ? id : EMPTY_UTILITY_MODULE.dataName);
+      while (dryMassCalcState.slotModules.length < desired) {
+        dryMassCalcState.slotModules.push(EMPTY_UTILITY_MODULE.dataName);
+      }
+      normalizeDryMassCalcArmor();
+    }
+
+    function resetDryMassCalcState() {
+      dryMassCalcState.classId = SHIP_CLASS_OPTIONS[0] ? SHIP_CLASS_OPTIONS[0].dataName : "";
+      dryMassCalcState.slotModules = [];
+      dryMassCalcState.weaponModules = { nose: [], hull: [] };
+      dryMassCalcState.armor = {
+        tail: { armorId: DEFAULT_ARMOR_ID, points: 0 },
+        hull: { armorId: DEFAULT_ARMOR_ID, points: 0 },
+        nose: { armorId: DEFAULT_ARMOR_ID, points: 0 },
+      };
+      normalizeDryMassCalcSlots();
+    }
+
+    function exportedDryMassCalculatorPreset() {
+      normalizeDryMassCalcSlots();
+      return {
+        classId: dryMassCalcState.classId,
+        slotModules: dryMassCalcState.slotModules.slice(),
+        weaponModules: {
+          nose: weaponSelections("nose").slice(),
+          hull: weaponSelections("hull").slice(),
+        },
+        armor: Object.fromEntries(["tail", "hull", "nose"].map(section => {
+          const selection = armorSelection(section);
+          return [section, {
+            armorId: selection.armorId,
+            points: selection.points,
+          }];
+        })),
+      };
+    }
+
+    function applyDryMassCalculatorPreset(rawCalculator) {
+      if (!rawCalculator || typeof rawCalculator !== "object") return false;
+
+      if (typeof rawCalculator.classId === "string" && SHIP_CLASS_OPTIONS.some(item => item.dataName === rawCalculator.classId)) {
+        dryMassCalcState.classId = rawCalculator.classId;
+      }
+
+      if (Array.isArray(rawCalculator.slotModules)) {
+        dryMassCalcState.slotModules = rawCalculator.slotModules.filter(item => typeof item === "string");
+      }
+
+      if (rawCalculator.weaponModules && typeof rawCalculator.weaponModules === "object") {
+        ["nose", "hull"].forEach(section => {
+          const values = rawCalculator.weaponModules[section];
+          if (Array.isArray(values)) {
+            dryMassCalcState.weaponModules[section] = values.filter(item => typeof item === "string");
+          }
+        });
+      }
+
+      if (rawCalculator.armor && typeof rawCalculator.armor === "object") {
+        ["tail", "hull", "nose"].forEach(section => {
+          const rawSelection = rawCalculator.armor[section];
+          if (!rawSelection || typeof rawSelection !== "object") return;
+          const selection = armorSelection(section);
+          if (typeof rawSelection.armorId === "string" && ARMOR_OPTIONS.some(item => item.dataName === rawSelection.armorId)) {
+            selection.armorId = rawSelection.armorId;
+          }
+          if (Number.isFinite(Number(rawSelection.points))) {
+            selection.points = Math.round(Number(rawSelection.points));
+          }
+        });
+      }
+
+      normalizeDryMassCalcSlots();
+      return true;
+    }
+
+    function dryMassCalcModuleTotals() {
+      const utilityTotals = dryMassCalcState.slotModules
+        .map(selectedModuleById)
+        .reduce((totals, module) => {
+          totals.massTons += Number(module.massTons) || 0;
+          totals.crew += Number(module.crew) || 0;
+          totals.powerMW += Number(module.powerRequirementMW) || 0;
+          return totals;
+        }, { massTons: 0, crew: 0, powerMW: 0 });
+      const weaponTotals = ["nose", "hull"]
+        .flatMap(section => weaponSelections(section).map(selectedWeaponById))
+        .reduce((totals, module) => {
+          totals.massTons += Number(module.massTons) || 0;
+          totals.crew += Number(module.crew) || 0;
+          return totals;
+        }, { massTons: 0, crew: 0 });
+      return {
+        utilityMassTons: utilityTotals.massTons,
+        weaponMassTons: weaponTotals.massTons,
+        massTons: utilityTotals.massTons + weaponTotals.massTons,
+        utilityCrew: utilityTotals.crew,
+        weaponCrew: weaponTotals.crew,
+        crew: utilityTotals.crew + weaponTotals.crew,
+        powerMW: utilityTotals.powerMW,
+      };
+    }
+
+    function dryMassCalcTotalTons() {
+      const shipClass = selectedShipClass();
+      if (!shipClass) return 0;
+      return (Number(shipClass.massTons) || 0) + dryMassCalcModuleTotals().massTons + dryMassCalcArmorTotals(shipClass).massTons;
+    }
+
+    function renderWeaponSection(section, shipClass) {
+      const capacity = hardpointCapacity(shipClass, section);
+      const used = usedWeaponHardpoints(section);
+      const remaining = Math.max(0, capacity - used);
+      const label = section === "nose" ? localText("함수", "Nose") : localText("함체", "Hull");
+      if (capacity <= 0) {
+        return `
+          <div class="calc-weapon-group">
+            <div class="calc-group-header">
+              <strong>${escapeHtml(label)}</strong>
+              <span class="calc-capacity">0 HP</span>
+            </div>
+            <div class="calc-empty">${escapeHtml(localText("하드포인트 없음", "No hardpoints"))}</div>
+          </div>
+        `;
+      }
+
+      const selections = weaponSelections(section);
+      const rows = selections.map((selectedId, index) => {
+        const selectedWeapon = selectedWeaponById(selectedId);
+        const usedWithoutCurrent = used - weaponSlotSize(selectedWeapon);
+        const fitLimit = Math.max(0, capacity - usedWithoutCurrent);
+        const options = weaponModulesForSection(section)
+          .filter(item => item.dataName === EMPTY_WEAPON_MODULE.dataName || weaponSlotSize(item) <= fitLimit + 1e-9)
+          .map(item => `<option value="${escapeHtml(item.dataName)}"${item.dataName === selectedId ? " selected" : ""}>${escapeHtml(weaponOptionLabel(item))}</option>`)
+          .join("");
+        return `
+          <label class="calc-slot-row" for="dryMassCalcWeapon${section}${index}">
+            <span>${escapeHtml(label)} ${index + 1}</span>
+            <select id="dryMassCalcWeapon${section}${index}" data-weapon-section="${section}" data-weapon-index="${index}">${options}</select>
+            <span class="calc-slot-mass">${escapeHtml(formatNumber(Number(selectedWeapon.massTons) || 0, " t"))}</span>
+          </label>
+        `;
+      });
+
+      if (remaining > 1e-9) {
+        const options = weaponModulesForSection(section)
+          .filter(item => item.dataName === EMPTY_WEAPON_MODULE.dataName || weaponSlotSize(item) <= remaining + 1e-9)
+          .map(item => `<option value="${escapeHtml(item.dataName)}">${escapeHtml(item.dataName === EMPTY_WEAPON_MODULE.dataName ? localText("무장 추가", "Add weapon") : weaponOptionLabel(item))}</option>`)
+          .join("");
+        rows.push(`
+          <label class="calc-slot-row" for="dryMassCalcWeapon${section}New">
+            <span>${escapeHtml(localText("추가", "Add"))}</span>
+            <select id="dryMassCalcWeapon${section}New" data-weapon-section="${section}" data-weapon-index="new">${options}</select>
+            <span class="calc-slot-mass">${escapeHtml(formatHardpointSize(remaining))} HP</span>
+          </label>
+        `);
+      }
+
+      return `
+        <div class="calc-weapon-group">
+          <div class="calc-group-header">
+            <strong>${escapeHtml(label)}</strong>
+            <span class="calc-capacity">${escapeHtml(formatHardpointSize(used))} / ${escapeHtml(formatHardpointSize(capacity))} HP</span>
+          </div>
+          ${rows.join("") || `<div class="calc-empty">${escapeHtml(localText("남은 하드포인트 없음", "No remaining hardpoints"))}</div>`}
+        </div>
+      `;
+    }
+
+    function renderArmorRows(shipClass) {
+      if (!ARMOR_OPTIONS.length) {
+        return `<div class="calc-empty">${escapeHtml(localText("장갑 카탈로그 없음", "No armor catalog"))}</div>`;
+      }
+      const sectionLabels = {
+        tail: localText("함미", "Tail"),
+        hull: localText("함체", "Hull"),
+        nose: localText("함수", "Nose"),
+      };
+      return ["tail", "hull", "nose"].map(section => {
+        const selection = armorSelection(section);
+        const selectedArmor = selectedArmorById(selection.armorId);
+        const maxPoints = armorMaxPoints(shipClass, section, selectedArmor);
+        const massTons = armorMassTons(section, shipClass);
+        const options = sortedByCatalogTitle(ARMOR_OPTIONS)
+          .map(item => `<option value="${escapeHtml(item.dataName)}"${item.dataName === selection.armorId ? " selected" : ""}>${escapeHtml(catalogDisplayName(item))}</option>`)
+          .join("");
+        return `
+          <div class="calc-armor-row">
+            <div class="calc-armor-title">${escapeHtml(sectionLabels[section])}</div>
+            <select id="dryMassCalcArmor${section}" data-armor-section="${section}" data-armor-field="type">${options}</select>
+            <div class="calc-armor-point-row">
+              <input id="dryMassCalcArmor${section}Points" type="number" min="0" max="${escapeHtml(maxPoints)}" step="1" value="${escapeHtml(selection.points)}" data-armor-section="${section}" data-armor-field="points">
+              <span class="calc-slot-mass">${escapeHtml(formatNumber(massTons, " t"))}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDryMassCalcModal() {
+      const classSelect = document.getElementById("dryMassCalcClass");
+      const info = document.getElementById("dryMassCalcInfo");
+      const slots = document.getElementById("dryMassCalcSlots");
+      const weapons = document.getElementById("dryMassCalcWeapons");
+      const armor = document.getElementById("dryMassCalcArmor");
+      const total = document.getElementById("dryMassCalcTotal");
+      const breakdown = document.getElementById("dryMassCalcBreakdown");
+      const title = document.getElementById("dryMassCalcTitle");
+      const close = document.getElementById("dryMassCalcClose");
+      const apply = document.getElementById("dryMassCalcApply");
+      const reset = document.getElementById("dryMassCalcReset");
+      const classLabel = document.getElementById("dryMassCalcClassLabel");
+      const slotsLabel = document.getElementById("dryMassCalcSlotsLabel");
+      const weaponsLabel = document.getElementById("dryMassCalcWeaponsLabel");
+      const armorLabel = document.getElementById("dryMassCalcArmorLabel");
+      const button = document.getElementById("dryMassCalcButton");
+
+      if (button) {
+        button.setAttribute("aria-label", localText("건조질량 계산기", "Dry-mass calculator"));
+        button.title = localText("건조질량 계산기", "Dry-mass calculator");
+      }
+      if (title) title.textContent = localText("건조질량 계산기", "Dry-mass calculator");
+      if (close) close.textContent = localText("닫기", "Close");
+      if (apply) apply.textContent = localText("건조질량에 적용", "Apply to dry mass");
+      if (reset) reset.textContent = localText("초기화", "Reset");
+      if (classLabel) classLabel.textContent = localText("함급", "Hull Class");
+      if (slotsLabel) slotsLabel.textContent = localText("내부 유틸리티 모듈", "Internal utility modules");
+      if (weaponsLabel) weaponsLabel.textContent = localText("무장 하드포인트", "Weapon hardpoints");
+      if (armorLabel) armorLabel.textContent = localText("장갑", "Armor");
+
+      if (!classSelect || !info || !slots || !weapons || !armor || !total) return;
+
+      classSelect.innerHTML = groupedShipClassOptionsHtml();
+      if (!SHIP_CLASS_OPTIONS.length) {
+        info.innerHTML = `<span>${escapeHtml(localText("함급 카탈로그 없음", "No hull catalog"))}</span><strong>-</strong>`;
+        slots.innerHTML = "";
+        weapons.innerHTML = "";
+        armor.innerHTML = "";
+        total.textContent = `${localText("예상 건조질량", "Estimated dry mass")}: -`;
+        if (breakdown) breakdown.innerHTML = "";
+        return;
+      }
+      if (!SHIP_CLASS_OPTIONS.some(item => item.dataName === dryMassCalcState.classId)) {
+        dryMassCalcState.classId = SHIP_CLASS_OPTIONS[0].dataName;
+      }
+      classSelect.value = dryMassCalcState.classId;
+
+      const shipClass = selectedShipClass();
+      normalizeDryMassCalcSlots();
+      const moduleOptions = utilityModulesForShipClass(shipClass);
+      const moduleTotals = dryMassCalcModuleTotals();
+      const armorTotals = dryMassCalcArmorTotals(shipClass);
+      const hullMass = Number(shipClass.massTons) || 0;
+      info.innerHTML = [
+        [localText("선체 기본 질량", "Hull mass"), formatNumber(hullMass, " t")],
+        shipyardBuildTimeRow(shipClass),
+        [localText("Structural Integrity", "Structural Integrity"), formatCompact(Number(shipClass.structuralIntegrity) || 0, 1_000)],
+        [localText("함수 하드포인트", "Nose hardpoints"), formatHardpointSize(hardpointCapacity(shipClass, "nose"))],
+        [localText("함체 하드포인트", "Hull hardpoints"), formatHardpointSize(hardpointCapacity(shipClass, "hull"))],
+        [localText("유틸리티 슬롯", "Utility slots"), String(dryMassCalcState.slotModules.length)],
+        [localText("승무원", "Crew"), formatCompact(Number(shipClass.crew) || 0, 1_000)],
+        [localText("최대 장교 수", "Max officers"), String(Number(shipClass.maxOfficers) || 0)],
+        [localText("요구 프로젝트", "Required project"), shipClass.requiredProject || "-"],
+      ].map(([label, value]) => `<span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>`).join("");
+
+      weapons.innerHTML = [
+        renderWeaponSection("nose", shipClass),
+        renderWeaponSection("hull", shipClass),
+      ].join("");
+
+      armor.innerHTML = renderArmorRows(shipClass);
+
+      if (!dryMassCalcState.slotModules.length) {
+        slots.innerHTML = `<div class="calc-empty">${escapeHtml(localText("선택 가능한 내부 슬롯 없음", "No internal slots"))}</div>`;
+      } else {
+        slots.innerHTML = dryMassCalcState.slotModules.map((selectedId, index) => {
+          const selectedModule = selectedModuleById(selectedId);
+          const options = moduleOptions
+            .map(item => {
+              const label = `${catalogDisplayName(item)} (${formatNumber(Number(item.massTons) || 0, " t")})`;
+              return `<option value="${escapeHtml(item.dataName)}"${item.dataName === selectedId ? " selected" : ""}>${escapeHtml(label)}</option>`;
+            })
+            .join("");
+          return `
+            <label class="calc-slot-row" for="dryMassCalcSlot${index}">
+              <span>${escapeHtml(localText("슬롯", "Slot"))} ${index + 1}</span>
+              <select id="dryMassCalcSlot${index}" data-slot-index="${index}">${options}</select>
+              <span class="calc-slot-mass">${escapeHtml(formatNumber(Number(selectedModule.massTons) || 0, " t"))}</span>
+            </label>
+          `;
+        }).join("");
+      }
+      total.textContent = `${localText("예상 건조질량", "Estimated dry mass")}: ${formatNumber(dryMassCalcTotalTons(), " t")}`;
+      if (breakdown) {
+        breakdown.innerHTML = [
+          `${localText("선체", "Hull")} ${formatNumber(hullMass, " t")}`,
+          `${localText("장갑", "Armor")} ${formatNumber(armorTotals.massTons, " t")}`,
+          `${localText("무장", "Weapons")} ${formatNumber(moduleTotals.weaponMassTons, " t")}`,
+          `${localText("유틸리티", "Utility")} ${formatNumber(moduleTotals.utilityMassTons, " t")}`,
+          `${localText("추가 승무원", "Extra crew")} ${formatCompact(moduleTotals.crew, 1_000)}`,
+          `${localText("모듈 전력", "Module power")} ${formatNumber(moduleTotals.powerMW, " MW")}`,
+        ].map(item => `<span>${escapeHtml(item)}</span>`).join("");
+      }
+    }
+
+    function setupDryMassCalculator() {
+      const modal = document.getElementById("dryMassCalcModal");
+      const button = document.getElementById("dryMassCalcButton");
+      const classSelect = document.getElementById("dryMassCalcClass");
+      const slots = document.getElementById("dryMassCalcSlots");
+      const weapons = document.getElementById("dryMassCalcWeapons");
+      const armor = document.getElementById("dryMassCalcArmor");
+      const close = document.getElementById("dryMassCalcClose");
+      const apply = document.getElementById("dryMassCalcApply");
+      const reset = document.getElementById("dryMassCalcReset");
+      const dryMass = document.getElementById("dryMass");
+      const dryMassNumber = document.getElementById("dryMassNumber");
+      if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !reset || !dryMass || !dryMassNumber) return;
+
+      const openModal = () => {
+        renderDryMassCalcModal();
+        modal.classList.add("is-open");
+        classSelect.focus();
+      };
+      const closeModal = () => {
+        modal.classList.remove("is-open");
+      };
+
+      button.addEventListener("click", openModal);
+      close.addEventListener("click", closeModal);
+      reset.addEventListener("click", () => {
+        resetDryMassCalcState();
+        renderDryMassCalcModal();
+      });
+      modal.addEventListener("click", event => {
+        if (event.target === modal) closeModal();
+      });
+      modal.addEventListener("keydown", event => {
+        if (event.key === "Escape") closeModal();
+      });
+      classSelect.addEventListener("change", () => {
+        dryMassCalcState.classId = classSelect.value;
+        normalizeDryMassCalcSlots();
+        renderDryMassCalcModal();
+      });
+      slots.addEventListener("change", event => {
+        const select = event.target.closest("select[data-slot-index]");
+        if (!select) return;
+        const index = Number(select.dataset.slotIndex);
+        if (!Number.isFinite(index) || index < 0) return;
+        dryMassCalcState.slotModules[index] = select.value;
+        renderDryMassCalcModal();
+      });
+      weapons.addEventListener("change", event => {
+        const select = event.target.closest("select[data-weapon-section]");
+        if (!select) return;
+        const section = select.dataset.weaponSection;
+        if (section !== "nose" && section !== "hull") return;
+        const value = select.value;
+        const selections = weaponSelections(section);
+        if (select.dataset.weaponIndex === "new") {
+          if (value !== EMPTY_WEAPON_MODULE.dataName) selections.push(value);
+        } else {
+          const index = Number(select.dataset.weaponIndex);
+          if (!Number.isFinite(index) || index < 0) return;
+          if (value === EMPTY_WEAPON_MODULE.dataName) {
+            selections.splice(index, 1);
+          } else {
+            selections[index] = value;
+          }
+        }
+        normalizeDryMassCalcWeapons();
+        renderDryMassCalcModal();
+      });
+      armor.addEventListener("change", event => {
+        const control = event.target.closest("[data-armor-section]");
+        if (!control) return;
+        const section = control.dataset.armorSection;
+        if (!["tail", "hull", "nose"].includes(section)) return;
+        const selection = armorSelection(section);
+        if (control.dataset.armorField === "type") {
+          selection.armorId = control.value;
+        } else if (control.dataset.armorField === "points") {
+          selection.points = Math.round(Number(control.value) || 0);
+        }
+        normalizeDryMassCalcArmor();
+        renderDryMassCalcModal();
+      });
+      apply.addEventListener("click", () => {
+        const value = clamp(dryMassCalcTotalTons(), 0, 1000000);
+        state.dryMassTons = value;
+        dryMass.value = String(clamp(value, Number(dryMass.min), Number(dryMass.max)));
+        dryMassNumber.value = String(Math.round(value));
+        closeModal();
+        render();
+      });
+
+      normalizeDryMassCalcSlots();
+      renderDryMassCalcModal();
+    }
+
     function localLabel(item) {
       if (UI_LANG === "en") return item.labelEn || item.label || item.key;
       return item.label || item.labelEn || item.key;
@@ -2451,6 +3509,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         minDvKps: state.minDvKps,
         categories: Object.fromEntries(DATA.categories.map(category => [category.key, !!state.categories[category.key]])),
         families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, !!state.families[family.key]])),
+        dryMassCalculator: exportedDryMassCalculatorPreset(),
       };
     }
 
@@ -2584,6 +3643,11 @@ HTML_TEMPLATE = r"""<!doctype html>
         });
       }
 
+      const calculatorPreset = preset.dryMassCalculator || preset.dryMassCalc;
+      if (calculatorPreset && typeof calculatorPreset === "object") {
+        applyDryMassCalculatorPreset(calculatorPreset);
+      }
+
       return true;
     }
 
@@ -2626,6 +3690,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       syncMinTwrInputs();
       syncMinDvInputs();
       updateChartControls();
+      renderDryMassCalcModal();
       render();
     }
 
@@ -4841,6 +5906,29 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("목표 dV 연료질량 (t)", "Target dV fuel mass (t)"),
     ("엔진 수", "Engine count"),
     ("기준 선체 건조 질량 (t)", "Base hull dry mass (t)"),
+    ("프로젝트 링크", "Project links"),
+    ("Ko-fi 후원", "Support on Ko-fi"),
+    ("건조질량 계산기", "Dry-mass calculator"),
+    ("건조질량에 적용", "Apply to dry mass"),
+    ("초기화", "Reset"),
+    ("함급", "Hull Class"),
+    ("MC 소모", "MC cost"),
+    ("조선소 건조일수 (T1/T2/T3)", "Shipyard build days (T1/T2/T3)"),
+    ("내부 유틸리티 모듈", "Internal utility modules"),
+    ("무장 하드포인트", "Weapon hardpoints"),
+    ("장갑 카탈로그 없음", "No armor catalog"),
+    ("장갑", "Armor"),
+    ("함수 하드포인트", "Nose hardpoints"),
+    ("함체 하드포인트", "Hull hardpoints"),
+    ("함미", "Tail"),
+    ("함체", "Hull"),
+    ("함수", "Nose"),
+    ("무장 추가", "Add weapon"),
+    ("하드포인트 없음", "No hardpoints"),
+    ("남은 하드포인트 없음", "No remaining hardpoints"),
+    ("유틸리티 슬롯", "Utility slots"),
+    ("추가 승무원", "Extra crew"),
+    ("닫기", "Close"),
     ("목표 dV (km/s)", "Target dV (km/s)"),
     ("라디에이터", "Radiator"),
     ("축 스케일", "Axis scale"),
@@ -4962,6 +6050,11 @@ def parse_args() -> argparse.Namespace:
         help="Path to generated research_catalog.json.",
     )
     parser.add_argument(
+        "--ship-catalog",
+        default=str(ROOT / "data" / "ship_catalog.json"),
+        help="Path to generated ship_catalog.json.",
+    )
+    parser.add_argument(
         "--output",
         default=None,
         help="Standalone HTML output path.",
@@ -4986,13 +6079,16 @@ def main() -> None:
     research_catalog = Path(args.research_catalog).expanduser().resolve()
     if not research_catalog.is_file():
         raise SystemExit(f"Research catalog not found: {research_catalog}")
+    ship_catalog = Path(args.ship_catalog).expanduser().resolve()
+    if not ship_catalog.is_file():
+        raise SystemExit(f"Ship catalog not found: {ship_catalog}")
     if args.output:
         default_output = Path(args.output)
     else:
         default_output = ROOT / "docs" / "index.html"
     output = default_output.expanduser().resolve()
     game_version = detect_game_version(templates_dir, args.game_version)
-    data = build_data(templates_dir, research_catalog, game_version)
+    data = build_data(templates_dir, research_catalog, ship_catalog, game_version)
     html = build_html(data, args.portable)
     output.write_text(html, encoding="utf-8")
     print(f"Wrote {output}")

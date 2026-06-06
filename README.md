@@ -47,6 +47,8 @@ The deploy script only stages these generated files:
 
 - `data/research_catalog.json`
 - `docs/research_catalog.md`
+- `data/ship_catalog.json`
+- `docs/ship_catalog.md`
 - `docs/index.html`
 
 Other local changes are left untouched.

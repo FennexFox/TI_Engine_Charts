@@ -11,10 +11,17 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+RESEARCH_CATALOG_JSON = "data/research_catalog.json"
+RESEARCH_CATALOG_MARKDOWN = "docs/research_catalog.md"
+SHIP_CATALOG_JSON = "data/ship_catalog.json"
+SHIP_CATALOG_MARKDOWN = "docs/ship_catalog.md"
+DRIVE_COMPARISON_HTML = "docs/index.html"
 GENERATED_PATHS = (
-    "data/research_catalog.json",
-    "docs/research_catalog.md",
-    "docs/index.html",
+    RESEARCH_CATALOG_JSON,
+    RESEARCH_CATALOG_MARKDOWN,
+    SHIP_CATALOG_JSON,
+    SHIP_CATALOG_MARKDOWN,
+    DRIVE_COMPARISON_HTML,
 )
 
 
@@ -67,18 +74,33 @@ def build_pages(args: argparse.Namespace) -> None:
         python,
         "tools/build_research_catalog.py",
         "--json-output",
-        GENERATED_PATHS[0],
+        RESEARCH_CATALOG_JSON,
         "--markdown-output",
-        GENERATED_PATHS[1],
+        RESEARCH_CATALOG_MARKDOWN,
         "--markdown-language",
         "en",
     ]
     optional_arg(research_command, "--templates-dir", args.templates_dir)
     run(research_command)
 
+    ship_catalog_command = [
+        python,
+        "tools/build_ship_catalog.py",
+        "--json-output",
+        SHIP_CATALOG_JSON,
+        "--markdown-output",
+        SHIP_CATALOG_MARKDOWN,
+        "--markdown-language",
+        "en",
+    ]
+    optional_arg(ship_catalog_command, "--templates-dir", args.templates_dir)
+    run(ship_catalog_command)
+
     common_chart_args = [
         "--research-catalog",
-        GENERATED_PATHS[0],
+        RESEARCH_CATALOG_JSON,
+        "--ship-catalog",
+        SHIP_CATALOG_JSON,
         "--portable",
     ]
     if args.templates_dir:
@@ -86,7 +108,7 @@ def build_pages(args: argparse.Namespace) -> None:
     if args.game_version:
         common_chart_args.extend(["--game-version", args.game_version])
 
-    run([python, "tools/build_drive_comparison.py", *common_chart_args, "--output", GENERATED_PATHS[2]])
+    run([python, "tools/build_drive_comparison.py", *common_chart_args, "--output", DRIVE_COMPARISON_HTML])
 
     if not args.skip_verify:
         run([npm, "run", "verify:browser"])
