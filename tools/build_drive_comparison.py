@@ -442,13 +442,16 @@ def reactor_row(template: dict[str, Any], research: ResearchCostIndex) -> dict[s
 
 def radiator_row(template: dict[str, Any], research: ResearchCostIndex) -> dict[str, Any]:
     project = template.get("requiredProjectName")
+    required_project_display = research.display(str(project) if project else None)
+    english_name = template.get("friendlyName") or template.get("dataName")
+    korean_name = required_project_display.get("ko") or english_name
     return {
         "id": template.get("dataName"),
-        "displayName": template.get("friendlyName") or template.get("dataName"),
+        "displayName": {"ko": korean_name, "en": english_name},
         "radiatorType": template.get("radiatorType"),
         "specificPowerKWPerKg": as_float(template.get("specificPower_2s_KWkg"), 0.0),
         "requiredProject": project,
-        "requiredProjectDisplay": research.display(str(project) if project else None),
+        "requiredProjectDisplay": required_project_display,
         "ownResearchCost": research.own_cost(str(project) if project else None),
         "cumulativeResearch": research.cumulative_cost(str(project) if project else None),
         "alien": is_alien_component(template),
@@ -558,7 +561,7 @@ def build_data(
                 and as_float(template.get("specificPower_2s_KWkg"), 0.0) > 0.0
             )
         ],
-        key=lambda row: (-as_float(row["specificPowerKWPerKg"], 0.0), str(row["displayName"])),
+        key=lambda row: (-as_float(row["specificPowerKWPerKg"], 0.0), str((row.get("displayName") or {}).get("en") if isinstance(row.get("displayName"), dict) else row.get("displayName"))),
     )
     default_radiator = next(
         (row for row in radiators if row.get("id") == "DustyPlasma"),
@@ -868,13 +871,115 @@ HTML_TEMPLATE = r"""<!doctype html>
       box-shadow: var(--shadow);
     }
     .controls {
-      padding: 16px;
+      padding: 12px;
       align-self: start;
       position: sticky;
       top: 14px;
       max-height: calc(100vh - 28px);
       overflow: auto;
+      scrollbar-color: var(--strong-line) transparent;
+      scrollbar-width: thin;
     }
+
+    .controls-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 10px;
+    }
+    .control-card-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: start;
+    }
+    .control-card-heading {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+    .control-card-toggle {
+      min-height: 24px;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .control-card-toggle:hover {
+      border-color: transparent;
+      color: var(--ink);
+    }
+    .control-card-toggle:focus-visible {
+      outline: 2px solid rgba(20, 184, 166, 0.22);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+    .control-card-caret {
+      color: var(--muted);
+      flex: 0 0 auto;
+      font-size: 12px;
+      transform: rotate(0deg);
+      transition: transform 120ms ease;
+    }
+    .control-card[data-collapsed="true"] .control-card-caret {
+      transform: rotate(-90deg);
+    }
+    .control-card-title {
+      margin-bottom: 0;
+      min-width: 0;
+    }
+    .control-card-title::after {
+      display: none;
+    }
+    .control-card-summary {
+      display: none;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .control-card[data-collapsed="true"] .control-card-summary {
+      display: block;
+    }
+    .control-card-actions {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      opacity: 0.78;
+    }
+    .control-card:hover .control-card-actions,
+    .control-card:focus-within .control-card-actions {
+      opacity: 1;
+    }
+    .control-card-move {
+      width: 25px;
+      min-height: 24px;
+      padding: 0;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1;
+      color: var(--muted);
+    }
+    .control-card-move:disabled {
+      opacity: 0.32;
+      cursor: default;
+    }
+    .control-card-body {
+      margin-top: 10px;
+    }
+    .control-card[data-collapsed="true"] .control-card-body {
+      display: none;
+    }
+
     .chart-shell {
       min-width: 0;
       padding: 14px 16px 12px;
@@ -910,21 +1015,74 @@ HTML_TEMPLATE = r"""<!doctype html>
       overflow-wrap: anywhere;
       word-break: break-word;
     }
+    .control-card {
+      position: relative;
+      padding: 12px;
+      margin: 0 0 10px;
+      border: 1px solid rgba(89, 99, 93, 0.55);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.018), rgba(0,0,0,0.04)),
+        #151917;
+    }
+    .control-card:last-child {
+      margin-bottom: 0;
+    }
+    .control-card:focus-within {
+      border-color: rgba(20, 184, 166, 0.62);
+      box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.16);
+    }
+    .control-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #f1f5f9;
+      font-weight: 750;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 0;
+      min-width: 0;
+    }
+    .control-card-title::after {
+      display: none;
+    }
     .control-block {
-      padding: 0 0 16px;
-      margin: 0 0 16px;
-      border-bottom: 1px solid var(--line);
+      position: relative;
+      padding: 0;
+      margin: 0;
+    }
+    .control-block + .control-block {
+      padding-top: 12px;
+      border-top: 1px solid rgba(148, 163, 184, 0.24);
     }
     .control-block:last-child {
-      border-bottom: 0;
       margin-bottom: 0;
-      padding-bottom: 0;
+    }
+    .control-stack {
+      display: grid;
+      gap: 12px;
+    }
+    .control-inline-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .control-inline-grid .control-block {
+      margin-bottom: 0;
+    }
+    .control-divider {
+      height: 1px;
+      background: rgba(148, 163, 184, 0.26);
+      margin: 4px 0;
     }
     .label {
       display: block;
       color: #d8e1db;
-      font-weight: 650;
+      font-weight: 700;
       font-size: 12px;
+      line-height: 1.25;
+      letter-spacing: 0.01em;
       margin-bottom: 8px;
     }
     .label-row {
@@ -952,19 +1110,25 @@ HTML_TEMPLATE = r"""<!doctype html>
       width: 100%;
       min-height: 36px;
       border: 1px solid var(--strong-line);
-      border-radius: 6px;
+      border-radius: 7px;
       padding: 7px 9px;
       background: var(--input);
       color: var(--ink);
       font: inherit;
     }
+    select:focus-visible, input[type="number"]:focus-visible {
+      border-color: var(--accent);
+      outline: 2px solid rgba(20, 184, 166, 0.18);
+      outline-offset: 1px;
+    }
     input[type="range"] {
       width: 100%;
       accent-color: var(--accent);
+      cursor: pointer;
     }
     .split {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 112px;
+      grid-template-columns: minmax(0, 1fr) minmax(82px, 104px);
       gap: 8px;
       align-items: center;
     }
@@ -1058,9 +1222,20 @@ HTML_TEMPLATE = r"""<!doctype html>
       display: flex;
       align-items: center;
       gap: 8px;
-      min-height: 28px;
+      min-height: 30px;
       color: #d5ddd8;
       font-size: 13px;
+      border-radius: 7px;
+      padding: 3px 5px;
+      margin: 1px 0;
+      transition: background-color 120ms ease, border-color 120ms ease;
+    }
+    .check-row:hover, .category-row:hover, .family-row:hover {
+      background: rgba(255,255,255,0.035);
+    }
+    .check-row:has(input:checked), .category-row:has(input:checked), .family-row:has(input:checked) {
+      background: rgba(20, 184, 166, 0.075);
+      color: var(--ink);
     }
     .check-row input, .category-row input, .family-row input {
       width: 16px;
@@ -1073,17 +1248,22 @@ HTML_TEMPLATE = r"""<!doctype html>
       height: 10px;
       border-radius: 50%;
       flex: 0 0 auto;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
     }
     .button-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       margin-bottom: 8px;
+    }
+    .button-row button {
+      width: 100%;
     }
     button {
       border: 1px solid var(--strong-line);
       background: #202421;
       color: var(--ink);
-      border-radius: 6px;
+      border-radius: 7px;
       min-height: 30px;
       padding: 5px 9px;
       font: inherit;
@@ -1091,6 +1271,11 @@ HTML_TEMPLATE = r"""<!doctype html>
       cursor: pointer;
     }
     button:hover { border-color: #8a968d; }
+    button:focus-visible {
+      border-color: var(--accent);
+      outline: 2px solid rgba(20, 184, 166, 0.22);
+      outline-offset: 1px;
+    }
     .compact-command {
       min-height: 28px;
       padding: 4px 8px;
@@ -1139,7 +1324,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       shape-rendering: crispEdges;
     }
     .axis line.minor-tick {
-      stroke: #3a433d;
+      stroke: #46524a;
     }
     .axis line.major-tick {
       stroke: var(--strong-line);
@@ -1149,10 +1334,10 @@ HTML_TEMPLATE = r"""<!doctype html>
       shape-rendering: crispEdges;
     }
     .grid line.minor-grid {
-      stroke: #222824;
+      stroke: #283029;
     }
     .grid line.major-grid {
-      stroke: #2d3530;
+      stroke: #354038;
     }
     .axis .axis-title {
       fill: #d8e1db;
@@ -1307,6 +1492,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       gap: 8px;
     }
     .calc-armor-row {
+      position: relative;
       display: grid;
       grid-template-columns: 1fr;
       gap: 7px;
@@ -1316,8 +1502,17 @@ HTML_TEMPLATE = r"""<!doctype html>
       font-size: 12px;
     }
     .calc-armor-row + .calc-armor-row {
+      border-left: 0;
+      padding-left: 0;
+    }
+    .calc-armor-row + .calc-armor-row::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -4px;
       border-left: 1px solid var(--line);
-      padding-left: 8px;
+      pointer-events: none;
     }
     .calc-armor-title {
       color: var(--ink);
@@ -1361,6 +1556,127 @@ HTML_TEMPLATE = r"""<!doctype html>
       color: var(--muted);
       text-align: right;
       font-variant-numeric: tabular-nums;
+    }
+    .native-select-hidden {
+      display: none !important;
+    }
+    .searchable-select {
+      position: relative;
+      min-width: 0;
+      width: 100%;
+    }
+    .searchable-select-trigger {
+      width: 100%;
+      min-width: 0;
+      min-height: 36px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--strong-line);
+      border-radius: 7px;
+      background: var(--input);
+      color: var(--ink);
+      padding: 6px 8px;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .searchable-select-trigger:hover,
+    .searchable-select-trigger:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+    }
+    .searchable-select-value {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .searchable-select-caret {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .searchable-select-menu {
+      position: absolute;
+      z-index: 90;
+      top: calc(100% + 4px);
+      left: 0;
+      right: auto;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      max-height: 280px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 6px;
+      border: 1px solid var(--strong-line);
+      border-radius: 9px;
+      background: #101412;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+      padding: 8px;
+    }
+    .searchable-select-menu[hidden] {
+      display: none;
+    }
+    .searchable-select-search {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #0b0d0c;
+      color: var(--ink);
+      padding: 7px 8px;
+      font: inherit;
+    }
+    .searchable-select-options {
+      max-height: 220px;
+      overflow: auto;
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .searchable-select-group {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.025em;
+      padding: 8px 6px 3px;
+      text-transform: none;
+      border-top: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    .searchable-select-group:first-child {
+      border-top: 0;
+      padding-top: 2px;
+    }
+    .searchable-select-option {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      padding: 6px 7px;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .searchable-select-option:hover,
+    .searchable-select-option:focus-visible,
+    .searchable-select-option.is-active {
+      background: rgba(74, 144, 226, 0.16);
+      outline: none;
+    }
+    .searchable-select-option.is-selected {
+      color: #cde9df;
+      background: rgba(74, 144, 226, 0.22);
+    }
+    .searchable-select-empty {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 8px 6px;
     }
     .calc-empty {
       border: 1px dashed var(--line);
@@ -1870,6 +2186,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       main { grid-template-columns: 1fr; padding: 14px; }
       header { padding: 18px 14px 12px; }
       .controls { position: static; max-height: none; }
+      .split { grid-template-columns: minmax(0, 1fr) minmax(78px, 100px); }
+      .control-inline-grid { grid-template-columns: 1fr; }
       .chart-body { grid-template-columns: 1fr; }
       .summary-strip { flex-direction: column; }
       .summary-controls { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
@@ -1887,6 +2205,9 @@ HTML_TEMPLATE = r"""<!doctype html>
         border-top: 1px solid var(--line);
         padding-left: 0;
         padding-top: 10px;
+      }
+      .calc-armor-row + .calc-armor-row::before {
+        display: none;
       }
       .table-shell { grid-column: 1; }
       .notes { grid-column: 1; }
@@ -1924,94 +2245,174 @@ HTML_TEMPLATE = r"""<!doctype html>
     </div>
   </header>
   <main>
-    <aside class="controls">
-      <section class="control-block">
-        <label class="label" for="metric">세로축</label>
-        <select id="metric">
-          <optgroup label="시뮬레이션(총 질량, 연료질량, TWR)">
-            <option value="totalMassTons">목표 dV 총질량 (t)</option>
-            <option value="fuelMassTons">목표 dV 연료질량 (t)</option>
-            <option value="twr">TWR</option>
-          </optgroup>
-          <optgroup label="기본 정보(추력, 효율, 출력)">
-            <option value="thrustMN">추력 (MN)</option>
-            <option value="fuelEfficiency">연료효율 (km/s or s)</option>
-            <option value="powerRequirementGW">출력 요구량 (GW)</option>
-          </optgroup>
-        </select>
-      </section>
-      <section class="control-block">
-        <label class="label" for="nameSearch">이름 검색</label>
-        <input id="nameSearch" type="search" placeholder="드라이브 또는 프로젝트">
-      </section>
-      <section class="control-block">
-        <label class="label" for="thrusters">엔진 수</label>
-        <div class="split">
-          <input id="thrusters" type="range" min="1" max="6" value="1" step="1">
-          <input id="thrustersNumber" type="number" min="1" max="6" value="1" step="1">
-        </div>
-      </section>
-      <section class="control-block">
-        <div class="label-row">
-          <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
-          <button id="dryMassCalcButton" class="icon-button" type="button" aria-label="건조질량 계산기" title="건조질량 계산기">🧮</button>
-        </div>
-        <div class="split">
-          <input id="dryMass" type="range" min="100" max="100000" value="10000" step="100">
-          <input id="dryMassNumber" type="number" min="0" max="1000000" value="10000" step="10">
-        </div>
-      </section>
-      <section class="control-block">
-        <label class="label" for="targetDv">목표 dV (km/s)</label>
-        <div class="split">
-          <input id="targetDv" type="range" min="0" max="2000" value="500" step="5">
-          <input id="targetDvNumber" type="number" min="0" max="100000" value="500" step="1">
-        </div>
-      </section>
-      <section class="control-block">
-        <label class="label" for="radiator">라디에이터</label>
-        <select id="radiator"></select>
-      </section>
-      <section id="bandAnalysisControls" class="control-block">
-        <span class="label">총질량/연료질량/TWR 보조 표시</span>
-        <label id="showTwrInfoRow" class="check-row"><input id="showTwrInfo" type="checkbox" checked> TWR 정보 표시</label>
-        <label id="showMassInfoRow" class="check-row" style="display: none;"><input id="showMassInfo" type="checkbox" checked> 총질량 정보 표시</label>
-        <label class="check-row"><input id="paretoHighlight" type="checkbox" checked> 파레토 후보 강조</label>
-        <label class="check-row"><input id="showImpracticalCandidates" type="checkbox"> 비현실적 후보 표시</label>
-        <div id="minTwrControl" style="margin-top: 10px;">
-          <label class="label" for="minTwrExp">최소 TWR</label>
-          <div class="split">
-            <input id="minTwrExp" type="range" min="-4" max="1" value="-4" step="0.1">
-            <input id="minTwrNumber" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
+    <aside class="controls" id="leftPanelControls">
+      <div class="controls-toolbar">
+        <button id="resetLeftPanelLayout" class="compact-command" type="button">패널 배열 초기화</button>
+      </div>
+      <section class="control-card" data-control-card="display">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">표시</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
           </div>
-          <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.0001 g</div>
-        </div>
-        <div id="minDvControl" style="margin-top: 10px; display: none;">
-          <label class="label" for="minDv">최소 dV (km/s)</label>
-          <div class="split">
-            <input id="minDv" type="range" min="0" max="2000" value="0" step="5">
-            <input id="minDvNumber" type="number" min="0" max="100000" value="0" step="1">
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
           </div>
-          <div id="minDvReadout" class="control-hint">표시: dV >= 0 km/s</div>
+        </div>
+        <div class="control-card-body">
+        <div class="control-stack">
+          <section class="control-block">
+            <label class="label" for="metric">세로축</label>
+            <select id="metric" data-searchable-select="true">
+              <optgroup label="시뮬레이션(총 질량, 연료질량, TWR)">
+                <option value="totalMassTons">목표 dV 총질량 (t)</option>
+                <option value="fuelMassTons">목표 dV 연료질량 (t)</option>
+                <option value="twr">TWR</option>
+              </optgroup>
+              <optgroup label="기본 정보(추력, 효율, 출력)">
+                <option value="thrustMN">추력 (MN)</option>
+                <option value="fuelEfficiency">연료효율 (km/s or s)</option>
+                <option value="powerRequirementGW">출력 요구량 (GW)</option>
+              </optgroup>
+            </select>
+          </section>
+        </div>
         </div>
       </section>
-      <section class="control-block">
-        <span class="label">축 스케일</span>
-        <label class="check-row"><input id="logX" type="checkbox"> X축 로그</label>
-        <label class="check-row"><input id="logY" type="checkbox" checked> Y축 로그</label>
-      </section>
-      <section class="control-block">
-        <span class="label">대분류</span>
-        <div id="categories"></div>
-      </section>
-      <section class="control-block">
-        <span class="label">세부 계열</span>
-        <div class="button-row">
-          <button id="allFamilies" type="button">전체 선택</button>
-          <button id="clearFamilies" type="button">전체 해제</button>
+      <section class="control-card" data-control-card="simulation">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">시뮬레이션 조건</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
+          </div>
         </div>
-        <div id="families"></div>
-        <div id="familyWarnings" class="family-warnings"></div>
+        <div class="control-card-body">
+        <div class="control-stack">
+          <section class="control-block">
+            <div class="label-row">
+              <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
+              <button id="dryMassCalcButton" class="icon-button" type="button" aria-label="건조질량 계산기" title="건조질량 계산기">🧮</button>
+            </div>
+            <div class="split">
+              <input id="dryMass" type="range" min="100" max="100000" value="10000" step="100">
+              <input id="dryMassNumber" type="number" min="0" max="1000000" value="10000" step="10">
+            </div>
+          </section>
+          <section class="control-block">
+            <label class="label" for="targetDv">목표 dV (km/s)</label>
+            <div class="split">
+              <input id="targetDv" type="range" min="0" max="2000" value="500" step="5">
+              <input id="targetDvNumber" type="number" min="0" max="100000" value="500" step="1">
+            </div>
+          </section>
+          <section class="control-block">
+            <label class="label" for="radiator">라디에이터</label>
+            <select id="radiator" data-searchable-select="true"></select>
+          </section>
+        </div>
+        </div>
+      </section>
+      <section class="control-card" data-control-card="filter">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">필터 및 표시</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+        <section id="bandAnalysisControls" class="control-block">
+          <span class="label">총질량/연료질량/TWR 보조 표시</span>
+          <label id="showTwrInfoRow" class="check-row"><input id="showTwrInfo" type="checkbox" checked> TWR 정보 표시</label>
+          <label id="showMassInfoRow" class="check-row" style="display: none;"><input id="showMassInfo" type="checkbox" checked> 총질량 정보 표시</label>
+          <label class="check-row"><input id="paretoHighlight" type="checkbox" checked> 파레토 후보 강조</label>
+          <label class="check-row"><input id="showImpracticalCandidates" type="checkbox"> 비현실적 후보 표시</label>
+          <div id="minTwrControl" style="margin-top: 10px;">
+            <label class="label" for="minTwrExp">최소 TWR</label>
+            <div class="split">
+              <input id="minTwrExp" type="range" min="-4" max="1" value="-4" step="0.1">
+              <input id="minTwrNumber" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
+            </div>
+            <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.0001 g</div>
+          </div>
+          <div id="minDvControl" style="margin-top: 10px; display: none;">
+            <label class="label" for="minDv">최소 dV (km/s)</label>
+            <div class="split">
+              <input id="minDv" type="range" min="0" max="2000" value="0" step="5">
+              <input id="minDvNumber" type="number" min="0" max="100000" value="0" step="1">
+            </div>
+            <div id="minDvReadout" class="control-hint">표시: dV >= 0 km/s</div>
+          </div>
+        </section>
+        <div class="control-divider"></div>
+        <section class="control-block">
+          <span class="label">축 스케일</span>
+          <div class="control-inline-grid">
+            <label class="check-row"><input id="logX" type="checkbox"> X축 로그</label>
+            <label class="check-row"><input id="logY" type="checkbox" checked> Y축 로그</label>
+          </div>
+        </section>
+        </div>
+      </section>
+      <section class="control-card" data-control-card="driveFilter">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">드라이브 필터</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+        <div class="control-stack">
+          <section class="control-block">
+            <label class="label" for="nameSearch">엔진/프로젝트 검색</label>
+            <input id="nameSearch" type="search" placeholder="드라이브 또는 프로젝트 검색">
+          </section>
+          <section class="control-block">
+            <label class="label" for="thrusters">엔진 수</label>
+            <div class="split">
+              <input id="thrusters" type="range" min="1" max="6" value="1" step="1">
+              <input id="thrustersNumber" type="number" min="1" max="6" value="1" step="1">
+            </div>
+          </section>
+          <section class="control-block">
+            <span class="label">대분류</span>
+            <div id="categories"></div>
+          </section>
+          <section class="control-block">
+            <span class="label">세부 계열</span>
+            <div class="button-row">
+              <button id="allFamilies" type="button">전체 선택</button>
+              <button id="clearFamilies" type="button">전체 해제</button>
+            </div>
+            <div id="families"></div>
+            <div id="familyWarnings" class="family-warnings"></div>
+          </section>
+        </div>
+        </div>
       </section>
     </aside>
     <section class="chart-shell">
@@ -2069,7 +2470,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       <div class="calculator-grid">
         <section class="calculator-panel">
           <label id="dryMassCalcClassLabel" class="label" for="dryMassCalcClass">함급</label>
-          <select id="dryMassCalcClass"></select>
+          <select id="dryMassCalcClass" data-searchable-select="true"></select>
           <div id="dryMassCalcInfo" class="calc-info-grid"></div>
         </section>
         <section class="calculator-panel">
@@ -2144,14 +2545,254 @@ HTML_TEMPLATE = r"""<!doctype html>
       const pairs = lang === "en"
         ? STATIC_TRANSLATIONS
         : STATIC_TRANSLATIONS.map(([ko, en]) => [en, ko]);
-      pairs.forEach(([from, to]) => {
-        if (from) result = result.split(from).join(to);
-      });
+      [...pairs]
+        .sort((a, b) => String(b[0] ?? "").length - String(a[0] ?? "").length)
+        .forEach(([from, to]) => {
+          if (from) result = result.split(from).join(to);
+        });
       return result;
     }
 
     function localText(ko, en) {
       return UI_LANG === "en" ? en : ko;
+    }
+
+    const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
+    const LEFT_PANEL_DEFAULT_ORDER = ["display", "simulation", "filter", "driveFilter"];
+    let leftPanelLayout = loadLeftPanelLayout();
+
+    function normalizeLeftPanelOrder(order) {
+      const seen = new Set();
+      const normalized = [];
+      if (Array.isArray(order)) {
+        order.forEach(key => {
+          if (LEFT_PANEL_DEFAULT_ORDER.includes(key) && !seen.has(key)) {
+            normalized.push(key);
+            seen.add(key);
+          }
+        });
+      }
+      LEFT_PANEL_DEFAULT_ORDER.forEach(key => {
+        if (!seen.has(key)) normalized.push(key);
+      });
+      return normalized;
+    }
+
+    function loadLeftPanelLayout() {
+      try {
+        const raw = localStorage.getItem(LEFT_PANEL_LAYOUT_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return {
+          order: normalizeLeftPanelOrder(parsed.order),
+          collapsed: parsed.collapsed && typeof parsed.collapsed === "object" ? parsed.collapsed : {},
+        };
+      } catch {
+        return { order: LEFT_PANEL_DEFAULT_ORDER.slice(), collapsed: {} };
+      }
+    }
+
+    function saveLeftPanelLayout() {
+      try {
+        localStorage.setItem(LEFT_PANEL_LAYOUT_STORAGE_KEY, JSON.stringify(leftPanelLayout));
+      } catch {
+        // localStorage may be unavailable in some embedded/file contexts.
+      }
+    }
+
+    function metricSelectLabel() {
+      const metric = document.getElementById("metric");
+      return metric?.selectedOptions?.[0]?.textContent?.trim() || metricLabel(state.metric);
+    }
+
+    function leftPanelCardSummary(key) {
+      if (key === "display") {
+        return metricSelectLabel();
+      }
+      if (key === "simulation") {
+        const radiator = DATA.radiators.find(item => item.id === state.radiatorId);
+        return `${formatNumber(state.dryMassTons, " t")} · ${formatNumber(state.targetDvKps, " km/s")} · ${radiator ? radiatorDisplayName(radiator) : state.radiatorId}`;
+      }
+      if (key === "filter") {
+        const parts = [];
+        if (state.metric === "totalMassTons" || state.metric === "fuelMassTons" || state.metric === "twr") {
+          parts.push(`TWR ≥ ${formatTwrDynamicUnit(state.minTwr)}`);
+        }
+        if (state.metric !== "totalMassTons" && state.metric !== "fuelMassTons" && state.metric !== "twr") {
+          parts.push(`dV ≥ ${formatNumber(state.minDvKps, " km/s")}`);
+        }
+        if (state.paretoHighlight) parts.push(localText("파레토 ON", "Pareto ON"));
+        if (state.showImpracticalCandidates) parts.push(localText("비현실 후보 ON", "Impractical ON"));
+        if (state.logX || state.logY) parts.push(`${state.logX ? "log X" : ""}${state.logX && state.logY ? " · " : ""}${state.logY ? "log Y" : ""}`);
+        return parts.filter(Boolean).join(" · ") || localText("기본 필터", "Default filters");
+      }
+      if (key === "driveFilter") {
+        const selectedFamilies = DATA.subfamilies.filter(family => !!state.categories[family.categoryKey] && !!state.families[family.key]).length;
+        const activeCategories = DATA.categories.filter(category => !!state.categories[category.key]).length;
+        const search = state.searchTerm ? localText("검색 있음", "Search active") : localText("검색 없음", "No search");
+        return `${localText("엔진", "Engine")} ×${state.thrusters} · ${activeCategories}/${DATA.categories.length} ${localText("대분류", "categories")} · ${selectedFamilies}/${DATA.subfamilies.length} ${localText("계열", "families")} · ${search}`;
+      }
+      return "";
+    }
+
+    function updateLeftPanelCardSummaries() {
+      document.querySelectorAll(".control-card[data-control-card]").forEach(card => {
+        const key = card.dataset.controlCard;
+        const summary = card.querySelector("[data-card-summary]");
+        if (summary) summary.textContent = leftPanelCardSummary(key);
+        const toggle = card.querySelector("[data-card-toggle]");
+        if (toggle) {
+          const expanded = card.dataset.collapsed !== "true";
+          toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+          toggle.setAttribute("aria-label", expanded
+            ? localText("카드 접기", "Collapse card")
+            : localText("카드 펼치기", "Expand card"));
+        }
+      });
+    }
+
+    function applyLeftPanelOrder() {
+      const root = document.querySelector(".controls");
+      if (!root) return;
+      const cards = Object.fromEntries(Array.from(root.querySelectorAll(".control-card[data-control-card]")).map(card => [card.dataset.controlCard, card]));
+      const anchor = root.querySelector(".controls-toolbar");
+      leftPanelLayout.order = normalizeLeftPanelOrder(leftPanelLayout.order);
+      leftPanelLayout.order.forEach(key => {
+        const card = cards[key];
+        if (card) root.appendChild(card);
+      });
+      if (anchor && root.firstElementChild !== anchor) root.insertBefore(anchor, root.firstElementChild);
+      updateLeftPanelMoveButtons();
+      updateLeftPanelCardSummaries();
+    }
+
+    function updateLeftPanelMoveButtons() {
+      const order = normalizeLeftPanelOrder(leftPanelLayout.order);
+      document.querySelectorAll(".control-card[data-control-card]").forEach(card => {
+        const index = order.indexOf(card.dataset.controlCard);
+        const up = card.querySelector('[data-panel-move="up"]');
+        const down = card.querySelector('[data-panel-move="down"]');
+        if (up) up.disabled = index <= 0;
+        if (down) down.disabled = index < 0 || index >= order.length - 1;
+      });
+    }
+
+    function moveLeftPanelCard(key, delta) {
+      const order = normalizeLeftPanelOrder(leftPanelLayout.order);
+      const index = order.indexOf(key);
+      const next = index + delta;
+      if (index < 0 || next < 0 || next >= order.length) return;
+      [order[index], order[next]] = [order[next], order[index]];
+      leftPanelLayout.order = order;
+      saveLeftPanelLayout();
+      applyLeftPanelOrder();
+    }
+
+    function setupLeftPanelCards() {
+      const root = document.querySelector(".controls");
+      if (!root) return;
+      root.querySelectorAll(".control-card[data-control-card]").forEach(card => {
+        const key = card.dataset.controlCard;
+        const collapsed = !!leftPanelLayout.collapsed[key];
+        card.dataset.collapsed = collapsed ? "true" : "false";
+        const toggle = card.querySelector("[data-card-toggle]");
+        if (toggle) {
+          toggle.addEventListener("click", () => {
+            const nextCollapsed = card.dataset.collapsed !== "true";
+            card.dataset.collapsed = nextCollapsed ? "true" : "false";
+            leftPanelLayout.collapsed[key] = nextCollapsed;
+            saveLeftPanelLayout();
+            updateLeftPanelCardSummaries();
+          });
+        }
+        card.querySelectorAll("[data-panel-move]").forEach(button => {
+          button.addEventListener("click", event => {
+            event.preventDefault();
+            moveLeftPanelCard(key, button.dataset.panelMove === "up" ? -1 : 1);
+          });
+          button.setAttribute("aria-label", button.dataset.panelMove === "up"
+            ? localText("위로 이동", "Move up")
+            : localText("아래로 이동", "Move down"));
+          button.title = button.getAttribute("aria-label");
+        });
+      });
+      const reset = document.getElementById("resetLeftPanelLayout");
+      if (reset) {
+        reset.addEventListener("click", () => {
+          leftPanelLayout = { order: LEFT_PANEL_DEFAULT_ORDER.slice(), collapsed: {} };
+          saveLeftPanelLayout();
+          document.querySelectorAll(".control-card[data-control-card]").forEach(card => {
+            card.dataset.collapsed = "false";
+          });
+          applyLeftPanelOrder();
+        });
+      }
+      applyLeftPanelOrder();
+    }
+
+
+    const RADIATOR_KO_SHORT_NAMES = {
+      ExoticSpike: "엑조틱 스파이크",
+      DustyPlasma: "먼지 플라즈마",
+      LithiumSpray: "리튬 스프레이",
+      GalliumMist: "갈륨 안개",
+      TinDroplet: "주석 방울",
+      NanotubeFilament: "나노튜브 필라멘트",
+      TitaniumArray: "티타늄 어레이",
+      CobaltDust: "코발트 분진",
+      MolybdenumPipe: "몰리브덴 파이프",
+      IonicDust: "이온 분진",
+      AluminumFin: "알루미늄 핀",
+    };
+
+    function cleanRadiatorDisplayName(name) {
+      const text = String(name || "").trim();
+      return UI_LANG === "ko" ? text.replace(/\s*라디에이터\s*$/u, "") : text;
+    }
+
+    function radiatorDisplayName(item) {
+      if (!item) return "";
+      const display = item.displayName;
+      const projectDisplay = item.requiredProjectDisplay;
+      let name = "";
+      if (UI_LANG === "ko") {
+        name = RADIATOR_KO_SHORT_NAMES[item.id] || "";
+        if (!name && display && typeof display === "object") {
+          name = display.ko || display.kor || "";
+        }
+        if (!name && projectDisplay && typeof projectDisplay === "object") {
+          name = projectDisplay.ko || projectDisplay.kor || "";
+        }
+        if (!name && typeof display === "string") {
+          name = translateText(display, "ko");
+        }
+      } else if (display && typeof display === "object") {
+        name = display.en || display.ko || display.kor || item.id || "";
+      } else if (typeof display === "string") {
+        name = display;
+      } else if (projectDisplay && typeof projectDisplay === "object" && !display) {
+        name = projectDisplay.en || projectDisplay.ko || projectDisplay.kor || item.id || "";
+      }
+      return cleanRadiatorDisplayName(name || display || item.id || "");
+    }
+
+    function radiatorOptionLabel(item) {
+      return `${radiatorDisplayName(item)} (${formatNumber(item.specificPowerKWPerKg, " kW/kg")})`;
+    }
+
+    function renderRadiatorOptions(select) {
+      if (!select) return;
+      const selectedId = state.radiatorId || select.value || (DATA.radiators[0] && DATA.radiators[0].id) || "";
+      select.innerHTML = "";
+      DATA.radiators.forEach(item => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = radiatorOptionLabel(item);
+        option.selected = item.id === selectedId;
+        select.appendChild(option);
+      });
+      if (DATA.radiators.some(item => item.id === selectedId)) {
+        select.value = selectedId;
+      }
     }
 
     function syncMetricGroupLabels() {
@@ -2182,8 +2823,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       textNodes.forEach(node => {
         node.nodeValue = translateText(node.nodeValue);
       });
-      document.querySelectorAll("[placeholder],[aria-label]").forEach(element => {
-        ["placeholder", "aria-label"].forEach(attribute => {
+      document.querySelectorAll("[placeholder],[aria-label],[title]").forEach(element => {
+        ["placeholder", "aria-label", "title"].forEach(attribute => {
           if (element.hasAttribute(attribute)) {
             element.setAttribute(attribute, translateText(element.getAttribute(attribute)));
           }
@@ -2199,6 +2840,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       applyStaticLanguage();
       refreshLocalizedControls();
       refreshSourceNote();
+      updateLeftPanelCardSummaries();
       if (rerender) render();
     }
 
@@ -2215,6 +2857,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         if (family && text) text.textContent = localLabel(family);
       });
       syncMetricGroupLabels();
+      enhanceSearchableSelect(document.getElementById("metric"));
       const showTwrInfo = document.getElementById("showTwrInfo");
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
@@ -2225,6 +2868,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
       applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
+      renderRadiatorOptions(document.getElementById("radiator"));
+      enhanceSearchableSelect(document.getElementById("radiator"));
       setPresetUiText();
       renderDryMassCalcModal();
     }
@@ -2416,6 +3061,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         languageSelect.addEventListener("change", () => setLanguage(languageSelect.value));
       }
       applyStaticLanguage();
+      setupLeftPanelCards();
       applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
       applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));
       applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
@@ -2424,6 +3070,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
 
       metric.value = state.metric;
+      enhanceSearchableSelect(metric);
       dryMass.value = String(clamp(state.dryMassTons, Number(dryMass.min), Number(dryMass.max)));
       dryMassNumber.value = String(Math.round(state.dryMassTons));
       targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
@@ -2453,17 +3100,12 @@ HTML_TEMPLATE = r"""<!doctype html>
         }
       });
 
-      DATA.radiators.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item.id;
-        option.textContent = `${item.displayName} (${formatNumber(item.specificPowerKWPerKg, " kW/kg")})`;
-        option.selected = item.id === state.radiatorId;
-        radiator.appendChild(option);
-      });
+      renderRadiatorOptions(radiator);
       if (!state.radiatorId && DATA.radiators[0]) {
         state.radiatorId = DATA.radiators[0].id;
         radiator.value = state.radiatorId;
       }
+      enhanceSearchableSelect(radiator);
 
       DATA.categories.forEach(category => {
         const label = document.createElement("label");
@@ -3188,11 +3830,11 @@ HTML_TEMPLATE = r"""<!doctype html>
           .map(item => `<option value="${escapeHtml(item.dataName)}"${item.dataName === selectedId ? " selected" : ""}>${escapeHtml(weaponOptionLabel(item))}</option>`)
           .join("");
         return `
-          <label class="calc-slot-row" for="dryMassCalcWeapon${section}${index}">
+          <div class="calc-slot-row">
             <span>${escapeHtml(label)} ${index + 1}</span>
-            <select id="dryMassCalcWeapon${section}${index}" data-weapon-section="${section}" data-weapon-index="${index}">${options}</select>
+            <select id="dryMassCalcWeapon${section}${index}" data-weapon-section="${section}" data-weapon-index="${index}" data-searchable-select="true">${options}</select>
             <span class="calc-slot-mass">${escapeHtml(formatNumber(Number(selectedWeapon.massTons) || 0, " t"))}</span>
-          </label>
+          </div>
         `;
       });
 
@@ -3202,11 +3844,11 @@ HTML_TEMPLATE = r"""<!doctype html>
           .map(item => `<option value="${escapeHtml(item.dataName)}">${escapeHtml(item.dataName === EMPTY_WEAPON_MODULE.dataName ? localText("무장 추가", "Add weapon") : weaponOptionLabel(item))}</option>`)
           .join("");
         rows.push(`
-          <label class="calc-slot-row" for="dryMassCalcWeapon${section}New">
+          <div class="calc-slot-row">
             <span>${escapeHtml(localText("추가", "Add"))}</span>
-            <select id="dryMassCalcWeapon${section}New" data-weapon-section="${section}" data-weapon-index="new">${options}</select>
+            <select id="dryMassCalcWeapon${section}New" data-weapon-section="${section}" data-weapon-index="new" data-searchable-select="true">${options}</select>
             <span class="calc-slot-mass">${escapeHtml(formatHardpointSize(remaining))} HP</span>
-          </label>
+          </div>
         `);
       }
 
@@ -3241,7 +3883,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         return `
           <div class="calc-armor-row">
             <div class="calc-armor-title">${escapeHtml(sectionLabels[section])}</div>
-            <select id="dryMassCalcArmor${section}" data-armor-section="${section}" data-armor-field="type">${options}</select>
+            <select id="dryMassCalcArmor${section}" data-armor-section="${section}" data-armor-field="type" data-searchable-select="true">${options}</select>
             <div class="calc-armor-point-row">
               <input id="dryMassCalcArmor${section}Points" type="number" min="0" max="${escapeHtml(maxPoints)}" step="1" value="${escapeHtml(selection.points)}" data-armor-section="${section}" data-armor-field="points">
               <span class="calc-slot-mass">${escapeHtml(formatNumber(massTons, " t"))}</span>
@@ -3249,6 +3891,198 @@ HTML_TEMPLATE = r"""<!doctype html>
           </div>
         `;
       }).join("");
+    }
+
+    function searchableSelectLabel(select) {
+      const selected = select && select.selectedOptions && select.selectedOptions[0];
+      return selected ? selected.textContent.trim() : "";
+    }
+
+    function searchableSelectOptions(select) {
+      const rows = [];
+      Array.from(select.children || []).forEach(child => {
+        if (child.tagName === "OPTGROUP") {
+          const group = child.label || "";
+          rows.push({ type: "group", label: group });
+          Array.from(child.children || []).forEach(option => {
+            rows.push({
+              type: "option",
+              value: option.value,
+              label: option.textContent.trim(),
+              group,
+              disabled: option.disabled,
+              selected: option.selected,
+            });
+          });
+        } else if (child.tagName === "OPTION") {
+          rows.push({
+            type: "option",
+            value: child.value,
+            label: child.textContent.trim(),
+            group: "",
+            disabled: child.disabled,
+            selected: child.selected,
+          });
+        }
+      });
+      return rows;
+    }
+
+    function closeSearchableSelect(wrapper) {
+      const menu = wrapper && wrapper.querySelector(".searchable-select-menu");
+      const trigger = wrapper && wrapper.querySelector(".searchable-select-trigger");
+      if (menu) menu.hidden = true;
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    }
+
+    function closeOtherSearchableSelects(activeWrapper = null) {
+      document.querySelectorAll(".searchable-select").forEach(wrapper => {
+        if (wrapper !== activeWrapper) closeSearchableSelect(wrapper);
+      });
+    }
+
+    function renderSearchableSelectOptions(select, wrapper, query = "") {
+      const list = wrapper.querySelector(".searchable-select-options");
+      if (!list) return;
+      const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+      const rows = searchableSelectOptions(select);
+      list.innerHTML = "";
+      let visibleOptions = 0;
+      let currentGroupElement = null;
+      let currentGroupVisible = false;
+      rows.forEach(row => {
+        if (row.type === "group") {
+          currentGroupElement = document.createElement("div");
+          currentGroupElement.className = "searchable-select-group";
+          currentGroupElement.textContent = row.label;
+          currentGroupElement.hidden = true;
+          list.appendChild(currentGroupElement);
+          currentGroupVisible = false;
+          return;
+        }
+        const haystack = `${row.label} ${row.value} ${row.group}`.toLocaleLowerCase();
+        if (normalizedQuery && !haystack.includes(normalizedQuery)) return;
+        if (currentGroupElement && !currentGroupVisible) {
+          currentGroupElement.hidden = false;
+          currentGroupVisible = true;
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `searchable-select-option${row.selected ? " is-selected" : ""}`;
+        button.dataset.value = row.value;
+        button.disabled = !!row.disabled;
+        button.textContent = row.label;
+        button.addEventListener("click", () => {
+          select.value = row.value;
+          const value = wrapper.querySelector(".searchable-select-value");
+          if (value) value.textContent = searchableSelectLabel(select);
+          closeSearchableSelect(wrapper);
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        list.appendChild(button);
+        visibleOptions += 1;
+      });
+      if (!visibleOptions) {
+        const empty = document.createElement("div");
+        empty.className = "searchable-select-empty";
+        empty.textContent = localText("검색 결과 없음", "No matching results");
+        list.appendChild(empty);
+      }
+    }
+
+    function enhanceSearchableSelect(select) {
+      if (!select || select.dataset.searchableEnhanced === "true") {
+        const existingWrapper = select && select.nextElementSibling && select.nextElementSibling.classList.contains("searchable-select")
+          ? select.nextElementSibling
+          : null;
+        if (existingWrapper) {
+          const value = existingWrapper.querySelector(".searchable-select-value");
+          const search = existingWrapper.querySelector(".searchable-select-search");
+          if (value) value.textContent = searchableSelectLabel(select);
+          if (search) search.placeholder = localText("검색...", "Search...");
+          renderSearchableSelectOptions(select, existingWrapper, "");
+        }
+        return;
+      }
+      const wrapper = document.createElement("div");
+      wrapper.className = "searchable-select";
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "searchable-select-trigger";
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.innerHTML = `<span class="searchable-select-value"></span><span class="searchable-select-caret">▾</span>`;
+      const menu = document.createElement("div");
+      menu.className = "searchable-select-menu";
+      menu.hidden = true;
+      const search = document.createElement("input");
+      search.type = "search";
+      search.className = "searchable-select-search";
+      search.placeholder = localText("검색...", "Search...");
+      search.autocomplete = "off";
+      const options = document.createElement("div");
+      options.className = "searchable-select-options";
+      options.setAttribute("role", "listbox");
+      menu.append(search, options);
+      wrapper.append(trigger, menu);
+      select.classList.add("native-select-hidden");
+      select.dataset.searchableEnhanced = "true";
+      select.insertAdjacentElement("afterend", wrapper);
+
+      const value = wrapper.querySelector(".searchable-select-value");
+      if (value) value.textContent = searchableSelectLabel(select);
+      renderSearchableSelectOptions(select, wrapper, "");
+
+      trigger.addEventListener("click", () => {
+        const open = menu.hidden;
+        closeOtherSearchableSelects(wrapper);
+        menu.hidden = !open;
+        trigger.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) {
+          search.value = "";
+          renderSearchableSelectOptions(select, wrapper, "");
+          search.focus();
+        }
+      });
+      search.addEventListener("input", () => renderSearchableSelectOptions(select, wrapper, search.value));
+      search.addEventListener("keydown", event => {
+        const buttons = Array.from(wrapper.querySelectorAll(".searchable-select-option:not([disabled])"));
+        const currentIndex = buttons.indexOf(document.activeElement);
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          (buttons[currentIndex + 1] || buttons[0] || search).focus();
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          (buttons[currentIndex - 1] || buttons[buttons.length - 1] || search).focus();
+        } else if (event.key === "Escape") {
+          closeSearchableSelect(wrapper);
+          trigger.focus();
+        }
+      });
+      options.addEventListener("keydown", event => {
+        const buttons = Array.from(wrapper.querySelectorAll(".searchable-select-option:not([disabled])"));
+        const currentIndex = buttons.indexOf(document.activeElement);
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          (buttons[currentIndex + 1] || buttons[0] || search).focus();
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          (buttons[currentIndex - 1] || search).focus();
+        } else if (event.key === "Escape") {
+          closeSearchableSelect(wrapper);
+          trigger.focus();
+        }
+      });
+    }
+
+    function enhanceSearchableSelects(root = document) {
+      root.querySelectorAll("select[data-searchable-select]").forEach(select => enhanceSearchableSelect(select));
+      if (!document.body.dataset.searchableSelectGlobalHandlers) {
+        document.body.dataset.searchableSelectGlobalHandlers = "true";
+        document.addEventListener("click", event => {
+          if (!event.target.closest(".searchable-select")) closeOtherSearchableSelects();
+        });
+      }
     }
 
     function renderDryMassCalcModal() {
@@ -3336,11 +4170,11 @@ HTML_TEMPLATE = r"""<!doctype html>
             })
             .join("");
           return `
-            <label class="calc-slot-row" for="dryMassCalcSlot${index}">
+            <div class="calc-slot-row">
               <span>${escapeHtml(localText("슬롯", "Slot"))} ${index + 1}</span>
-              <select id="dryMassCalcSlot${index}" data-slot-index="${index}">${options}</select>
+              <select id="dryMassCalcSlot${index}" data-slot-index="${index}" data-searchable-select="true">${options}</select>
               <span class="calc-slot-mass">${escapeHtml(formatNumber(Number(selectedModule.massTons) || 0, " t"))}</span>
-            </label>
+            </div>
           `;
         }).join("");
       }
@@ -3355,6 +4189,7 @@ HTML_TEMPLATE = r"""<!doctype html>
           `${localText("모듈 전력", "Module power")} ${formatNumber(moduleTotals.powerMW, " MW")}`,
         ].map(item => `<span>${escapeHtml(item)}</span>`).join("");
       }
+      enhanceSearchableSelects(document.getElementById("dryMassCalcModal"));
     }
 
     function setupDryMassCalculator() {
@@ -3374,7 +4209,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       const openModal = () => {
         renderDryMassCalcModal();
         modal.classList.add("is-open");
-        classSelect.focus();
+        const firstSearchableTrigger = modal.querySelector(".searchable-select-trigger");
+        (firstSearchableTrigger || classSelect).focus();
       };
       const closeModal = () => {
         modal.classList.remove("is-open");
@@ -3674,7 +4510,10 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (dryMassNumber) dryMassNumber.value = String(Math.round(state.dryMassTons));
       if (targetDv) targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
       if (targetDvNumber) targetDvNumber.value = String(Math.round(state.targetDvKps));
-      if (radiator) radiator.value = state.radiatorId;
+      if (radiator) {
+        radiator.value = state.radiatorId;
+        enhanceSearchableSelect(radiator);
+      }
       if (logX) logX.checked = !!state.logX;
       if (logY) logY.checked = !!state.logY;
       if (showTwrInfo) showTwrInfo.checked = !!state.showTwrInfo;
@@ -3955,148 +4794,239 @@ HTML_TEMPLATE = r"""<!doctype html>
       return frontier;
     }
 
-    function makeScale(domain, range, logScale) {
-      let [d0, d1] = domain;
-      if (!Number.isFinite(d0) || !Number.isFinite(d1) || d0 === d1) {
-        d0 = 1;
-        d1 = 10;
+    function normalizeAxisDomain(min, max, logScale) {
+      let d0 = Number(min);
+      let d1 = Number(max);
+      if (!Number.isFinite(d0) || !Number.isFinite(d1)) {
+        d0 = logScale ? 1 : 0;
+        d1 = logScale ? 10 : 1;
       }
+      if (d0 > d1) [d0, d1] = [d1, d0];
       if (logScale) {
-        d0 = Math.max(d0, 1e-9);
-        d1 = Math.max(d1, d0 * 1.01);
-        const l0 = Math.log10(d0);
-        const l1 = Math.log10(d1);
+        d0 = Math.max(d0, 1e-12);
+        d1 = Math.max(d1, 1e-12);
+        if (d0 > d1) [d0, d1] = [d1, d0];
+        const s0 = Math.log10(d0);
+        const s1 = Math.log10(d1);
+        if (!Number.isFinite(s0) || !Number.isFinite(s1) || Math.abs(s1 - s0) < 1e-12) {
+          const center = Number.isFinite(s0) ? s0 : 0;
+          return [Math.pow(10, center - 0.005), Math.pow(10, center + 0.005)];
+        }
+        return [d0, d1];
+      }
+      if (Math.abs(d1 - d0) < 1e-12) {
+        const pad = Math.max(Math.abs(d0) * 0.01, 1);
+        d0 -= pad;
+        d1 += pad;
+      }
+      return [d0, d1];
+    }
+
+    function axisSpaceValue(value, logScale) {
+      return logScale ? Math.log10(Math.max(value, 1e-12)) : value;
+    }
+
+    function valueFromAxisSpace(space, logScale) {
+      return logScale ? Math.pow(10, space) : space;
+    }
+
+    function makeScale(domain, range, logScale) {
+      const [d0, d1] = normalizeAxisDomain(domain[0], domain[1], logScale);
+      if (logScale) {
+        const l0 = axisSpaceValue(d0, true);
+        const l1 = axisSpaceValue(d1, true);
         return value => {
-          const v = Math.log10(Math.max(value, 1e-9));
+          const v = axisSpaceValue(value, true);
           return range[0] + (v - l0) / (l1 - l0) * (range[1] - range[0]);
         };
       }
       return value => range[0] + (value - d0) / (d1 - d0) * (range[1] - range[0]);
     }
 
-    function linearTicks(min, max, count = 6) {
-      if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return [min || 0];
-      const span = max - min;
-      const raw = span / count;
-      const pow = Math.pow(10, Math.floor(Math.log10(raw)));
-      const step = [1, 2, 5, 10].find(v => raw <= v * pow) * pow;
-      const start = Math.ceil(min / step) * step;
-      const ticks = [];
-      for (let value = start; value <= max + step * 0.25; value += step) ticks.push(value);
-      return ticks;
-    }
+    // Axis tick planning lives in axis-space: linear axes use raw values,
+    // and log axes use log10(value). Keeping all axes on the same path avoids
+    // the earlier pile of separate log-X/log-Y/deep-zoom helpers.
+    const AXIS_TICK_MULTIPLIERS = [1, 2, 2.5, 5, 10];
+    const AXIS_EPSILON = 1e-12;
 
-    function logTicks(min, max, maxTicks = 9) {
-      min = Math.max(min, 1e-9);
-      if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [min];
-      const lMin = Math.log10(min);
-      const lMax = Math.log10(Math.max(max, min * (1 + 1e-9)));
-      const logSpan = Math.max(0, lMax - lMin);
-      const start = Math.floor(Math.log10(min));
-      const end = Math.ceil(Math.log10(max));
-      const exponentSpan = Math.max(0, end - start);
-      const denseTicks = denseLogTicks(min, max, start, end, maxTicks);
-      if (!denseTicks.length || logSpan < 0.9) {
-        return logInterpolatedTicks(min, max, maxTicks);
-      }
-      if (denseTicks.length <= maxTicks + 2) return denseTicks;
-      const exponentStep = niceTickStep(Math.max(1, exponentSpan / Math.max(maxTicks - 1, 1)));
-      const ticks = [];
-      const firstExp = Math.ceil(start / exponentStep) * exponentStep;
-      for (let exp = firstExp; exp <= end; exp += exponentStep) {
-        const value = Math.pow(10, exp);
-        if (value >= min * 0.999 && value <= max * 1.001) ticks.push(value);
-      }
-      if (!ticks.length) return logInterpolatedTicks(min, max, maxTicks);
-      return ticks.slice(0, maxTicks + 1);
-    }
-
-    function logInterpolatedTicks(min, max, maxTicks = 9) {
-      const safeMin = Math.max(min, 1e-9);
-      const safeMax = Math.max(max, safeMin * (1 + 1e-9));
-      const lMin = Math.log10(safeMin);
-      const lMax = Math.log10(safeMax);
-      const count = clamp(Math.floor(maxTicks) + 1, 2, 60);
-      const ticks = [];
-      for (let index = 0; index < count; index++) {
-        const ratio = count <= 1 ? 0 : index / (count - 1);
-        const value = Math.pow(10, lMin + (lMax - lMin) * ratio);
-        if (!ticks.length || value > ticks[ticks.length - 1] * (1 + 1e-12)) {
-          ticks.push(value);
+    function niceAxisStep(rawStep, mode = "ceil") {
+      if (!Number.isFinite(rawStep) || rawStep <= 0) return 1;
+      const exponent = Math.floor(Math.log10(rawStep));
+      const base = Math.pow(10, exponent);
+      const normalized = rawStep / base;
+      if (mode === "floor") {
+        for (let index = AXIS_TICK_MULTIPLIERS.length - 1; index >= 0; index--) {
+          if (normalized >= AXIS_TICK_MULTIPLIERS[index]) return AXIS_TICK_MULTIPLIERS[index] * base;
         }
+        return AXIS_TICK_MULTIPLIERS[0] * base / 10;
       }
-      return ticks;
+      const picked = AXIS_TICK_MULTIPLIERS.find(value => normalized <= value) || AXIS_TICK_MULTIPLIERS[AXIS_TICK_MULTIPLIERS.length - 1];
+      return picked * base;
     }
 
-    function denseLogTicks(min, max, start, end, maxTicks = 9) {
-      const ticks = [];
-      const decadeCount = Math.max(1, end - start);
-      const perDecade = clamp(Math.floor(maxTicks / decadeCount), 1, 12);
-      for (let exp = start; exp < end; exp++) {
-        for (let step = 0; step < perDecade; step++) {
-          // Subdivide each decade uniformly in log space (geometric spacing in value space).
-          const fraction = step / perDecade;
-          const value = Math.pow(10, exp + fraction);
-          if (value >= min * 0.999 && value <= max * 1.001) ticks.push(value);
+    function nextAxisStep(step, direction) {
+      if (!Number.isFinite(step) || step <= 0) return 1;
+      const exponent = Math.floor(Math.log10(step));
+      const base = Math.pow(10, exponent);
+      const normalized = step / base;
+      let index = AXIS_TICK_MULTIPLIERS.findIndex(value => Math.abs(value - normalized) <= Math.max(AXIS_EPSILON, normalized * 1e-10));
+      if (index < 0) index = AXIS_TICK_MULTIPLIERS.findIndex(value => normalized < value);
+      if (index < 0) index = AXIS_TICK_MULTIPLIERS.length - 1;
+      if (direction > 0) {
+        if (index < AXIS_TICK_MULTIPLIERS.length - 1) return AXIS_TICK_MULTIPLIERS[index + 1] * base;
+        return AXIS_TICK_MULTIPLIERS[1] * base * 10;
+      }
+      if (index > 0) return AXIS_TICK_MULTIPLIERS[index - 1] * base;
+      return AXIS_TICK_MULTIPLIERS[AXIS_TICK_MULTIPLIERS.length - 2] * base / 10;
+    }
+
+    function normalizeAxisSpace(min, max, logScale) {
+      const [d0, d1] = normalizeAxisDomain(min, max, logScale);
+      const s0 = axisSpaceValue(d0, logScale);
+      const s1 = axisSpaceValue(d1, logScale);
+      const low = Math.min(s0, s1);
+      const high = Math.max(s0, s1);
+      const span = Math.max(high - low, 1e-15);
+      return { d0, d1, low, high, span };
+    }
+
+    function axisTickOptions(pixelSpan, options = {}) {
+      const gridPixelGap = Math.max(options.gridPixelGap || 58, 12);
+      const labelPixelGap = Math.max(options.labelPixelGap || 92, gridPixelGap);
+      const maxTicks = clamp(options.maxTicks || 90, 4, 240);
+      const minTicks = clamp(options.minTicks || 4, 2, Math.min(12, maxTicks));
+      const targetGridCount = clamp(Math.round(pixelSpan / gridPixelGap) + 1, minTicks, maxTicks);
+      const labelBudget = clamp(Math.floor(pixelSpan / labelPixelGap) + 1, 2, Math.max(2, maxTicks));
+      return { gridPixelGap, labelPixelGap, maxTicks, minTicks, targetGridCount, labelBudget };
+    }
+
+    function axisTickIndexRange(spaceMin, spaceMax, step) {
+      const low = Math.min(spaceMin, spaceMax);
+      const high = Math.max(spaceMin, spaceMax);
+      const span = Math.max(high - low, 0);
+      const epsilon = Math.max(Math.abs(step) * 1e-10, span * 1e-12, 1e-14);
+      const startIndex = Math.ceil((low - epsilon) / step);
+      const endIndex = Math.floor((high + epsilon) / step);
+      return { startIndex, endIndex, epsilon, low, high };
+    }
+
+    function estimatedAxisTickCount(spaceMin, spaceMax, step) {
+      if (!Number.isFinite(spaceMin) || !Number.isFinite(spaceMax) || !Number.isFinite(step) || step <= 0) return 0;
+      const { startIndex, endIndex } = axisTickIndexRange(spaceMin, spaceMax, step);
+      return Math.max(0, endIndex - startIndex + 1);
+    }
+
+    function chooseAxisTickStep(spaceMin, spaceMax, targetCount, minTicks, maxTicks) {
+      const span = Math.max(Math.abs(spaceMax - spaceMin), 1e-15);
+      const minUsefulStep = span / Math.max(maxTicks - 1, 1);
+      let step = niceAxisStep(span / Math.max(targetCount - 1, 1), "ceil");
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const estimated = estimatedAxisTickCount(spaceMin, spaceMax, step);
+        if (estimated > maxTicks) {
+          step = nextAxisStep(step, 1);
+          continue;
         }
+        if (estimated < minTicks && step > minUsefulStep * (1 + 1e-9)) {
+          step = nextAxisStep(step, -1);
+          continue;
+        }
+        return step;
       }
-      const last = Math.pow(10, end);
-      if (last >= min * 0.999 && last <= max * 1.001) ticks.push(last);
+      return step;
+    }
+
+    function generateAxisSpaceTicks(spaceMin, spaceMax, step, logScale) {
+      if (!Number.isFinite(spaceMin) || !Number.isFinite(spaceMax) || !Number.isFinite(step) || step <= 0) return [];
+      const { startIndex, endIndex, epsilon, low, high } = axisTickIndexRange(spaceMin, spaceMax, step);
+      const count = Math.max(0, endIndex - startIndex + 1);
+      if (!count || count > 5000) return [];
+      const ticks = [];
+      for (let index = startIndex; index <= endIndex; index++) {
+        const space = index * step;
+        if (space < low - epsilon || space > high + epsilon) continue;
+        const value = valueFromAxisSpace(space, logScale);
+        if (Number.isFinite(value)) ticks.push(value);
+      }
       return ticks;
     }
 
-    function niceTickStep(rawStep) {
-      const pow = Math.pow(10, Math.floor(Math.log10(rawStep)));
-      const normalized = rawStep / pow;
-      const nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
-      return nice * pow;
+    function interpolatedAxisTicks(min, max, logScale, count) {
+      const { low, high } = normalizeAxisSpace(min, max, logScale);
+      const safeCount = clamp(Math.floor(count), 2, 160);
+      return Array.from({ length: safeCount }, (_, index) => {
+        const ratio = safeCount <= 1 ? 0 : index / (safeCount - 1);
+        return valueFromAxisSpace(low + (high - low) * ratio, logScale);
+      });
     }
 
-    function maxAxisTicks(pixelSpan, minPixelGap = 54) {
-      return Math.max(3, Math.floor(pixelSpan / minPixelGap) + 1);
-    }
-
-    function axisDomainSpan(domain, logScale) {
-      if (!domain || domain.length < 2) return NaN;
-      if (logScale) {
-        const d0 = Math.log10(Math.max(domain[0], 1e-9));
-        const d1 = Math.log10(Math.max(domain[1], 1e-9));
-        return Math.abs(d1 - d0);
+    function uniqueSortedAxisTicks(values, logScale) {
+      const sorted = values
+        .filter(value => Number.isFinite(value) && (!logScale || value > 0))
+        .sort((a, b) => axisSpaceValue(a, logScale) - axisSpaceValue(b, logScale));
+      const result = [];
+      for (const value of sorted) {
+        const space = axisSpaceValue(value, logScale);
+        const previous = result.length ? axisSpaceValue(result[result.length - 1], logScale) : NaN;
+        if (!result.length || Math.abs(space - previous) > 1e-12) result.push(value);
       }
-      return Math.abs(domain[1] - domain[0]);
+      return result;
     }
 
-    function dynamicYAxisMaxTicks(yDomain, innerH) {
-      const baseTicks = maxAxisTicks(innerH);
-      if (!chartViewport || !chartViewport.baseYDomain) return baseTicks;
-      const baseSpan = axisDomainSpan(chartViewport.baseYDomain, state.logY);
-      const currentSpan = axisDomainSpan(yDomain, state.logY);
-      if (!Number.isFinite(baseSpan) || !Number.isFinite(currentSpan) || baseSpan <= 0 || currentSpan <= 0) {
-        return baseTicks;
+    function downsampleTicksWithCoverage(ticks, maxTicks) {
+      if (!Array.isArray(ticks) || ticks.length <= maxTicks) return ticks;
+      if (maxTicks <= 2) return [ticks[0], ticks[ticks.length - 1]];
+      const result = [ticks[0]];
+      const interiorSlots = maxTicks - 2;
+      for (let slot = 1; slot <= interiorSlots; slot++) {
+        const sourceIndex = Math.round(slot * (ticks.length - 1) / (interiorSlots + 1));
+        const value = ticks[sourceIndex];
+        if (value !== result[result.length - 1]) result.push(value);
       }
-      const zoomRatio = clamp(baseSpan / currentSpan, 1, 20);
-      const growth = 1 + 0.28 * Math.log10(zoomRatio + 1);
-      const scaledTicks = Math.round(baseTicks * growth);
-      return clamp(scaledTicks, 3, 18);
+      if (ticks[ticks.length - 1] !== result[result.length - 1]) result.push(ticks[ticks.length - 1]);
+      return result;
     }
 
-    function isPowerOfTen(value) {
-      if (!Number.isFinite(value) || value <= 0) return false;
-      const exponent = Math.log10(value);
-      return Math.abs(exponent - Math.round(exponent)) <= 1e-8;
-    }
-
-    function classifyTickLevels(ticks, labelStride, logScale) {
-      const safeStride = Math.max(1, labelStride);
-      return ticks.map((tick, index) => {
+    function labelAxisTicks(ticks, axisSpace, pixelSpan, labelPixelGap, labelBudget) {
+      const labelStride = Math.max(1, Math.ceil(ticks.length / labelBudget));
+      let lastLabelPixel = -Infinity;
+      return ticks.map((value, index) => {
+        const space = axisSpaceValue(value, axisSpace.logScale);
+        const pixel = (space - axisSpace.low) / axisSpace.span * pixelSpan;
         const edge = index === 0 || index === ticks.length - 1;
-        const decade = logScale && isPowerOfTen(tick);
-        const cadence = index % safeStride === 0;
+        const gapOk = pixel - lastLabelPixel >= labelPixelGap * 0.86;
+        const label = edge || (index % labelStride === 0 && gapOk);
+        if (label) lastLabelPixel = pixel;
         return {
-          tick,
-          major: edge || decade || cadence,
+          tick: value,
+          value,
+          label,
+          major: label,
+          space,
+          pixel,
         };
       });
+    }
+
+    function buildAxisTickPlan(min, max, pixelSpan, logScale, options = {}) {
+      const axisSpace = { ...normalizeAxisSpace(min, max, logScale), logScale };
+      const tickOptions = axisTickOptions(pixelSpan, options);
+      const step = chooseAxisTickStep(axisSpace.low, axisSpace.high, tickOptions.targetGridCount, tickOptions.minTicks, tickOptions.maxTicks);
+      let ticks = generateAxisSpaceTicks(axisSpace.low, axisSpace.high, step, logScale);
+      if (ticks.length < 2) {
+        ticks = interpolatedAxisTicks(axisSpace.d0, axisSpace.d1, logScale, tickOptions.targetGridCount);
+      }
+      ticks = uniqueSortedAxisTicks([axisSpace.d0, ...ticks, axisSpace.d1], logScale);
+      ticks = downsampleTicksWithCoverage(ticks, tickOptions.maxTicks);
+      return labelAxisTicks(ticks, axisSpace, pixelSpan, tickOptions.labelPixelGap, tickOptions.labelBudget);
+    }
+
+    function linearTicks(min, max, count = 6) {
+      return buildAxisTickPlan(min, max, Math.max(count - 1, 1) * 60, false, {
+        gridPixelGap: 60,
+        labelPixelGap: 60,
+        maxTicks: Math.max(count + 2, 8),
+        minTicks: Math.min(count, 4),
+      }).map(item => item.value);
     }
 
     function render() {
@@ -4114,6 +5044,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       renderChart(rows);
       renderTable(rows);
       updateSortHeaders();
+      updateLeftPanelCardSummaries();
       refreshTooltip(rows);
     }
 
@@ -4630,12 +5561,13 @@ HTML_TEMPLATE = r"""<!doctype html>
 
     function invertScale(pixel, domain, range, logScale) {
       const ratio = (pixel - range[0]) / (range[1] - range[0]);
+      const [d0, d1] = normalizeAxisDomain(domain[0], domain[1], logScale);
       if (logScale) {
-        const d0 = Math.log10(Math.max(domain[0], 1e-9));
-        const d1 = Math.log10(Math.max(domain[1], 1e-9));
-        return Math.pow(10, d0 + ratio * (d1 - d0));
+        const s0 = axisSpaceValue(d0, true);
+        const s1 = axisSpaceValue(d1, true);
+        return valueFromAxisSpace(s0 + ratio * (s1 - s0), true);
       }
-      return domain[0] + ratio * (domain[1] - domain[0]);
+      return d0 + ratio * (d1 - d0);
     }
 
     function zoomDomainAround(domain, focalValue, factor, logScale) {
@@ -4670,7 +5602,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       const baseStart = Math.min(toSpace(baseDomain[0]), toSpace(baseDomain[1]));
       const baseEnd = Math.max(toSpace(baseDomain[0]), toSpace(baseDomain[1]));
       const baseSpan = Math.max(baseEnd - baseStart, 1e-9);
-      let span = Math.max(end - start, baseSpan / 1000);
+      let span = Math.max(end - start, baseSpan / 1_000_000, 1e-12);
       if (span >= baseSpan) return baseDomain.slice();
       const midpoint = (start + end) / 2;
       start = midpoint - span / 2;
@@ -4697,30 +5629,39 @@ HTML_TEMPLATE = r"""<!doctype html>
 
     function drawGridAndAxes(ctx) {
       const { width, height, margin, innerW, innerH, x, y, xDomain, yDomain } = ctx;
-      const xTicks = state.logX ? logTicks(...xDomain) : linearTicks(...xDomain, 7);
-      const yMaxTicks = dynamicYAxisMaxTicks(yDomain, innerH);
-      const yTicks = state.logY ? logTicks(...yDomain, yMaxTicks) : linearTicks(...yDomain, yMaxTicks);
-      const xLabelBudget = Math.max(2, Math.floor(innerW / 110));
-      const yLabelBudget = Math.max(2, Math.floor(innerH / 22));
-      const xLabelStride = Math.max(1, Math.ceil(xTicks.length / xLabelBudget));
-      const yLabelStride = Math.max(1, Math.ceil(yTicks.length / yLabelBudget));
-      const xTickLevels = classifyTickLevels(xTicks, xLabelStride, state.logX);
-      const yTickLevels = classifyTickLevels(yTicks, yLabelStride, state.logY);
+      const xTickPlan = buildAxisTickPlan(xDomain[0], xDomain[1], innerW, state.logX, {
+        gridPixelGap: state.logX ? 72 : 78,
+        labelPixelGap: 112,
+        maxTicks: state.logX ? 96 : 48,
+        minTicks: 4,
+      });
+      const yTickPlan = buildAxisTickPlan(yDomain[0], yDomain[1], innerH, state.logY, {
+        gridPixelGap: state.logY ? 58 : 54,
+        labelPixelGap: 46,
+        maxTicks: state.logY ? 96 : 48,
+        minTicks: 4,
+      });
+      const xTicks = xTickPlan.filter(item => item.label).map(item => item.value);
+      const yTicks = yTickPlan.filter(item => item.label).map(item => item.value);
       const grid = svgEl("g", { class: "grid" });
-      yTickLevels.forEach(({ tick, major }) => {
+      yTickPlan.forEach(({ value, major }) => {
+        const gy = y(value);
+        if (!Number.isFinite(gy) || gy < margin.top - 1 || gy > margin.top + innerH + 1) return;
         grid.appendChild(svgEl("line", {
           class: major ? "major-grid" : "minor-grid",
           x1: margin.left,
           x2: margin.left + innerW,
-          y1: y(tick),
-          y2: y(tick),
+          y1: gy,
+          y2: gy,
         }));
       });
-      xTickLevels.forEach(({ tick, major }) => {
+      xTickPlan.forEach(({ value, major }) => {
+        const gx = x(value);
+        if (!Number.isFinite(gx) || gx < margin.left - 1 || gx > margin.left + innerW + 1) return;
         grid.appendChild(svgEl("line", {
           class: major ? "major-grid" : "minor-grid",
-          x1: x(tick),
-          x2: x(tick),
+          x1: gx,
+          x2: gx,
           y1: margin.top,
           y2: margin.top + innerH,
         }));
@@ -4730,8 +5671,9 @@ HTML_TEMPLATE = r"""<!doctype html>
       const axis = svgEl("g", { class: "axis" });
       axis.appendChild(svgEl("line", { x1: margin.left, x2: margin.left + innerW, y1: margin.top + innerH, y2: margin.top + innerH }));
       axis.appendChild(svgEl("line", { x1: margin.left, x2: margin.left, y1: margin.top, y2: margin.top + innerH }));
-      xTickLevels.forEach(({ tick, major }) => {
-        const gx = x(tick);
+      xTickPlan.forEach(({ value, major }) => {
+        const gx = x(value);
+        if (!Number.isFinite(gx) || gx < margin.left - 1 || gx > margin.left + innerW + 1) return;
         axis.appendChild(svgEl("line", {
           class: major ? "major-tick" : "minor-tick",
           x1: gx,
@@ -4741,11 +5683,12 @@ HTML_TEMPLATE = r"""<!doctype html>
         }));
         if (!major) return;
         const text = svgEl("text", { x: gx, y: margin.top + innerH + 22, "text-anchor": "middle" });
-        text.textContent = formatResearch(tick);
+        text.textContent = formatAxisTick(value, xTicks, { compact: true });
         axis.appendChild(text);
       });
-      yTickLevels.forEach(({ tick, major }) => {
-        const gy = y(tick);
+      yTickPlan.forEach(({ value, major }) => {
+        const gy = y(value);
+        if (!Number.isFinite(gy) || gy < margin.top - 1 || gy > margin.top + innerH + 1) return;
         axis.appendChild(svgEl("line", {
           class: major ? "major-tick" : "minor-tick",
           x1: margin.left - (major ? 5 : 3),
@@ -4755,7 +5698,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         }));
         if (!major) return;
         const text = svgEl("text", { x: margin.left - 10, y: gy + 4, "text-anchor": "end" });
-        text.textContent = formatTick(tick);
+        text.textContent = formatAxisTick(value, yTicks, { compact: true });
         axis.appendChild(text);
       });
       const xTitle = svgEl("text", { class: "axis-title", x: margin.left + innerW / 2, y: height - 22, "text-anchor": "middle" });
@@ -5792,6 +6735,49 @@ HTML_TEMPLATE = r"""<!doctype html>
       return formatCompact(value, 1_000);
     }
 
+    function tickMinGap(ticks) {
+      if (!Array.isArray(ticks) || ticks.length < 2) return NaN;
+      let gap = Infinity;
+      for (let index = 1; index < ticks.length; index++) {
+        const delta = Math.abs(ticks[index] - ticks[index - 1]);
+        if (Number.isFinite(delta) && delta > 0) gap = Math.min(gap, delta);
+      }
+      return gap === Infinity ? NaN : gap;
+    }
+
+    function fractionDigitsForStep(step) {
+      if (!Number.isFinite(step) || step <= 0) return 1;
+      if (step >= 10) return 0;
+      if (step >= 1) return 1;
+      return clamp(Math.ceil(-Math.log10(step)) + 1, 0, 8);
+    }
+
+    function formatAxisTick(value, ticks, options = {}) {
+      if (!Number.isFinite(value)) return "-";
+      const compact = options.compact !== false;
+      const abs = Math.abs(value);
+      const gap = tickMinGap(ticks);
+      let scaled = value;
+      let scaledGap = gap;
+      let suffix = "";
+      if (compact && abs >= 1_000_000) {
+        scaled = value / 1_000_000;
+        scaledGap = gap / 1_000_000;
+        suffix = "M";
+      } else if (compact && abs >= 1_000) {
+        scaled = value / 1_000;
+        scaledGap = gap / 1_000;
+        suffix = "k";
+      }
+      const maximumFractionDigits = fractionDigitsForStep(Math.abs(scaledGap));
+      const text = Number(scaled).toLocaleString("en-US", {
+        maximumFractionDigits,
+        minimumFractionDigits: 0,
+        useGrouping: Math.abs(scaled) >= 1000,
+      });
+      return `${text}${suffix}`;
+    }
+
     function formatTick(value) {
       if (!Number.isFinite(value)) return "-";
       if (Math.abs(value) < 1 && value !== 0) return value.toPrecision(2);
@@ -5819,7 +6805,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       const units = [
         ["g", 1],
         ["mg", 1e3],
-        ["ug", 1e6],
+        ["µg", 1e6],
         ["ng", 1e9],
       ];
       let selected = units[units.length - 1];
@@ -5892,11 +6878,25 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
         "X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.",
         "The X axis is cumulative research including the first compatible power plant. Use it to compare total mass, TWR, thrust, and efficiency at similar research costs and decide which drive path to invest in.",
     ),
+    ("표시", "Display"),
+    ("시뮬레이션 조건", "Simulation conditions"),
+    ("필터 및 표시", "Filters and display"),
+    ("드라이브 필터", "Drive filters"),
+    ("패널 배열 초기화", "Reset panel layout"),
+    ("카드 접기", "Collapse card"),
+    ("카드 펼치기", "Expand card"),
+    ("파레토 ON", "Pareto ON"),
+    ("비현실 후보 ON", "Impractical ON"),
+    ("기본 필터", "Default filters"),
+    ("검색 있음", "Search active"),
+    ("검색 없음", "No search"),
+    ("엔진", "Engine"),
+    ("계열", "families"),
     ("세로축", "Vertical axis"),
     ("시뮬레이션(총 질량, 연료질량, TWR)", "Simulation (total mass, fuel mass, TWR)"),
     ("기본 정보(추력, 효율, 출력)", "Basic information (thrust, efficiency, power)"),
-    ("이름 검색", "Name search"),
-    ("드라이브 또는 프로젝트", "Drive or project"),
+    ("엔진/프로젝트 검색", "Engine/project search"),
+    ("드라이브 또는 프로젝트 검색", "Search drive or project"),
     ("추력 (MN)", "Thrust (MN)"),
     ("연료효율 (km/s or s)", "Fuel efficiency (km/s or s)"),
     ("연료효율 (km/s)", "Fuel efficiency (km/s)"),
@@ -5946,7 +6946,10 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("개방 연구력:", "Unlock research:"),
     ("추진기 연구:", "Drive research:"),
     ("최소 TWR", "Minimum TWR"),
+    ("최소 dV", "Minimum dV"),
+    ("최소 dV (km/s)", "Minimum dV (km/s)"),
     ("표시: TWR >= 0.0001 g", "Showing: TWR >= 0.0001 g"),
+    ("표시: dV >= 0 km/s", "Showing: dV >= 0 km/s"),
     ("기준 없음", "No minimum threshold"),
     ("점 밝기: TWR 높을수록 밝음", "Point brightness: brighter means higher TWR"),
     ("점 밝기: 총질량 낮을수록 밝음", "Point brightness: brighter means lower total mass"),
