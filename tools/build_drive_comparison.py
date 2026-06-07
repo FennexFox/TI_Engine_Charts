@@ -1110,7 +1110,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       align-items: center;
       justify-content: center;
     }
-    select, input[type="number"] {
+    select, input[type="number"], textarea {
       width: 100%;
       min-height: 36px;
       border: 1px solid var(--strong-line);
@@ -1120,10 +1120,14 @@ HTML_TEMPLATE = r"""<!doctype html>
       color: var(--ink);
       font: inherit;
     }
-    select:focus-visible, input[type="number"]:focus-visible {
+    select:focus-visible, input[type="number"]:focus-visible, textarea:focus-visible {
       border-color: var(--accent);
       outline: 2px solid rgba(20, 184, 166, 0.18);
       outline-offset: 1px;
+    }
+    textarea {
+      resize: vertical;
+      line-height: 1.35;
     }
     input[type="range"] {
       width: 100%;
@@ -1399,6 +1403,41 @@ HTML_TEMPLATE = r"""<!doctype html>
       gap: 8px;
       flex-wrap: wrap;
       width: 100%;
+    }
+    .preset-manager {
+      display: grid;
+      gap: 7px;
+      width: 100%;
+      max-width: 900px;
+      font-size: 12px;
+    }
+    .preset-library-row {
+      display: grid;
+      grid-template-columns: minmax(190px, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+    }
+    .preset-library-label {
+      color: var(--muted);
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .preset-button-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+    .preset-button-row .compact-command {
+      white-space: nowrap;
+    }
+    .preset-divider {
+      align-self: stretch;
+      width: 1px;
+      min-height: 22px;
+      background: var(--line);
     }
     .preset-status {
       color: var(--muted);
@@ -1702,6 +1741,12 @@ HTML_TEMPLATE = r"""<!doctype html>
       border-radius: 999px;
       padding: 3px 8px;
       background: #151917;
+    }
+    .calc-notes {
+      min-height: 70px;
+    }
+    .dry-mass-preset-panel {
+      gap: 8px;
     }
     .modal-footer {
       display: flex;
@@ -2195,6 +2240,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       .chart-body { grid-template-columns: 1fr; }
       .summary-strip { flex-direction: column; }
       .summary-controls { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+      .preset-library-row { grid-template-columns: 1fr; }
       .calculator-grid { grid-template-columns: 1fr; }
       #dryMassCalcArmor,
       #dryMassCalcWeapons { grid-template-columns: 1fr; }
@@ -2427,6 +2473,28 @@ HTML_TEMPLATE = r"""<!doctype html>
             <button id="presetImport" class="compact-command" type="button">설정 Import</button>
             <span id="presetStatus" class="preset-status" aria-live="polite"></span>
           </div>
+          <div id="presetLibrary" class="preset-manager" aria-label="차트 프리셋 라이브러리">
+            <div class="preset-button-row">
+              <span id="chartPresetLibraryLabel" class="preset-library-label">차트 프리셋</span>
+              <button id="chartPresetSave" class="compact-command" type="button">현재 저장</button>
+              <button id="chartPresetReset" class="compact-command" type="button">기본값</button>
+            </div>
+            <div class="preset-library-row">
+              <select id="chartPresetSelect" aria-label="차트 프리셋"></select>
+              <div class="preset-button-row">
+                <button id="chartPresetLoad" class="compact-command" type="button">불러오기</button>
+                <button id="chartPresetRename" class="compact-command" type="button">이름 변경</button>
+                <button id="chartPresetDuplicate" class="compact-command" type="button">복제</button>
+                <button id="chartPresetDelete" class="compact-command" type="button">삭제</button>
+                <span class="preset-divider" aria-hidden="true"></span>
+                <button id="chartPresetSetStartup" class="compact-command" type="button">시작 프리셋</button>
+                <button id="chartPresetClearStartup" class="compact-command" type="button">시작 해제</button>
+                <span class="preset-divider" aria-hidden="true"></span>
+                <button id="chartPresetExportSelected" class="compact-command" type="button">선택 Export</button>
+                <button id="chartPresetExportAll" class="compact-command" type="button">전체 Export</button>
+              </div>
+            </div>
+          </div>
           <div><strong id="visibleCount">0</strong>개 드라이브 표시</div>
         </div>
         <div class="summary-controls">
@@ -2489,6 +2557,30 @@ HTML_TEMPLATE = r"""<!doctype html>
           <div class="label" id="dryMassCalcSlotsLabel">내부 유틸리티 모듈</div>
           <div id="dryMassCalcSlots"></div>
         </section>
+        <section class="calculator-panel calculator-panel-wide">
+          <label id="dryMassCalcNotesLabel" class="label" for="dryMassCalcNotes">메모</label>
+          <textarea id="dryMassCalcNotes" class="calc-notes" rows="3" placeholder="선박 설계 가정 메모"></textarea>
+        </section>
+        <section id="dryMassPresetLibrary" class="calculator-panel calculator-panel-wide dry-mass-preset-panel" aria-label="건조질량 프리셋 라이브러리">
+          <div class="preset-button-row">
+            <span id="dryMassPresetLibraryLabel" class="preset-library-label">건조질량 프리셋</span>
+            <button id="dryMassPresetSave" class="compact-command" type="button">현재 저장</button>
+          </div>
+          <div class="preset-library-row">
+            <select id="dryMassPresetSelect" aria-label="건조질량 프리셋"></select>
+            <div class="preset-button-row">
+              <button id="dryMassPresetLoad" class="compact-command" type="button">불러오기</button>
+              <button id="dryMassPresetRename" class="compact-command" type="button">이름 변경</button>
+              <button id="dryMassPresetDuplicate" class="compact-command" type="button">복제</button>
+              <button id="dryMassPresetDelete" class="compact-command" type="button">삭제</button>
+              <span class="preset-divider" aria-hidden="true"></span>
+              <button id="dryMassPresetExportSelected" class="compact-command" type="button">선택 Export</button>
+              <button id="dryMassPresetExportAll" class="compact-command" type="button">전체 Export</button>
+              <button id="dryMassPresetImport" class="compact-command" type="button">Import</button>
+            </div>
+          </div>
+          <span id="dryMassPresetStatus" class="preset-status" aria-live="polite"></span>
+        </section>
       </div>
       <div class="modal-footer">
         <div>
@@ -2544,6 +2636,47 @@ HTML_TEMPLATE = r"""<!doctype html>
       families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, true])),
     };
 
+    function chartDefaultState() {
+      return {
+        metric: "totalMassTons",
+        thrusters: DATA.defaults.thrusterCount,
+        fuelEfficiencyUnit: "kps",
+        dryMassTons: DATA.defaults.dryMassTons,
+        targetDvKps: DATA.defaults.targetDvKps,
+        radiatorId: DATA.defaults.radiatorId,
+        logX: false,
+        logY: true,
+        showTwrInfo: true,
+        showMassInfo: true,
+        paretoHighlight: true,
+        showImpracticalCandidates: false,
+        usePowerResearch: false,
+        minTwr: 0.0001,
+        minDvKps: 0,
+        searchTerm: "",
+        sortKey: "research",
+        sortDirection: "asc",
+        categories: Object.fromEntries(DATA.categories.map(category => [category.key, !!category.defaultVisible])),
+        families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, true])),
+      };
+    }
+
+    function resetChartStateToDefaults() {
+      Object.assign(state, chartDefaultState(), {
+        lastTooltipItems: [],
+        hoverPoints: [],
+        tooltipPinned: false,
+        pinnedTooltipItems: [],
+        dismissedTooltipKeys: new Set(),
+        hoverHitSignature: "",
+        zoom: null,
+        zoomContext: "",
+        preserveViewportOnce: false,
+        pan: null,
+      });
+      resetDryMassCalcState();
+    }
+
     function translateText(value, lang = UI_LANG) {
       let result = String(value ?? "");
       const pairs = lang === "en"
@@ -2563,6 +2696,9 @@ HTML_TEMPLATE = r"""<!doctype html>
 
     const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
     const LEFT_PANEL_DEFAULT_ORDER = ["display", "simulation", "filter", "driveFilter"];
+    const CHART_PRESET_STORAGE_KEY = "tiEngineChartNamedPresets";
+    const CHART_PRESET_STARTUP_STORAGE_KEY = "tiEngineChartStartupPresetId";
+    const DRY_MASS_PRESET_STORAGE_KEY = "tiEngineChartDryMassPresets";
     let leftPanelLayout = loadLeftPanelLayout();
 
     function normalizeLeftPanelOrder(order) {
@@ -2866,6 +3002,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
+      const nameSearch = document.getElementById("nameSearch");
       if (showTwrInfo) applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
       if (showMassInfo) applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));
       if (paretoHighlight) applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
@@ -3033,7 +3170,11 @@ HTML_TEMPLATE = r"""<!doctype html>
         hull: { armorId: DEFAULT_ARMOR_ID, points: 0 },
         nose: { armorId: DEFAULT_ARMOR_ID, points: 0 },
       },
+      notes: "",
     };
+    let chartPresetLibrary = loadChartPresetLibrary();
+    let dryMassPresetLibrary = loadDryMassPresetLibrary();
+    let startupChartPresetId = loadStartupChartPresetId();
 
     function setupControls() {
       const metric = document.getElementById("metric");
@@ -3060,6 +3201,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       const presetImport = document.getElementById("presetImport");
       const nameSearch = document.getElementById("nameSearch");
 
+      applyStartupChartPreset();
       const languageSelect = document.getElementById("uiLanguageSelect");
       if (languageSelect) {
         languageSelect.addEventListener("change", () => setLanguage(languageSelect.value));
@@ -3110,6 +3252,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         radiator.value = state.radiatorId;
       }
       enhanceSearchableSelect(radiator);
+      setupPresetLibraryControls();
 
       DATA.categories.forEach(category => {
         const label = document.createElement("label");
@@ -3313,12 +3456,8 @@ HTML_TEMPLATE = r"""<!doctype html>
         }
         try {
           const parsed = await parsePresetPayload(payload);
-          if (!applyPresetToState(parsed)) {
-            showPresetStatus(localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format."), true);
-            return;
-          }
-          syncUiFromState();
-          showPresetStatus(localText("설정을 불러왔습니다.", "Preset imported."));
+          const result = await handleImportedPresetObject(parsed, { preferredKind: "chart" });
+          showPresetStatus(result.message, !result.ok);
         } catch {
           showPresetStatus(localText("설정 문자열을 해석할 수 없습니다.", "Failed to parse preset payload."), true);
         }
@@ -3714,6 +3853,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         hull: { armorId: DEFAULT_ARMOR_ID, points: 0 },
         nose: { armorId: DEFAULT_ARMOR_ID, points: 0 },
       };
+      dryMassCalcState.notes = "";
       normalizeDryMassCalcSlots();
     }
 
@@ -3733,6 +3873,7 @@ HTML_TEMPLATE = r"""<!doctype html>
             points: selection.points,
           }];
         })),
+        notes: String(dryMassCalcState.notes || ""),
       };
     }
 
@@ -3768,6 +3909,10 @@ HTML_TEMPLATE = r"""<!doctype html>
             selection.points = Math.round(Number(rawSelection.points));
           }
         });
+      }
+
+      if (typeof rawCalculator.notes === "string") {
+        dryMassCalcState.notes = rawCalculator.notes.slice(0, 2000);
       }
 
       normalizeDryMassCalcSlots();
@@ -4105,6 +4250,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       const slotsLabel = document.getElementById("dryMassCalcSlotsLabel");
       const weaponsLabel = document.getElementById("dryMassCalcWeaponsLabel");
       const armorLabel = document.getElementById("dryMassCalcArmorLabel");
+      const notesLabel = document.getElementById("dryMassCalcNotesLabel");
+      const notes = document.getElementById("dryMassCalcNotes");
       const button = document.getElementById("dryMassCalcButton");
 
       if (button) {
@@ -4119,6 +4266,13 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (slotsLabel) slotsLabel.textContent = localText("내부 유틸리티 모듈", "Internal utility modules");
       if (weaponsLabel) weaponsLabel.textContent = localText("무장 하드포인트", "Weapon hardpoints");
       if (armorLabel) armorLabel.textContent = localText("장갑", "Armor");
+      if (notesLabel) notesLabel.textContent = localText("메모", "Notes");
+      if (notes) {
+        notes.placeholder = localText("선박 설계 가정 메모", "Ship design assumption notes");
+        if (notes.value !== String(dryMassCalcState.notes || "")) notes.value = String(dryMassCalcState.notes || "");
+      }
+      setPresetUiText();
+      renderDryMassPresetControls();
 
       if (!classSelect || !info || !slots || !weapons || !armor || !total) return;
 
@@ -4208,7 +4362,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       const reset = document.getElementById("dryMassCalcReset");
       const dryMass = document.getElementById("dryMass");
       const dryMassNumber = document.getElementById("dryMassNumber");
-      if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !reset || !dryMass || !dryMassNumber) return;
+      const notes = document.getElementById("dryMassCalcNotes");
+      if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !reset || !dryMass || !dryMassNumber || !notes) return;
 
       const openModal = () => {
         renderDryMassCalcModal();
@@ -4225,6 +4380,9 @@ HTML_TEMPLATE = r"""<!doctype html>
       reset.addEventListener("click", () => {
         resetDryMassCalcState();
         renderDryMassCalcModal();
+      });
+      notes.addEventListener("input", () => {
+        dryMassCalcState.notes = notes.value.slice(0, 2000);
       });
       modal.addEventListener("click", event => {
         if (event.target === modal) closeModal();
@@ -4290,6 +4448,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       });
 
       normalizeDryMassCalcSlots();
+      setupDryMassPresetControls();
       renderDryMassCalcModal();
     }
 
@@ -4314,15 +4473,718 @@ HTML_TEMPLATE = r"""<!doctype html>
       element.title = text;
     }
 
+    function cloneJson(value) {
+      const text = JSON.stringify(value);
+      return text ? JSON.parse(text) : null;
+    }
+
+    function storageReadJson(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function storageWriteJson(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function uniquePresetId(prefix) {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return `${prefix}-${window.crypto.randomUUID()}`;
+      }
+      return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function sanitizePresetName(value, fallback = "Preset") {
+      const name = String(value || "").trim();
+      return name || fallback;
+    }
+
+    function uniquePresetName(baseName, library, ignoreId = "") {
+      const base = sanitizePresetName(baseName, "Preset");
+      let candidate = base;
+      let suffix = 2;
+      while (library.some(item => item.id !== ignoreId && item.name === candidate)) {
+        candidate = `${base} (${suffix})`;
+        suffix += 1;
+      }
+      return candidate;
+    }
+
+    function presetTimestamp() {
+      return new Date().toISOString();
+    }
+
+    function normalizeChartPresetEntry(rawEntry, fallbackName = "Chart preset") {
+      if (!rawEntry || typeof rawEntry !== "object") return null;
+      const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
+      const settings = source.settings && typeof source.settings === "object" ? source.settings : source;
+      if (!settings || typeof settings !== "object") return null;
+      const now = presetTimestamp();
+      return {
+        id: typeof source.id === "string" && source.id.trim() ? source.id : uniquePresetId("chart"),
+        name: sanitizePresetName(source.name, fallbackName),
+        settings: cloneJson(settings),
+        createdAt: typeof source.createdAt === "string" ? source.createdAt : now,
+        updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : now,
+      };
+    }
+
+    function normalizeDryMassPresetEntry(rawEntry, fallbackName = "Dry-mass preset") {
+      if (!rawEntry || typeof rawEntry !== "object") return null;
+      const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
+      const calculator = source.calculator && typeof source.calculator === "object"
+        ? source.calculator
+        : source.settings && typeof source.settings === "object"
+          ? source.settings
+          : source.dryMassCalculator && typeof source.dryMassCalculator === "object"
+            ? source.dryMassCalculator
+            : source.dryMassCalc && typeof source.dryMassCalc === "object"
+              ? source.dryMassCalc
+              : source;
+      if (!calculator || typeof calculator !== "object") return null;
+      const now = presetTimestamp();
+      return {
+        id: typeof source.id === "string" && source.id.trim() ? source.id : uniquePresetId("drymass"),
+        name: sanitizePresetName(source.name, fallbackName),
+        calculator: cloneJson(calculator),
+        createdAt: typeof source.createdAt === "string" ? source.createdAt : now,
+        updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : now,
+      };
+    }
+
+    function dedupePresetEntries(entries) {
+      const seen = new Set();
+      return entries.filter(entry => {
+        if (!entry || seen.has(entry.id)) return false;
+        seen.add(entry.id);
+        return true;
+      });
+    }
+
+    function loadChartPresetLibrary() {
+      const raw = storageReadJson(CHART_PRESET_STORAGE_KEY);
+      const presets = Array.isArray(raw) ? raw : (Array.isArray(raw?.presets) ? raw.presets : []);
+      return dedupePresetEntries(presets.map(item => normalizeChartPresetEntry(item)).filter(Boolean));
+    }
+
+    function loadDryMassPresetLibrary() {
+      const raw = storageReadJson(DRY_MASS_PRESET_STORAGE_KEY);
+      const presets = Array.isArray(raw) ? raw : (Array.isArray(raw?.presets) ? raw.presets : []);
+      return dedupePresetEntries(presets.map(item => normalizeDryMassPresetEntry(item)).filter(Boolean));
+    }
+
+    function loadStartupChartPresetId() {
+      try {
+        return localStorage.getItem(CHART_PRESET_STARTUP_STORAGE_KEY) || "";
+      } catch {
+        return "";
+      }
+    }
+
+    function saveChartPresetLibrary() {
+      return storageWriteJson(CHART_PRESET_STORAGE_KEY, {
+        format: "ti-engine-chart-preset-library/v1",
+        presets: chartPresetLibrary,
+      });
+    }
+
+    function saveDryMassPresetLibrary() {
+      return storageWriteJson(DRY_MASS_PRESET_STORAGE_KEY, {
+        format: "ti-engine-chart-dry-mass-preset-library/v1",
+        presets: dryMassPresetLibrary,
+      });
+    }
+
+    function chartPresetExportObject(entry) {
+      return {
+        format: "ti-engine-chart-named-preset/v1",
+        id: entry.id,
+        name: entry.name,
+        settings: cloneJson(entry.settings),
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt,
+      };
+    }
+
+    function chartPresetLibraryExportObject() {
+      return {
+        format: "ti-engine-chart-preset-library/v1",
+        presets: chartPresetLibrary.map(chartPresetExportObject),
+        startupPresetId: startupChartPresetId || null,
+      };
+    }
+
+    function dryMassPresetExportObject(entry) {
+      return {
+        format: "ti-engine-chart-dry-mass-preset/v1",
+        id: entry.id,
+        name: entry.name,
+        calculator: cloneJson(entry.calculator),
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt,
+      };
+    }
+
+    function dryMassPresetLibraryExportObject() {
+      return {
+        format: "ti-engine-chart-dry-mass-preset-library/v1",
+        presets: dryMassPresetLibrary.map(dryMassPresetExportObject),
+      };
+    }
+
+    function setStartupChartPreset(id) {
+      startupChartPresetId = id || "";
+      try {
+        if (startupChartPresetId) {
+          localStorage.setItem(CHART_PRESET_STARTUP_STORAGE_KEY, startupChartPresetId);
+        } else {
+          localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function selectedChartPresetEntry() {
+      const select = document.getElementById("chartPresetSelect");
+      return chartPresetLibrary.find(item => item.id === (select && select.value)) || null;
+    }
+
+    function selectedDryMassPresetEntry() {
+      const select = document.getElementById("dryMassPresetSelect");
+      return dryMassPresetLibrary.find(item => item.id === (select && select.value)) || null;
+    }
+
+    function applyStartupChartPreset() {
+      if (!startupChartPresetId) return false;
+      const entry = chartPresetLibrary.find(item => item.id === startupChartPresetId);
+      if (!entry) {
+        setStartupChartPreset("");
+        return false;
+      }
+      return applyPresetToState(entry.settings);
+    }
+
+    function setDisabled(id, disabled) {
+      const button = document.getElementById(id);
+      if (button) button.disabled = !!disabled;
+    }
+
+    function renderChartPresetControls(preferredId = "") {
+      const select = document.getElementById("chartPresetSelect");
+      if (!select) return;
+      const selectedId = preferredId || select.value;
+      const hasPresets = chartPresetLibrary.length > 0;
+      if (startupChartPresetId && !chartPresetLibrary.some(item => item.id === startupChartPresetId)) {
+        setStartupChartPreset("");
+      }
+      select.innerHTML = "";
+      if (!hasPresets) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = localText("저장된 차트 프리셋 없음", "No saved chart presets");
+        select.appendChild(option);
+      } else {
+        chartPresetLibrary.forEach(entry => {
+          const option = document.createElement("option");
+          option.value = entry.id;
+          option.textContent = entry.id === startupChartPresetId
+            ? `${entry.name} ${localText("(시작)", "(startup)")}`
+            : entry.name;
+          select.appendChild(option);
+        });
+        select.value = chartPresetLibrary.some(item => item.id === selectedId)
+          ? selectedId
+          : chartPresetLibrary[0].id;
+      }
+      select.disabled = !hasPresets;
+      [
+        "chartPresetLoad",
+        "chartPresetRename",
+        "chartPresetDuplicate",
+        "chartPresetDelete",
+        "chartPresetSetStartup",
+        "chartPresetExportSelected",
+      ].forEach(id => setDisabled(id, !hasPresets));
+      setDisabled("chartPresetClearStartup", !startupChartPresetId);
+      setDisabled("chartPresetExportAll", !hasPresets);
+    }
+
+    function renderDryMassPresetControls(preferredId = "") {
+      const select = document.getElementById("dryMassPresetSelect");
+      if (!select) return;
+      const selectedId = preferredId || select.value;
+      const hasPresets = dryMassPresetLibrary.length > 0;
+      select.innerHTML = "";
+      if (!hasPresets) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = localText("저장된 건조질량 프리셋 없음", "No saved dry-mass presets");
+        select.appendChild(option);
+      } else {
+        dryMassPresetLibrary.forEach(entry => {
+          const option = document.createElement("option");
+          option.value = entry.id;
+          option.textContent = entry.name;
+          select.appendChild(option);
+        });
+        select.value = dryMassPresetLibrary.some(item => item.id === selectedId)
+          ? selectedId
+          : dryMassPresetLibrary[0].id;
+      }
+      select.disabled = !hasPresets;
+      [
+        "dryMassPresetLoad",
+        "dryMassPresetRename",
+        "dryMassPresetDuplicate",
+        "dryMassPresetDelete",
+        "dryMassPresetExportSelected",
+      ].forEach(id => setDisabled(id, !hasPresets));
+      setDisabled("dryMassPresetExportAll", !hasPresets);
+    }
+
+    function renderPresetLibraryControls() {
+      renderChartPresetControls();
+      renderDryMassPresetControls();
+    }
+
+    function promptPresetName(message, defaultName, statusFn) {
+      const name = window.prompt(message, defaultName || "");
+      if (name === null) return null;
+      const clean = sanitizePresetName(name, "");
+      if (!clean) {
+        statusFn(localText("프리셋 이름이 필요합니다.", "Preset name is required."), true);
+        return null;
+      }
+      return clean;
+    }
+
+    function saveChartPresetFromSettings(name, settings, existingId = "") {
+      const now = presetTimestamp();
+      const existing = chartPresetLibrary.find(item => item.id === existingId);
+      const entry = {
+        id: existing ? existing.id : uniquePresetId("chart"),
+        name: uniquePresetName(name, chartPresetLibrary, existing ? existing.id : ""),
+        settings: cloneJson(settings),
+        createdAt: existing ? existing.createdAt : now,
+        updatedAt: now,
+      };
+      if (existing) {
+        chartPresetLibrary = chartPresetLibrary.map(item => item.id === existing.id ? entry : item);
+      } else {
+        chartPresetLibrary = [...chartPresetLibrary, entry];
+      }
+      if (!saveChartPresetLibrary()) return null;
+      renderChartPresetControls(entry.id);
+      return entry;
+    }
+
+    function saveDryMassPresetFromCalculator(name, calculator, existingId = "") {
+      const now = presetTimestamp();
+      const existing = dryMassPresetLibrary.find(item => item.id === existingId);
+      const entry = {
+        id: existing ? existing.id : uniquePresetId("drymass"),
+        name: uniquePresetName(name, dryMassPresetLibrary, existing ? existing.id : ""),
+        calculator: cloneJson(calculator),
+        createdAt: existing ? existing.createdAt : now,
+        updatedAt: now,
+      };
+      if (existing) {
+        dryMassPresetLibrary = dryMassPresetLibrary.map(item => item.id === existing.id ? entry : item);
+      } else {
+        dryMassPresetLibrary = [...dryMassPresetLibrary, entry];
+      }
+      if (!saveDryMassPresetLibrary()) return null;
+      renderDryMassPresetControls(entry.id);
+      return entry;
+    }
+
+    function mergeChartPresetEntries(entries) {
+      let changed = 0;
+      entries.map((entry, index) => normalizeChartPresetEntry(entry, `Imported chart preset ${index + 1}`))
+        .filter(Boolean)
+        .forEach(entry => {
+          const idIndex = chartPresetLibrary.findIndex(item => item.id === entry.id);
+          if (idIndex >= 0) {
+            chartPresetLibrary[idIndex] = { ...entry, name: uniquePresetName(entry.name, chartPresetLibrary, entry.id) };
+          } else {
+            chartPresetLibrary.push({ ...entry, name: uniquePresetName(entry.name, chartPresetLibrary) });
+          }
+          changed += 1;
+        });
+      if (!changed) return 0;
+      saveChartPresetLibrary();
+      renderChartPresetControls();
+      return changed;
+    }
+
+    function mergeDryMassPresetEntries(entries) {
+      let changed = 0;
+      entries.map((entry, index) => normalizeDryMassPresetEntry(entry, `Imported dry-mass preset ${index + 1}`))
+        .filter(Boolean)
+        .forEach(entry => {
+          const idIndex = dryMassPresetLibrary.findIndex(item => item.id === entry.id);
+          if (idIndex >= 0) {
+            dryMassPresetLibrary[idIndex] = { ...entry, name: uniquePresetName(entry.name, dryMassPresetLibrary, entry.id) };
+          } else {
+            dryMassPresetLibrary.push({ ...entry, name: uniquePresetName(entry.name, dryMassPresetLibrary) });
+          }
+          changed += 1;
+        });
+      if (!changed) return 0;
+      saveDryMassPresetLibrary();
+      renderDryMassPresetControls();
+      return changed;
+    }
+
+    function extractChartSettingsFromImport(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      if (raw.format === "ti-engine-chart-named-preset/v1" && raw.settings && typeof raw.settings === "object") {
+        return raw.settings;
+      }
+      if (raw.settings && typeof raw.settings === "object") {
+        return raw.settings;
+      }
+      const hasChartField = [
+        "metric",
+        "thrusters",
+        "dryMassTons",
+        "targetDvKps",
+        "radiatorId",
+        "categories",
+        "families",
+        "dryMassCalculator",
+        "dryMassCalc",
+      ].some(key => Object.prototype.hasOwnProperty.call(raw, key));
+      return hasChartField ? raw : null;
+    }
+
+    function extractDryMassCalculatorFromImport(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      if (raw.format === "ti-engine-chart-dry-mass-preset/v1" && raw.calculator && typeof raw.calculator === "object") {
+        return raw.calculator;
+      }
+      const calculator = raw.calculator || raw.dryMassCalculator || raw.dryMassCalc;
+      if (calculator && typeof calculator === "object") return calculator;
+      const hasCalculatorField = ["classId", "slotModules", "weaponModules", "armor", "notes"]
+        .some(key => Object.prototype.hasOwnProperty.call(raw, key));
+      return hasCalculatorField ? raw : null;
+    }
+
+    async function handleImportedPresetObject(raw, { preferredKind = "chart", promptToSaveCurrent = true } = {}) {
+      if (!raw || typeof raw !== "object") {
+        return { ok: false, message: localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format.") };
+      }
+
+      if (raw.format === "ti-engine-chart-preset-library/v1" && Array.isArray(raw.presets)) {
+        const count = mergeChartPresetEntries(raw.presets);
+        if (typeof raw.startupPresetId === "string" && chartPresetLibrary.some(item => item.id === raw.startupPresetId)) {
+          setStartupChartPreset(raw.startupPresetId);
+          renderChartPresetControls(raw.startupPresetId);
+        }
+        return { ok: count > 0, message: count > 0
+          ? localText(`차트 프리셋 ${count}개를 가져왔습니다.`, `Imported ${count} chart presets.`)
+          : localText("가져올 차트 프리셋이 없습니다.", "No chart presets to import.") };
+      }
+
+      if (raw.format === "ti-engine-chart-dry-mass-preset-library/v1" && Array.isArray(raw.presets)) {
+        const count = mergeDryMassPresetEntries(raw.presets);
+        return { ok: count > 0, message: count > 0
+          ? localText(`건조질량 프리셋 ${count}개를 가져왔습니다.`, `Imported ${count} dry-mass presets.`)
+          : localText("가져올 건조질량 프리셋이 없습니다.", "No dry-mass presets to import.") };
+      }
+
+      if (raw.format === "ti-engine-chart-named-preset/v1") {
+        const entry = normalizeChartPresetEntry(raw, raw.name || "Imported chart preset");
+        const count = entry ? mergeChartPresetEntries([entry]) : 0;
+        return { ok: count > 0, message: count > 0
+          ? localText("차트 프리셋을 라이브러리에 추가했습니다.", "Chart preset added to the library.")
+          : localText("차트 프리셋을 가져오지 못했습니다.", "Failed to import chart preset.") };
+      }
+
+      if (raw.format === "ti-engine-chart-dry-mass-preset/v1") {
+        const entry = normalizeDryMassPresetEntry(raw, raw.name || "Imported dry-mass preset");
+        const count = entry ? mergeDryMassPresetEntries([entry]) : 0;
+        return { ok: count > 0, message: count > 0
+          ? localText("건조질량 프리셋을 라이브러리에 추가했습니다.", "Dry-mass preset added to the library.")
+          : localText("건조질량 프리셋을 가져오지 못했습니다.", "Failed to import dry-mass preset.") };
+      }
+
+      if (preferredKind === "dryMass") {
+        const calculator = extractDryMassCalculatorFromImport(raw);
+        if (calculator && applyDryMassCalculatorPreset(calculator)) {
+          renderDryMassCalcModal();
+          if (promptToSaveCurrent && window.confirm(localText("가져온 계산기 설정을 이름 있는 프리셋으로 저장할까요?", "Save imported calculator settings as a named preset?"))) {
+            const name = promptPresetName(
+              localText("건조질량 프리셋 이름", "Dry-mass preset name"),
+              raw.name || localText("가져온 건조질량 프리셋", "Imported dry-mass preset"),
+              showDryMassPresetStatus,
+            );
+            if (name) saveDryMassPresetFromCalculator(name, exportedDryMassCalculatorPreset());
+          }
+          return { ok: true, message: localText("건조질량 설정을 불러왔습니다.", "Dry-mass settings imported.") };
+        }
+      }
+
+      const chartSettings = extractChartSettingsFromImport(raw);
+      if (chartSettings && applyPresetToState(chartSettings)) {
+        syncUiFromState();
+        if (promptToSaveCurrent && window.confirm(localText("가져온 설정을 이름 있는 차트 프리셋으로 저장할까요?", "Save imported settings as a named chart preset?"))) {
+          const name = promptPresetName(
+            localText("차트 프리셋 이름", "Chart preset name"),
+            raw.name || localText("가져온 차트 프리셋", "Imported chart preset"),
+            showPresetStatus,
+          );
+          if (name) saveChartPresetFromSettings(name, exportedPreset());
+        }
+        return { ok: true, message: localText("설정을 불러왔습니다.", "Preset imported.") };
+      }
+
+      const calculator = extractDryMassCalculatorFromImport(raw);
+      if (calculator && applyDryMassCalculatorPreset(calculator)) {
+        renderDryMassCalcModal();
+        return { ok: true, message: localText("건조질량 설정을 불러왔습니다.", "Dry-mass settings imported.") };
+      }
+
+      return { ok: false, message: localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format.") };
+    }
+
+    async function serializePayloadObject(object) {
+      const jsonText = JSON.stringify(object);
+      const sourceBytes = new TextEncoder().encode(jsonText);
+      const gzipped = await gzipBytes(sourceBytes);
+      if (gzipped) return `ticp1:${bytesToBase64(gzipped)}`;
+      return `tijp1:${bytesToBase64(sourceBytes)}`;
+    }
+
+    async function copySerializedObject(object, successText, failureText, statusFn = showPresetStatus) {
+      try {
+        const payload = await serializePayloadObject(object);
+        const copied = await copyToClipboard(payload);
+        statusFn(copied ? successText : failureText, !copied);
+      } catch {
+        statusFn(failureText, true);
+      }
+    }
+
+    function setupPresetLibraryControls() {
+      renderChartPresetControls();
+      document.getElementById("chartPresetSave")?.addEventListener("click", () => {
+        const name = promptPresetName(
+          localText("차트 프리셋 이름", "Chart preset name"),
+          "",
+          showPresetStatus,
+        );
+        if (!name) return;
+        const saved = saveChartPresetFromSettings(name, exportedPreset());
+        showPresetStatus(saved
+          ? localText("차트 프리셋을 저장했습니다.", "Chart preset saved.")
+          : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+      });
+      document.getElementById("chartPresetLoad")?.addEventListener("click", () => {
+        const entry = selectedChartPresetEntry();
+        if (!entry) return showPresetStatus(localText("불러올 차트 프리셋이 없습니다.", "No chart preset selected."), true);
+        if (!applyPresetToState(entry.settings)) return showPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
+        syncUiFromState();
+        showPresetStatus(localText("차트 프리셋을 불러왔습니다.", "Chart preset loaded."));
+      });
+      document.getElementById("chartPresetRename")?.addEventListener("click", () => {
+        const entry = selectedChartPresetEntry();
+        if (!entry) return;
+        const name = promptPresetName(localText("새 차트 프리셋 이름", "New chart preset name"), entry.name, showPresetStatus);
+        if (!name) return;
+        entry.name = uniquePresetName(name, chartPresetLibrary, entry.id);
+        entry.updatedAt = presetTimestamp();
+        const saved = saveChartPresetLibrary();
+        renderChartPresetControls(entry.id);
+        showPresetStatus(saved ? localText("프리셋 이름을 변경했습니다.", "Preset renamed.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+      });
+      document.getElementById("chartPresetDuplicate")?.addEventListener("click", () => {
+        const entry = selectedChartPresetEntry();
+        if (!entry) return;
+        const name = promptPresetName(localText("복제할 차트 프리셋 이름", "Duplicate chart preset name"), `${entry.name} copy`, showPresetStatus);
+        if (!name) return;
+        const saved = saveChartPresetFromSettings(name, entry.settings);
+        showPresetStatus(saved ? localText("차트 프리셋을 복제했습니다.", "Chart preset duplicated.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+      });
+      document.getElementById("chartPresetDelete")?.addEventListener("click", () => {
+        const entry = selectedChartPresetEntry();
+        if (!entry || !window.confirm(localText("선택한 차트 프리셋을 삭제할까요?", "Delete the selected chart preset?"))) return;
+        chartPresetLibrary = chartPresetLibrary.filter(item => item.id !== entry.id);
+        if (startupChartPresetId === entry.id) setStartupChartPreset("");
+        const saved = saveChartPresetLibrary();
+        renderChartPresetControls();
+        showPresetStatus(saved ? localText("차트 프리셋을 삭제했습니다.", "Chart preset deleted.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+      });
+      document.getElementById("chartPresetSetStartup")?.addEventListener("click", () => {
+        const entry = selectedChartPresetEntry();
+        if (!entry) return;
+        const saved = setStartupChartPreset(entry.id);
+        renderChartPresetControls(entry.id);
+        showPresetStatus(saved ? localText("시작 프리셋을 설정했습니다.", "Startup preset set.") : localText("시작 프리셋 저장에 실패했습니다.", "Failed to save startup preset."), !saved);
+      });
+      document.getElementById("chartPresetClearStartup")?.addEventListener("click", () => {
+        const saved = setStartupChartPreset("");
+        renderChartPresetControls();
+        showPresetStatus(saved ? localText("시작 프리셋을 해제했습니다.", "Startup preset cleared.") : localText("시작 프리셋 저장에 실패했습니다.", "Failed to save startup preset."), !saved);
+      });
+      document.getElementById("chartPresetReset")?.addEventListener("click", () => {
+        resetChartStateToDefaults();
+        syncUiFromState();
+        showPresetStatus(localText("기본 설정으로 되돌렸습니다.", "Default settings restored."));
+      });
+      document.getElementById("chartPresetExportSelected")?.addEventListener("click", async () => {
+        const entry = selectedChartPresetEntry();
+        if (!entry) return showPresetStatus(localText("내보낼 차트 프리셋이 없습니다.", "No chart preset selected."), true);
+        await copySerializedObject(
+          chartPresetExportObject(entry),
+          localText("선택한 차트 프리셋을 클립보드에 복사했습니다.", "Selected chart preset copied to clipboard."),
+          localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
+        );
+      });
+      document.getElementById("chartPresetExportAll")?.addEventListener("click", async () => {
+        if (!chartPresetLibrary.length) return showPresetStatus(localText("내보낼 차트 프리셋이 없습니다.", "No chart presets to export."), true);
+        await copySerializedObject(
+          chartPresetLibraryExportObject(),
+          localText("차트 프리셋 라이브러리를 클립보드에 복사했습니다.", "Chart preset library copied to clipboard."),
+          localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
+        );
+      });
+    }
+
+    function setupDryMassPresetControls() {
+      renderDryMassPresetControls();
+      document.getElementById("dryMassPresetSave")?.addEventListener("click", () => {
+        const name = promptPresetName(
+          localText("건조질량 프리셋 이름", "Dry-mass preset name"),
+          "",
+          showDryMassPresetStatus,
+        );
+        if (!name) return;
+        const saved = saveDryMassPresetFromCalculator(name, exportedDryMassCalculatorPreset());
+        showDryMassPresetStatus(saved
+          ? localText("건조질량 프리셋을 저장했습니다.", "Dry-mass preset saved.")
+          : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+      });
+      document.getElementById("dryMassPresetLoad")?.addEventListener("click", () => {
+        const entry = selectedDryMassPresetEntry();
+        if (!entry) return showDryMassPresetStatus(localText("불러올 건조질량 프리셋이 없습니다.", "No dry-mass preset selected."), true);
+        if (!applyDryMassCalculatorPreset(entry.calculator)) return showDryMassPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
+        renderDryMassCalcModal();
+        showDryMassPresetStatus(localText("건조질량 프리셋을 불러왔습니다. 건조질량에 적용 버튼으로 차트에 반영하세요.", "Dry-mass preset loaded. Use Apply to dry mass to update the chart."));
+      });
+      document.getElementById("dryMassPresetRename")?.addEventListener("click", () => {
+        const entry = selectedDryMassPresetEntry();
+        if (!entry) return;
+        const name = promptPresetName(localText("새 건조질량 프리셋 이름", "New dry-mass preset name"), entry.name, showDryMassPresetStatus);
+        if (!name) return;
+        entry.name = uniquePresetName(name, dryMassPresetLibrary, entry.id);
+        entry.updatedAt = presetTimestamp();
+        const saved = saveDryMassPresetLibrary();
+        renderDryMassPresetControls(entry.id);
+        showDryMassPresetStatus(saved ? localText("프리셋 이름을 변경했습니다.", "Preset renamed.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+      });
+      document.getElementById("dryMassPresetDuplicate")?.addEventListener("click", () => {
+        const entry = selectedDryMassPresetEntry();
+        if (!entry) return;
+        const name = promptPresetName(localText("복제할 건조질량 프리셋 이름", "Duplicate dry-mass preset name"), `${entry.name} copy`, showDryMassPresetStatus);
+        if (!name) return;
+        const saved = saveDryMassPresetFromCalculator(name, entry.calculator);
+        showDryMassPresetStatus(saved ? localText("건조질량 프리셋을 복제했습니다.", "Dry-mass preset duplicated.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+      });
+      document.getElementById("dryMassPresetDelete")?.addEventListener("click", () => {
+        const entry = selectedDryMassPresetEntry();
+        if (!entry || !window.confirm(localText("선택한 건조질량 프리셋을 삭제할까요?", "Delete the selected dry-mass preset?"))) return;
+        dryMassPresetLibrary = dryMassPresetLibrary.filter(item => item.id !== entry.id);
+        const saved = saveDryMassPresetLibrary();
+        renderDryMassPresetControls();
+        showDryMassPresetStatus(saved ? localText("건조질량 프리셋을 삭제했습니다.", "Dry-mass preset deleted.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+      });
+      document.getElementById("dryMassPresetExportSelected")?.addEventListener("click", async () => {
+        const entry = selectedDryMassPresetEntry();
+        if (!entry) return showDryMassPresetStatus(localText("내보낼 건조질량 프리셋이 없습니다.", "No dry-mass preset selected."), true);
+        await copySerializedObject(
+          dryMassPresetExportObject(entry),
+          localText("선택한 건조질량 프리셋을 클립보드에 복사했습니다.", "Selected dry-mass preset copied to clipboard."),
+          localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
+          showDryMassPresetStatus,
+        );
+      });
+      document.getElementById("dryMassPresetExportAll")?.addEventListener("click", async () => {
+        if (!dryMassPresetLibrary.length) return showDryMassPresetStatus(localText("내보낼 건조질량 프리셋이 없습니다.", "No dry-mass presets to export."), true);
+        await copySerializedObject(
+          dryMassPresetLibraryExportObject(),
+          localText("건조질량 프리셋 라이브러리를 클립보드에 복사했습니다.", "Dry-mass preset library copied to clipboard."),
+          localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
+          showDryMassPresetStatus,
+        );
+      });
+      document.getElementById("dryMassPresetImport")?.addEventListener("click", async () => {
+        const clip = (await readFromClipboard()).trim();
+        const payload = window.prompt(localText("건조질량 프리셋 문자열을 붙여넣으세요", "Paste dry-mass preset string"), clip || "");
+        if (payload === null) return showDryMassPresetStatus(localText("가져오기를 취소했습니다.", "Preset import canceled."));
+        if (!payload.trim()) return showDryMassPresetStatus(localText("가져올 설정 문자열이 없습니다.", "No preset string to import."), true);
+        try {
+          const result = await handleImportedPresetObject(await parsePresetPayload(payload), { preferredKind: "dryMass" });
+          showDryMassPresetStatus(result.message, !result.ok);
+        } catch {
+          showDryMassPresetStatus(localText("설정 문자열을 해석할 수 없습니다.", "Failed to parse preset payload."), true);
+        }
+      });
+    }
+
+    function setTextById(id, ko, en) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = localText(ko, en);
+    }
+
     function setPresetUiText() {
       const exportButton = document.getElementById("presetExport");
       const importButton = document.getElementById("presetImport");
       if (exportButton) exportButton.textContent = localText("설정 Export", "Export Preset");
       if (importButton) importButton.textContent = localText("설정 Import", "Import Preset");
+      setTextById("chartPresetLibraryLabel", "차트 프리셋", "Chart presets");
+      setTextById("chartPresetSave", "현재 저장", "Save Current");
+      setTextById("chartPresetLoad", "불러오기", "Load");
+      setTextById("chartPresetRename", "이름 변경", "Rename");
+      setTextById("chartPresetDuplicate", "복제", "Duplicate");
+      setTextById("chartPresetDelete", "삭제", "Delete");
+      setTextById("chartPresetSetStartup", "시작 프리셋", "Set Startup");
+      setTextById("chartPresetClearStartup", "시작 해제", "Clear Startup");
+      setTextById("chartPresetReset", "기본값", "Defaults");
+      setTextById("chartPresetExportSelected", "선택 Export", "Export Selected");
+      setTextById("chartPresetExportAll", "전체 Export", "Export Library");
+      setTextById("dryMassPresetLibraryLabel", "건조질량 프리셋", "Dry-mass presets");
+      setTextById("dryMassPresetSave", "현재 저장", "Save Current");
+      setTextById("dryMassPresetLoad", "불러오기", "Load");
+      setTextById("dryMassPresetRename", "이름 변경", "Rename");
+      setTextById("dryMassPresetDuplicate", "복제", "Duplicate");
+      setTextById("dryMassPresetDelete", "삭제", "Delete");
+      setTextById("dryMassPresetExportSelected", "선택 Export", "Export Selected");
+      setTextById("dryMassPresetExportAll", "전체 Export", "Export Library");
+      setTextById("dryMassPresetImport", "Import", "Import");
+      renderPresetLibraryControls();
     }
 
     function showPresetStatus(message, isError = false) {
       const status = document.getElementById("presetStatus");
+      if (!status) return;
+      status.textContent = message || "";
+      status.classList.toggle("error", !!isError);
+    }
+
+    function showDryMassPresetStatus(message, isError = false) {
+      const status = document.getElementById("dryMassPresetStatus");
       if (!status) return;
       status.textContent = message || "";
       status.classList.toggle("error", !!isError);
@@ -4347,6 +5209,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         usePowerResearch: !!state.usePowerResearch,
         minTwr: state.minTwr,
         minDvKps: state.minDvKps,
+        searchTerm: state.searchTerm,
         categories: Object.fromEntries(DATA.categories.map(category => [category.key, !!state.categories[category.key]])),
         families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, !!state.families[family.key]])),
         dryMassCalculator: exportedDryMassCalculatorPreset(),
@@ -4413,11 +5276,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     }
 
     async function serializePresetPayload() {
-      const jsonText = JSON.stringify(exportedPreset());
-      const sourceBytes = new TextEncoder().encode(jsonText);
-      const gzipped = await gzipBytes(sourceBytes);
-      if (gzipped) return `ticp1:${bytesToBase64(gzipped)}`;
-      return `tijp1:${bytesToBase64(sourceBytes)}`;
+      return serializePayloadObject(exportedPreset());
     }
 
     async function parsePresetPayload(payloadText) {
@@ -4467,6 +5326,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (typeof preset.usePowerResearch === "boolean") state.usePowerResearch = preset.usePowerResearch;
       if (Number.isFinite(Number(preset.minTwr))) state.minTwr = clamp(Number(preset.minTwr), 0.0001, 10);
       if (Number.isFinite(Number(preset.minDvKps))) state.minDvKps = clamp(Number(preset.minDvKps), 0, 100000);
+      if (typeof preset.searchTerm === "string") state.searchTerm = preset.searchTerm.trim().toLocaleLowerCase();
 
       if (preset.categories && typeof preset.categories === "object") {
         DATA.categories.forEach(category => {
@@ -4524,6 +5384,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (showMassInfo) showMassInfo.checked = !!state.showMassInfo;
       if (paretoHighlight) paretoHighlight.checked = !!state.paretoHighlight;
       if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
+      if (nameSearch) nameSearch.value = state.searchTerm || "";
       document.querySelectorAll('input[name="fuelUnit"]').forEach(input => {
         input.checked = input.value === state.fuelEfficiencyUnit;
       });

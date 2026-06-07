@@ -130,6 +130,143 @@ async function verifyHtmlFile(browser, htmlFile) {
     presetRoundTrip.actual === presetRoundTrip.expected,
     `${htmlFile}: dry-mass calculator state did not round-trip through preset import/export`,
   );
+
+  const namedPresetRoundTrip = await page.evaluate(async () => {
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    renderPresetLibraryControls();
+
+    state.dryMassTons = 12345;
+    state.targetDvKps = 321;
+    state.thrusters = 4;
+    state.searchTerm = "alpha";
+    const chartA = saveChartPresetFromSettings("Scenario Alpha", exportedPreset());
+
+    state.dryMassTons = 67890;
+    state.targetDvKps = 654;
+    state.thrusters = 2;
+    const chartB = saveChartPresetFromSettings("Scenario Beta", exportedPreset());
+    const startupSaved = setStartupChartPreset(chartA.id);
+
+    const chartLibraryPayload = await serializePayloadObject(chartPresetLibraryExportObject());
+    const parsedChartLibrary = await parsePresetPayload(chartLibraryPayload);
+    chartPresetLibrary = [];
+    saveChartPresetLibrary();
+    const chartImport = await handleImportedPresetObject(parsedChartLibrary, { promptToSaveCurrent: false });
+    const chartCountAfterLibraryImport = chartPresetLibrary.length;
+    const startupRestored = startupChartPresetId === chartA.id;
+    const loadedChart = chartPresetLibrary.find(item => item.name === "Scenario Alpha");
+    const chartApplied = !!loadedChart && applyPresetToState(loadedChart.settings);
+
+    const chartSelectedPayload = await serializePayloadObject(chartPresetExportObject(chartB));
+    const parsedSelectedChart = await parsePresetPayload(chartSelectedPayload);
+    chartPresetLibrary = [];
+    saveChartPresetLibrary();
+    const selectedChartImport = await handleImportedPresetObject(parsedSelectedChart, { promptToSaveCurrent: false });
+
+    resetDryMassCalcState();
+    dryMassCalcState.notes = "alpha notes";
+    const dryMassA = saveDryMassPresetFromCalculator("Hull Alpha", exportedDryMassCalculatorPreset());
+    resetDryMassCalcState();
+    const dryMassApplied = !!dryMassA && applyDryMassCalculatorPreset(dryMassA.calculator);
+    const dryMassNotesRestored = dryMassCalcState.notes === "alpha notes";
+
+    const dryMassLibraryPayload = await serializePayloadObject(dryMassPresetLibraryExportObject());
+    const parsedDryMassLibrary = await parsePresetPayload(dryMassLibraryPayload);
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
+    const dryMassImport = await handleImportedPresetObject(parsedDryMassLibrary, {
+      preferredKind: "dryMass",
+      promptToSaveCurrent: false,
+    });
+    const dryMassCountAfterLibraryImport = dryMassPresetLibrary.length;
+
+    const dryMassSelectedPayload = await serializePayloadObject(dryMassPresetExportObject(dryMassPresetLibrary[0]));
+    const parsedSelectedDryMass = await parsePresetPayload(dryMassSelectedPayload);
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
+    const selectedDryMassImport = await handleImportedPresetObject(parsedSelectedDryMass, {
+      preferredKind: "dryMass",
+      promptToSaveCurrent: false,
+    });
+
+    const chartControls = [
+      "#chartPresetSave",
+      "#chartPresetLoad",
+      "#chartPresetRename",
+      "#chartPresetDuplicate",
+      "#chartPresetDelete",
+      "#chartPresetSetStartup",
+      "#chartPresetExportSelected",
+      "#chartPresetExportAll",
+    ].every(selector => !!document.querySelector(selector));
+    const dryMassControls = [
+      "#dryMassPresetSave",
+      "#dryMassPresetLoad",
+      "#dryMassPresetRename",
+      "#dryMassPresetDuplicate",
+      "#dryMassPresetDelete",
+      "#dryMassPresetExportSelected",
+      "#dryMassPresetExportAll",
+      "#dryMassPresetImport",
+    ].every(selector => !!document.querySelector(selector));
+
+    const result = {
+      chartCountAfterLibraryImport,
+      chartImportOk: chartImport.ok,
+      chartApplied,
+      chartLoadedDryMass: state.dryMassTons,
+      chartLoadedDv: state.targetDvKps,
+      chartLoadedThrusters: state.thrusters,
+      chartLoadedSearch: state.searchTerm,
+      selectedChartImportOk: selectedChartImport.ok,
+      selectedChartCount: chartPresetLibrary.length,
+      startupSaved,
+      startupRestored,
+      dryMassApplied,
+      dryMassNotesRestored,
+      dryMassImportOk: dryMassImport.ok,
+      dryMassCountAfterLibraryImport,
+      selectedDryMassImportOk: selectedDryMassImport.ok,
+      selectedDryMassCount: dryMassPresetLibrary.length,
+      chartControls,
+      dryMassControls,
+    };
+
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    syncUiFromState();
+    renderPresetLibraryControls();
+
+    return result;
+  });
+  expect(namedPresetRoundTrip.chartImportOk, `${htmlFile}: chart preset library import failed`);
+  expect(namedPresetRoundTrip.chartCountAfterLibraryImport === 2, `${htmlFile}: chart preset library did not merge two presets`);
+  expect(namedPresetRoundTrip.chartApplied, `${htmlFile}: named chart preset did not apply`);
+  expect(namedPresetRoundTrip.chartLoadedDryMass === 12345, `${htmlFile}: named chart preset did not restore dry mass`);
+  expect(namedPresetRoundTrip.chartLoadedDv === 321, `${htmlFile}: named chart preset did not restore target dV`);
+  expect(namedPresetRoundTrip.chartLoadedThrusters === 4, `${htmlFile}: named chart preset did not restore engine count`);
+  expect(namedPresetRoundTrip.chartLoadedSearch === "alpha", `${htmlFile}: named chart preset did not restore search filter`);
+  expect(namedPresetRoundTrip.selectedChartImportOk, `${htmlFile}: selected chart preset import failed`);
+  expect(namedPresetRoundTrip.selectedChartCount === 1, `${htmlFile}: selected chart preset import did not add one preset`);
+  expect(namedPresetRoundTrip.startupSaved && namedPresetRoundTrip.startupRestored, `${htmlFile}: startup chart preset did not persist through library export/import`);
+  expect(namedPresetRoundTrip.dryMassApplied, `${htmlFile}: dry-mass preset did not apply to calculator`);
+  expect(namedPresetRoundTrip.dryMassNotesRestored, `${htmlFile}: dry-mass preset notes did not restore`);
+  expect(namedPresetRoundTrip.dryMassImportOk, `${htmlFile}: dry-mass preset library import failed`);
+  expect(namedPresetRoundTrip.dryMassCountAfterLibraryImport === 1, `${htmlFile}: dry-mass preset library did not merge one preset`);
+  expect(namedPresetRoundTrip.selectedDryMassImportOk, `${htmlFile}: selected dry-mass preset import failed`);
+  expect(namedPresetRoundTrip.selectedDryMassCount === 1, `${htmlFile}: selected dry-mass preset import did not add one preset`);
+  expect(namedPresetRoundTrip.chartControls, `${htmlFile}: chart preset management controls missing`);
+  expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
   await page.locator("#dryMassCalcClose").click();
 
   const firstPoint = page.locator("#chart .data-point").first();
