@@ -442,13 +442,16 @@ def reactor_row(template: dict[str, Any], research: ResearchCostIndex) -> dict[s
 
 def radiator_row(template: dict[str, Any], research: ResearchCostIndex) -> dict[str, Any]:
     project = template.get("requiredProjectName")
+    required_project_display = research.display(str(project) if project else None)
+    english_name = template.get("friendlyName") or template.get("dataName")
+    korean_name = required_project_display.get("ko") or english_name
     return {
         "id": template.get("dataName"),
-        "displayName": template.get("friendlyName") or template.get("dataName"),
+        "displayName": {"ko": korean_name, "en": english_name},
         "radiatorType": template.get("radiatorType"),
         "specificPowerKWPerKg": as_float(template.get("specificPower_2s_KWkg"), 0.0),
         "requiredProject": project,
-        "requiredProjectDisplay": research.display(str(project) if project else None),
+        "requiredProjectDisplay": required_project_display,
         "ownResearchCost": research.own_cost(str(project) if project else None),
         "cumulativeResearch": research.cumulative_cost(str(project) if project else None),
         "alien": is_alien_component(template),
@@ -558,7 +561,7 @@ def build_data(
                 and as_float(template.get("specificPower_2s_KWkg"), 0.0) > 0.0
             )
         ],
-        key=lambda row: (-as_float(row["specificPowerKWPerKg"], 0.0), str(row["displayName"])),
+        key=lambda row: (-as_float(row["specificPowerKWPerKg"], 0.0), str((row.get("displayName") or {}).get("en") if isinstance(row.get("displayName"), dict) else row.get("displayName"))),
     )
     default_radiator = next(
         (row for row in radiators if row.get("id") == "DustyPlasma"),
@@ -1307,6 +1310,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       gap: 8px;
     }
     .calc-armor-row {
+      position: relative;
       display: grid;
       grid-template-columns: 1fr;
       gap: 7px;
@@ -1316,8 +1320,17 @@ HTML_TEMPLATE = r"""<!doctype html>
       font-size: 12px;
     }
     .calc-armor-row + .calc-armor-row {
+      border-left: 0;
+      padding-left: 0;
+    }
+    .calc-armor-row + .calc-armor-row::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -4px;
       border-left: 1px solid var(--line);
-      padding-left: 8px;
+      pointer-events: none;
     }
     .calc-armor-title {
       color: var(--ink);
@@ -1361,6 +1374,121 @@ HTML_TEMPLATE = r"""<!doctype html>
       color: var(--muted);
       text-align: right;
       font-variant-numeric: tabular-nums;
+    }
+    .native-select-hidden {
+      display: none !important;
+    }
+    .searchable-select {
+      position: relative;
+      min-width: 0;
+      width: 100%;
+    }
+    .searchable-select-trigger {
+      width: 100%;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--input);
+      color: var(--ink);
+      padding: 6px 8px;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .searchable-select-trigger:hover,
+    .searchable-select-trigger:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+    }
+    .searchable-select-value {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .searchable-select-caret {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .searchable-select-menu {
+      position: absolute;
+      z-index: 90;
+      top: calc(100% + 4px);
+      left: 0;
+      right: auto;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      max-height: 280px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 6px;
+      border: 1px solid var(--strong-line);
+      border-radius: 8px;
+      background: #101412;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+      padding: 8px;
+    }
+    .searchable-select-menu[hidden] {
+      display: none;
+    }
+    .searchable-select-search {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #0b0d0c;
+      color: var(--ink);
+      padding: 7px 8px;
+      font: inherit;
+    }
+    .searchable-select-options {
+      max-height: 220px;
+      overflow: auto;
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .searchable-select-group {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      padding: 7px 6px 2px;
+      text-transform: none;
+    }
+    .searchable-select-option {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      padding: 6px 7px;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .searchable-select-option:hover,
+    .searchable-select-option:focus-visible,
+    .searchable-select-option.is-active {
+      background: rgba(74, 144, 226, 0.16);
+      outline: none;
+    }
+    .searchable-select-option.is-selected {
+      color: #cde9df;
+      background: rgba(74, 144, 226, 0.22);
+    }
+    .searchable-select-empty {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 8px 6px;
     }
     .calc-empty {
       border: 1px dashed var(--line);
@@ -1888,6 +2016,9 @@ HTML_TEMPLATE = r"""<!doctype html>
         padding-left: 0;
         padding-top: 10px;
       }
+      .calc-armor-row + .calc-armor-row::before {
+        display: none;
+      }
       .table-shell { grid-column: 1; }
       .notes { grid-column: 1; }
       #chart { height: 560px; }
@@ -1970,7 +2101,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       </section>
       <section class="control-block">
         <label class="label" for="radiator">라디에이터</label>
-        <select id="radiator"></select>
+        <select id="radiator" data-searchable-select="true"></select>
       </section>
       <section id="bandAnalysisControls" class="control-block">
         <span class="label">총질량/연료질량/TWR 보조 표시</span>
@@ -2069,7 +2200,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       <div class="calculator-grid">
         <section class="calculator-panel">
           <label id="dryMassCalcClassLabel" class="label" for="dryMassCalcClass">함급</label>
-          <select id="dryMassCalcClass"></select>
+          <select id="dryMassCalcClass" data-searchable-select="true"></select>
           <div id="dryMassCalcInfo" class="calc-info-grid"></div>
         </section>
         <section class="calculator-panel">
@@ -2154,6 +2285,71 @@ HTML_TEMPLATE = r"""<!doctype html>
       return UI_LANG === "en" ? en : ko;
     }
 
+    const RADIATOR_KO_SHORT_NAMES = {
+      ExoticSpike: "엑조틱 스파이크",
+      DustyPlasma: "먼지 플라즈마",
+      LithiumSpray: "리튬 스프레이",
+      GalliumMist: "갈륨 안개",
+      TinDroplet: "주석 방울",
+      NanotubeFilament: "나노튜브 필라멘트",
+      TitaniumArray: "티타늄 어레이",
+      CobaltDust: "코발트 분진",
+      MolybdenumPipe: "몰리브덴 파이프",
+      IonicDust: "이온 분진",
+      AluminumFin: "알루미늄 핀",
+    };
+
+    function cleanRadiatorDisplayName(name) {
+      const text = String(name || "").trim();
+      return UI_LANG === "ko" ? text.replace(/\s*라디에이터\s*$/u, "") : text;
+    }
+
+    function radiatorDisplayName(item) {
+      if (!item) return "";
+      const display = item.displayName;
+      const projectDisplay = item.requiredProjectDisplay;
+      let name = "";
+      if (UI_LANG === "ko") {
+        name = RADIATOR_KO_SHORT_NAMES[item.id] || "";
+        if (!name && display && typeof display === "object") {
+          name = display.ko || display.kor || "";
+        }
+        if (!name && projectDisplay && typeof projectDisplay === "object") {
+          name = projectDisplay.ko || projectDisplay.kor || "";
+        }
+        if (!name && typeof display === "string") {
+          name = translateText(display, "ko");
+        }
+      } else if (display && typeof display === "object") {
+        name = display.en || display.ko || display.kor || item.id || "";
+      } else if (typeof display === "string") {
+        name = display;
+      } else if (projectDisplay && typeof projectDisplay === "object" && !display) {
+        name = projectDisplay.en || projectDisplay.ko || projectDisplay.kor || item.id || "";
+      }
+      return cleanRadiatorDisplayName(name || display || item.id || "");
+    }
+
+    function radiatorOptionLabel(item) {
+      return `${radiatorDisplayName(item)} (${formatNumber(item.specificPowerKWPerKg, " kW/kg")})`;
+    }
+
+    function renderRadiatorOptions(select) {
+      if (!select) return;
+      const selectedId = state.radiatorId || select.value || (DATA.radiators[0] && DATA.radiators[0].id) || "";
+      select.innerHTML = "";
+      DATA.radiators.forEach(item => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = radiatorOptionLabel(item);
+        option.selected = item.id === selectedId;
+        select.appendChild(option);
+      });
+      if (DATA.radiators.some(item => item.id === selectedId)) {
+        select.value = selectedId;
+      }
+    }
+
     function syncMetricGroupLabels() {
       const metric = document.getElementById("metric");
       if (!metric) return;
@@ -2225,6 +2421,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
       applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
+      renderRadiatorOptions(document.getElementById("radiator"));
+      enhanceSearchableSelect(document.getElementById("radiator"));
       setPresetUiText();
       renderDryMassCalcModal();
     }
@@ -2453,17 +2651,12 @@ HTML_TEMPLATE = r"""<!doctype html>
         }
       });
 
-      DATA.radiators.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item.id;
-        option.textContent = `${item.displayName} (${formatNumber(item.specificPowerKWPerKg, " kW/kg")})`;
-        option.selected = item.id === state.radiatorId;
-        radiator.appendChild(option);
-      });
+      renderRadiatorOptions(radiator);
       if (!state.radiatorId && DATA.radiators[0]) {
         state.radiatorId = DATA.radiators[0].id;
         radiator.value = state.radiatorId;
       }
+      enhanceSearchableSelect(radiator);
 
       DATA.categories.forEach(category => {
         const label = document.createElement("label");
@@ -3188,11 +3381,11 @@ HTML_TEMPLATE = r"""<!doctype html>
           .map(item => `<option value="${escapeHtml(item.dataName)}"${item.dataName === selectedId ? " selected" : ""}>${escapeHtml(weaponOptionLabel(item))}</option>`)
           .join("");
         return `
-          <label class="calc-slot-row" for="dryMassCalcWeapon${section}${index}">
+          <div class="calc-slot-row">
             <span>${escapeHtml(label)} ${index + 1}</span>
-            <select id="dryMassCalcWeapon${section}${index}" data-weapon-section="${section}" data-weapon-index="${index}">${options}</select>
+            <select id="dryMassCalcWeapon${section}${index}" data-weapon-section="${section}" data-weapon-index="${index}" data-searchable-select="true">${options}</select>
             <span class="calc-slot-mass">${escapeHtml(formatNumber(Number(selectedWeapon.massTons) || 0, " t"))}</span>
-          </label>
+          </div>
         `;
       });
 
@@ -3202,11 +3395,11 @@ HTML_TEMPLATE = r"""<!doctype html>
           .map(item => `<option value="${escapeHtml(item.dataName)}">${escapeHtml(item.dataName === EMPTY_WEAPON_MODULE.dataName ? localText("무장 추가", "Add weapon") : weaponOptionLabel(item))}</option>`)
           .join("");
         rows.push(`
-          <label class="calc-slot-row" for="dryMassCalcWeapon${section}New">
+          <div class="calc-slot-row">
             <span>${escapeHtml(localText("추가", "Add"))}</span>
-            <select id="dryMassCalcWeapon${section}New" data-weapon-section="${section}" data-weapon-index="new">${options}</select>
+            <select id="dryMassCalcWeapon${section}New" data-weapon-section="${section}" data-weapon-index="new" data-searchable-select="true">${options}</select>
             <span class="calc-slot-mass">${escapeHtml(formatHardpointSize(remaining))} HP</span>
-          </label>
+          </div>
         `);
       }
 
@@ -3241,7 +3434,7 @@ HTML_TEMPLATE = r"""<!doctype html>
         return `
           <div class="calc-armor-row">
             <div class="calc-armor-title">${escapeHtml(sectionLabels[section])}</div>
-            <select id="dryMassCalcArmor${section}" data-armor-section="${section}" data-armor-field="type">${options}</select>
+            <select id="dryMassCalcArmor${section}" data-armor-section="${section}" data-armor-field="type" data-searchable-select="true">${options}</select>
             <div class="calc-armor-point-row">
               <input id="dryMassCalcArmor${section}Points" type="number" min="0" max="${escapeHtml(maxPoints)}" step="1" value="${escapeHtml(selection.points)}" data-armor-section="${section}" data-armor-field="points">
               <span class="calc-slot-mass">${escapeHtml(formatNumber(massTons, " t"))}</span>
@@ -3249,6 +3442,198 @@ HTML_TEMPLATE = r"""<!doctype html>
           </div>
         `;
       }).join("");
+    }
+
+    function searchableSelectLabel(select) {
+      const selected = select && select.selectedOptions && select.selectedOptions[0];
+      return selected ? selected.textContent.trim() : "";
+    }
+
+    function searchableSelectOptions(select) {
+      const rows = [];
+      Array.from(select.children || []).forEach(child => {
+        if (child.tagName === "OPTGROUP") {
+          const group = child.label || "";
+          rows.push({ type: "group", label: group });
+          Array.from(child.children || []).forEach(option => {
+            rows.push({
+              type: "option",
+              value: option.value,
+              label: option.textContent.trim(),
+              group,
+              disabled: option.disabled,
+              selected: option.selected,
+            });
+          });
+        } else if (child.tagName === "OPTION") {
+          rows.push({
+            type: "option",
+            value: child.value,
+            label: child.textContent.trim(),
+            group: "",
+            disabled: child.disabled,
+            selected: child.selected,
+          });
+        }
+      });
+      return rows;
+    }
+
+    function closeSearchableSelect(wrapper) {
+      const menu = wrapper && wrapper.querySelector(".searchable-select-menu");
+      const trigger = wrapper && wrapper.querySelector(".searchable-select-trigger");
+      if (menu) menu.hidden = true;
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    }
+
+    function closeOtherSearchableSelects(activeWrapper = null) {
+      document.querySelectorAll(".searchable-select").forEach(wrapper => {
+        if (wrapper !== activeWrapper) closeSearchableSelect(wrapper);
+      });
+    }
+
+    function renderSearchableSelectOptions(select, wrapper, query = "") {
+      const list = wrapper.querySelector(".searchable-select-options");
+      if (!list) return;
+      const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+      const rows = searchableSelectOptions(select);
+      list.innerHTML = "";
+      let visibleOptions = 0;
+      let currentGroupElement = null;
+      let currentGroupVisible = false;
+      rows.forEach(row => {
+        if (row.type === "group") {
+          currentGroupElement = document.createElement("div");
+          currentGroupElement.className = "searchable-select-group";
+          currentGroupElement.textContent = row.label;
+          currentGroupElement.hidden = true;
+          list.appendChild(currentGroupElement);
+          currentGroupVisible = false;
+          return;
+        }
+        const haystack = `${row.label} ${row.value} ${row.group}`.toLocaleLowerCase();
+        if (normalizedQuery && !haystack.includes(normalizedQuery)) return;
+        if (currentGroupElement && !currentGroupVisible) {
+          currentGroupElement.hidden = false;
+          currentGroupVisible = true;
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `searchable-select-option${row.selected ? " is-selected" : ""}`;
+        button.dataset.value = row.value;
+        button.disabled = !!row.disabled;
+        button.textContent = row.label;
+        button.addEventListener("click", () => {
+          select.value = row.value;
+          const value = wrapper.querySelector(".searchable-select-value");
+          if (value) value.textContent = searchableSelectLabel(select);
+          closeSearchableSelect(wrapper);
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        list.appendChild(button);
+        visibleOptions += 1;
+      });
+      if (!visibleOptions) {
+        const empty = document.createElement("div");
+        empty.className = "searchable-select-empty";
+        empty.textContent = localText("검색 결과 없음", "No matching results");
+        list.appendChild(empty);
+      }
+    }
+
+    function enhanceSearchableSelect(select) {
+      if (!select || select.dataset.searchableEnhanced === "true") {
+        const existingWrapper = select && select.nextElementSibling && select.nextElementSibling.classList.contains("searchable-select")
+          ? select.nextElementSibling
+          : null;
+        if (existingWrapper) {
+          const value = existingWrapper.querySelector(".searchable-select-value");
+          const search = existingWrapper.querySelector(".searchable-select-search");
+          if (value) value.textContent = searchableSelectLabel(select);
+          if (search) search.placeholder = localText("검색...", "Search...");
+          renderSearchableSelectOptions(select, existingWrapper, "");
+        }
+        return;
+      }
+      const wrapper = document.createElement("div");
+      wrapper.className = "searchable-select";
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "searchable-select-trigger";
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.innerHTML = `<span class="searchable-select-value"></span><span class="searchable-select-caret">▾</span>`;
+      const menu = document.createElement("div");
+      menu.className = "searchable-select-menu";
+      menu.hidden = true;
+      const search = document.createElement("input");
+      search.type = "search";
+      search.className = "searchable-select-search";
+      search.placeholder = localText("검색...", "Search...");
+      search.autocomplete = "off";
+      const options = document.createElement("div");
+      options.className = "searchable-select-options";
+      options.setAttribute("role", "listbox");
+      menu.append(search, options);
+      wrapper.append(trigger, menu);
+      select.classList.add("native-select-hidden");
+      select.dataset.searchableEnhanced = "true";
+      select.insertAdjacentElement("afterend", wrapper);
+
+      const value = wrapper.querySelector(".searchable-select-value");
+      if (value) value.textContent = searchableSelectLabel(select);
+      renderSearchableSelectOptions(select, wrapper, "");
+
+      trigger.addEventListener("click", () => {
+        const open = menu.hidden;
+        closeOtherSearchableSelects(wrapper);
+        menu.hidden = !open;
+        trigger.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) {
+          search.value = "";
+          renderSearchableSelectOptions(select, wrapper, "");
+          search.focus();
+        }
+      });
+      search.addEventListener("input", () => renderSearchableSelectOptions(select, wrapper, search.value));
+      search.addEventListener("keydown", event => {
+        const buttons = Array.from(wrapper.querySelectorAll(".searchable-select-option:not([disabled])"));
+        const currentIndex = buttons.indexOf(document.activeElement);
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          (buttons[currentIndex + 1] || buttons[0] || search).focus();
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          (buttons[currentIndex - 1] || buttons[buttons.length - 1] || search).focus();
+        } else if (event.key === "Escape") {
+          closeSearchableSelect(wrapper);
+          trigger.focus();
+        }
+      });
+      options.addEventListener("keydown", event => {
+        const buttons = Array.from(wrapper.querySelectorAll(".searchable-select-option:not([disabled])"));
+        const currentIndex = buttons.indexOf(document.activeElement);
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          (buttons[currentIndex + 1] || buttons[0] || search).focus();
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          (buttons[currentIndex - 1] || search).focus();
+        } else if (event.key === "Escape") {
+          closeSearchableSelect(wrapper);
+          trigger.focus();
+        }
+      });
+    }
+
+    function enhanceSearchableSelects(root = document) {
+      root.querySelectorAll("select[data-searchable-select]").forEach(select => enhanceSearchableSelect(select));
+      if (!document.body.dataset.searchableSelectGlobalHandlers) {
+        document.body.dataset.searchableSelectGlobalHandlers = "true";
+        document.addEventListener("click", event => {
+          if (!event.target.closest(".searchable-select")) closeOtherSearchableSelects();
+        });
+      }
     }
 
     function renderDryMassCalcModal() {
@@ -3336,11 +3721,11 @@ HTML_TEMPLATE = r"""<!doctype html>
             })
             .join("");
           return `
-            <label class="calc-slot-row" for="dryMassCalcSlot${index}">
+            <div class="calc-slot-row">
               <span>${escapeHtml(localText("슬롯", "Slot"))} ${index + 1}</span>
-              <select id="dryMassCalcSlot${index}" data-slot-index="${index}">${options}</select>
+              <select id="dryMassCalcSlot${index}" data-slot-index="${index}" data-searchable-select="true">${options}</select>
               <span class="calc-slot-mass">${escapeHtml(formatNumber(Number(selectedModule.massTons) || 0, " t"))}</span>
-            </label>
+            </div>
           `;
         }).join("");
       }
@@ -3355,6 +3740,7 @@ HTML_TEMPLATE = r"""<!doctype html>
           `${localText("모듈 전력", "Module power")} ${formatNumber(moduleTotals.powerMW, " MW")}`,
         ].map(item => `<span>${escapeHtml(item)}</span>`).join("");
       }
+      enhanceSearchableSelects(document.getElementById("dryMassCalcModal"));
     }
 
     function setupDryMassCalculator() {
@@ -3374,7 +3760,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       const openModal = () => {
         renderDryMassCalcModal();
         modal.classList.add("is-open");
-        classSelect.focus();
+        const firstSearchableTrigger = modal.querySelector(".searchable-select-trigger");
+        (firstSearchableTrigger || classSelect).focus();
       };
       const closeModal = () => {
         modal.classList.remove("is-open");
@@ -3674,7 +4061,10 @@ HTML_TEMPLATE = r"""<!doctype html>
       if (dryMassNumber) dryMassNumber.value = String(Math.round(state.dryMassTons));
       if (targetDv) targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
       if (targetDvNumber) targetDvNumber.value = String(Math.round(state.targetDvKps));
-      if (radiator) radiator.value = state.radiatorId;
+      if (radiator) {
+        radiator.value = state.radiatorId;
+        enhanceSearchableSelect(radiator);
+      }
       if (logX) logX.checked = !!state.logX;
       if (logY) logY.checked = !!state.logY;
       if (showTwrInfo) showTwrInfo.checked = !!state.showTwrInfo;
