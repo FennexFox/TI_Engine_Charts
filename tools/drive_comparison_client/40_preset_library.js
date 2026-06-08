@@ -1226,7 +1226,7 @@
         showMassInfo: !!state.showMassInfo,
         paretoHighlight: !!state.paretoHighlight,
         showImpracticalCandidates: !!state.showImpracticalCandidates,
-        usePowerResearch: !!state.usePowerResearch,
+        powerResearchView: normalizePowerResearchView(state.powerResearchView),
         minTwr: state.minTwr,
         minDvKps: state.minDvKps,
         searchTerm: state.searchTerm,
@@ -1346,7 +1346,11 @@
       if (typeof preset.showMassInfo === "boolean") state.showMassInfo = preset.showMassInfo;
       if (typeof preset.paretoHighlight === "boolean") state.paretoHighlight = preset.paretoHighlight;
       if (typeof preset.showImpracticalCandidates === "boolean") state.showImpracticalCandidates = preset.showImpracticalCandidates;
-      if (typeof preset.usePowerResearch === "boolean") state.usePowerResearch = preset.usePowerResearch;
+      if (typeof preset.powerResearchView === "string") {
+        state.powerResearchView = normalizePowerResearchView(preset.powerResearchView);
+      } else if (typeof preset.usePowerResearch === "boolean") {
+        state.powerResearchView = preset.usePowerResearch ? "all" : "off";
+      }
       if (Number.isFinite(Number(preset.minTwr))) state.minTwr = clamp(Number(preset.minTwr), 0.0001, 10);
       if (Number.isFinite(Number(preset.minDvKps))) state.minDvKps = clamp(Number(preset.minDvKps), 0, 100000);
       if (typeof preset.searchTerm === "string") state.searchTerm = preset.searchTerm.trim().toLocaleLowerCase();

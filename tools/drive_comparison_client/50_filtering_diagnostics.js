@@ -244,6 +244,11 @@
       return options;
     }
 
+    function chartSummaryMassOptions(row) {
+      const options = chartMassOptions(row);
+      return powerResearchActive() ? options : options.slice(0, 1);
+    }
+
     function actualPowerFrontier(row, options) {
       if (row.requiredPowerPlantClass !== "Any_General" || row.powerRequirementGW <= 0 || options.length <= 1) {
         return options;

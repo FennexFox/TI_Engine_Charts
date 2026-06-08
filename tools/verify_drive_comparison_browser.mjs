@@ -143,6 +143,94 @@ async function verifyHtmlFile(browser, htmlFile) {
   expect(customHelpRuleCount === 0, `${htmlFile}: custom data-help tooltip rule still exists`);
   expect(usageText.trim().length > 0, `${htmlFile}: empty detail panel usage text missing`);
 
+  const powerViewChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    syncUiFromState();
+    render();
+    const baseMode = {
+      selected: document.querySelector('input[name="powerResearchView"]:checked')?.value || "",
+      controlVisible: getComputedStyle(document.getElementById("powerResearchViewControl")).display !== "none",
+      basePoints: document.querySelectorAll("#chart .power-base-point").length,
+      extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
+      ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
+      bandSurfaces: document.querySelectorAll("#chart [data-band-pair-step], #chart [data-band-step]").length,
+    };
+    const target = currentChartRows.find(row => chartMassOptions(row).length > 1);
+    const targetOptions = target ? chartMassOptions(target) : [];
+
+    state.powerResearchView = "focus";
+    state.hoverPoints = [];
+    state.lastTooltipItems = [];
+    state.tooltipPinned = false;
+    syncUiFromState();
+    render();
+    const focusIdle = {
+      selected: document.querySelector('input[name="powerResearchView"]:checked')?.value || "",
+      basePoints: document.querySelectorAll("#chart .power-base-point").length,
+      extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
+      ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
+    };
+
+    if (target && targetOptions.length) {
+      const ref = tooltipRef(target.id, targetOptions[0].id);
+      state.hoverPoints = [ref];
+      state.lastTooltipItems = [ref];
+      render();
+      refreshTooltip(currentChartRows);
+    }
+    const focusActive = {
+      extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
+      focusedExtraPoints: document.querySelectorAll("#chart .power-extra-point.is-focused").length,
+      ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
+      focusedLines: document.querySelectorAll("#chart .power-ladder-line.is-focused").length,
+      powerStepRows: document.querySelectorAll("#tooltip .power-steps-table tbody tr").length,
+      powerStepText: document.querySelector("#tooltip .tooltip-power-steps")?.textContent || "",
+    };
+
+    state.powerResearchView = "all";
+    state.hoverPoints = [];
+    state.lastTooltipItems = [];
+    state.tooltipPinned = false;
+    syncUiFromState();
+    render();
+    const allMode = {
+      selected: document.querySelector('input[name="powerResearchView"]:checked')?.value || "",
+      extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
+      subduedExtraPoints: document.querySelectorAll("#chart .power-extra-point.is-subdued").length,
+      ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
+      subduedLines: document.querySelectorAll("#chart .power-ladder-line.is-subdued").length,
+      bandSurfaces: document.querySelectorAll("#chart [data-band-pair-step], #chart [data-band-step]").length,
+    };
+
+    resetChartStateToDefaults();
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    render();
+    return { baseMode, hasMultiOptionTarget: !!target, focusIdle, focusActive, allMode };
+  });
+  expect(powerViewChecks.baseMode.controlVisible, `${htmlFile}: Power view control is hidden on band metric`);
+  expect(powerViewChecks.baseMode.selected === "off", `${htmlFile}: Base mode is not the default Power view`);
+  expect(powerViewChecks.baseMode.basePoints > 0, `${htmlFile}: Base mode did not render base points`);
+  expect(powerViewChecks.baseMode.extraPoints === 0, `${htmlFile}: Base mode rendered extra power points`);
+  expect(powerViewChecks.baseMode.ladderLines === 0, `${htmlFile}: Base mode rendered ladder lines`);
+  expect(powerViewChecks.baseMode.bandSurfaces === 0, `${htmlFile}: Base mode rendered old power band surfaces`);
+  expect(powerViewChecks.hasMultiOptionTarget, `${htmlFile}: no multi-power-option drive available for ladder verification`);
+  expect(powerViewChecks.focusIdle.selected === "focus", `${htmlFile}: Selected ladder radio did not select focus mode`);
+  expect(powerViewChecks.focusIdle.basePoints > 0, `${htmlFile}: Selected ladder mode removed base points`);
+  expect(powerViewChecks.focusIdle.extraPoints === 0, `${htmlFile}: idle Selected ladder mode rendered unrelated extra points`);
+  expect(powerViewChecks.focusActive.extraPoints > 0, `${htmlFile}: active Selected ladder mode did not render extra points`);
+  expect(powerViewChecks.focusActive.focusedExtraPoints === powerViewChecks.focusActive.extraPoints, `${htmlFile}: focus extra points were not marked focused`);
+  expect(powerViewChecks.focusActive.focusedLines > 0, `${htmlFile}: active Selected ladder mode did not render focused dashed lines`);
+  expect(powerViewChecks.focusActive.powerStepRows > 1, `${htmlFile}: Power steps table did not include multiple power options`);
+  expect(/Wet mass/.test(powerViewChecks.focusActive.powerStepText) && /TWR/.test(powerViewChecks.focusActive.powerStepText), `${htmlFile}: Power steps table missing key columns`);
+  expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All ladders radio did not select all mode`);
+  expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All ladders mode did not render extra points`);
+  expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All ladders mode did not apply subdued point styling`);
+  expect(powerViewChecks.allMode.ladderLines > 0 && powerViewChecks.allMode.subduedLines > 0, `${htmlFile}: All ladders mode did not render subdued ladder lines`);
+  expect(powerViewChecks.allMode.bandSurfaces === 0, `${htmlFile}: All ladders mode rendered old power band surfaces`);
+
   await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
   const dryMassManageSizing = await page.evaluate(() => {

@@ -29,6 +29,13 @@ ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 
 ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ('<html lang="ko">', '<html lang="en">'),
+    ("전원 보기", "Power view"),
+    ("기본", "Base"),
+    ("선택 사다리", "Selected ladder"),
+    ("전체 사다리", "All ladders"),
+    ("전원 사다리", "power ladders"),
+    ("기본 전원", "base power"),
+    ("누적 연구력 (전원 사다리 포함)", "Cumulative research (power ladder included)"),
     ("Terra Invicta 드라이브 비교", "Terra Invicta Drive Comparison"),
     (
         "X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.",
@@ -196,4 +203,3 @@ def apply_static_english_html(html: str) -> str:
 def note_html_translations() -> dict[str, str]:
     korean, english = ENGLISH_BLOCK_REPLACEMENTS[0]
     return {"ko": korean, "en": english}
-

@@ -5,6 +5,12 @@
     let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
     const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
     if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
+    const POWER_RESEARCH_VIEWS = ["off", "focus", "all"];
+    const POWER_RESEARCH_VIEW_LABELS = {
+      off: { ko: "기본", en: "Base" },
+      focus: { ko: "선택 사다리", en: "Selected ladder" },
+      all: { ko: "전체 사다리", en: "All ladders" },
+    };
     const state = {
       metric: "totalMassTons",
       thrusters: DATA.defaults.thrusterCount,
@@ -18,7 +24,7 @@
       showMassInfo: true,
       paretoHighlight: true,
       showImpracticalCandidates: false,
-      usePowerResearch: false,
+      powerResearchView: "off",
       minTwr: 0.0001,
       minDvKps: 0,
       searchTerm: "",
@@ -52,7 +58,7 @@
         showMassInfo: true,
         paretoHighlight: true,
         showImpracticalCandidates: false,
-        usePowerResearch: false,
+        powerResearchView: "off",
         minTwr: 0.0001,
         minDvKps: 0,
         searchTerm: "",
@@ -94,6 +100,19 @@
 
     function localText(ko, en) {
       return UI_LANG === "en" ? en : ko;
+    }
+
+    function normalizePowerResearchView(value) {
+      return POWER_RESEARCH_VIEWS.includes(value) ? value : "off";
+    }
+
+    function powerResearchViewLabel(value = state.powerResearchView) {
+      const label = POWER_RESEARCH_VIEW_LABELS[normalizePowerResearchView(value)] || POWER_RESEARCH_VIEW_LABELS.off;
+      return localText(label.ko, label.en);
+    }
+
+    function powerResearchActive() {
+      return isBandMetric() && state.powerResearchView !== "off";
     }
 
     const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";

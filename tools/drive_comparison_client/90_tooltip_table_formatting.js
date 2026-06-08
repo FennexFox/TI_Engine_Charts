@@ -52,6 +52,7 @@
     function tooltipHtml(row, option = null, key = "", index = 0, itemCount = 1) {
       const metrics = tooltipMetricsHtml(row, option);
       const selected = option ? tooltipBreakdownHtml(row, option) : "";
+      const powerSteps = isBandMetric() ? tooltipPowerStepsHtml(row, option) : "";
       const powerName = option ? option.displayName : (UI_LANG === "en" ? "No power plant candidate" : "전원 후보 없음");
       const pinned = isPinnedTooltipKey(key);
       const pinLabel = UI_LANG === "en" ? (pinned ? "Unpin this card" : "Pin this card") : (pinned ? "이 카드 고정 해제" : "이 카드 고정");
@@ -69,6 +70,7 @@
           <div class="muted">${escapeHtml(rowCategoryLabel(row))} / ${escapeHtml(rowFamilyLabel(row))} · ${escapeHtml(rowProjectLabel(row))}</div>
           ${metrics}
           ${selected}
+          ${powerSteps}
         </section>
       `;
     }
@@ -173,6 +175,47 @@
       `;
     }
 
+    function tooltipPowerStepsHtml(row, selectedOption = null) {
+      const options = chartMassOptions(row);
+      if (!options.length) return "";
+      const baseCombined = optionAdditionalResearchValue(row, options[0]);
+      const selectedId = selectedOption ? selectedOption.id : options[0].id;
+      const headers = UI_LANG === "en"
+        ? ["Power plant", "+Research", "Combined", "Wet mass", "TWR", "Plant", "Radiator"]
+        : ["전원", "+연구", "합산", "습질량", "TWR", "전원", "방열기"];
+      const rows = options.map(option => {
+        const combined = optionAdditionalResearchValue(row, option);
+        const delta = Math.max(0, combined - baseCombined);
+        const selected = option.id === selectedId;
+        return `
+          <tr${selected ? " class=\"is-selected\"" : ""}>
+            <td>${escapeHtml(option.displayName || option.id || "-")}</td>
+            <td class="numeric">${escapeHtml(formatResearch(delta))}</td>
+            <td class="numeric">${escapeHtml(formatResearch(combined))}</td>
+            <td class="numeric">${escapeHtml(formatNumber(option.totalMassTons, " t"))}</td>
+            <td class="numeric">${escapeHtml(formatTwr(option.twr, " g"))}</td>
+            <td class="numeric">${escapeHtml(formatNumber(option.powerPlantMassTons, " t"))}</td>
+            <td class="numeric">${escapeHtml(formatNumber(option.radiatorMassTons, " t"))}</td>
+          </tr>
+        `;
+      }).join("");
+      return `
+        <details class="tooltip-section tooltip-power-steps" open>
+          <summary>${UI_LANG === "en" ? "Power steps" : "전원 단계"}</summary>
+          <div class="tooltip-section-body">
+            <div class="power-steps-table-wrap">
+              <table class="power-steps-table">
+                <thead>
+                  <tr>${headers.map(label => `<th>${escapeHtml(label)}</th>`).join("")}</tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      `;
+    }
+
     function resolveTooltipItems(rows) {
       const rowById = new Map(rows.map(row => [row.id, row]));
       const resolved = [];
@@ -194,8 +237,10 @@
     }
 
     function refreshTooltip(rows = currentChartRows) {
+      const previousSignature = powerResearchFocusSignature();
       if (!state.lastTooltipItems.length) {
         renderEmptyTooltip();
+        redrawPowerResearchFocusIfChanged(previousSignature);
         return;
       }
       const resolved = resolveTooltipItems(rows);
@@ -217,7 +262,9 @@
       tooltip.classList.remove("tooltip-empty");
       tooltip.classList.remove("has-diagnostic");
       tooltip.classList.remove("has-panel");
-      updateHoverStyles();
+      if (!redrawPowerResearchFocusIfChanged(previousSignature)) {
+        updateHoverStyles();
+      }
     }
 
     function moveTooltipItemByOffset(key, offset) {
@@ -255,6 +302,7 @@
 
     function removeTooltipItem(key) {
       if (!key) return;
+      const previousSignature = powerResearchFocusSignature();
       state.dismissedTooltipKeys.add(key);
       state.lastTooltipItems = state.lastTooltipItems.filter(item => tooltipRef(item).key !== key);
       state.hoverPoints = state.hoverPoints.filter(item => item.key !== key);
@@ -264,7 +312,9 @@
       } else {
         clearTooltip();
       }
-      updateHoverStyles();
+      if (!redrawPowerResearchFocusIfChanged(previousSignature)) {
+        updateHoverStyles();
+      }
     }
 
     function renderEmptyTooltip() {
@@ -284,6 +334,7 @@
     }
 
     function clearTooltip(options = {}) {
+      const previousSignature = powerResearchFocusSignature();
       const keepPinned = !!options.keepPinned;
       const pinnedRefs = keepPinned ? pinnedTooltipRefs() : [];
       state.lastTooltipItems = pinnedRefs;
@@ -297,7 +348,9 @@
       } else {
         renderEmptyTooltip();
       }
-      updateHoverStyles();
+      if (!redrawPowerResearchFocusIfChanged(previousSignature)) {
+        updateHoverStyles();
+      }
     }
 
     function usagePanelHtml() {
@@ -402,7 +455,7 @@
       const sorted = sortRows(rows);
       sorted.forEach(row => {
         const tr = document.createElement("tr");
-        const powerOptions = isBandMetric() ? chartMassOptions(row) : massOptions(row);
+        const powerOptions = isBandMetric() ? chartSummaryMassOptions(row) : massOptions(row);
         const powerCell = powerOptions.length
           ? reactorBandLabel(powerOptions)
           : `<span class="warning">없음</span>`;
@@ -498,7 +551,7 @@
     }
 
     function optionRange(row) {
-      const options = isBandMetric() ? chartMassOptions(row) : massOptions(row);
+      const options = isBandMetric() ? chartSummaryMassOptions(row) : massOptions(row);
       const values = options.map(option => optionMetricValue(option)).filter(Number.isFinite);
       if (!values.length) return { values: [], min: NaN, max: NaN };
       return { values, min: Math.min(...values), max: Math.max(...values) };

@@ -37,7 +37,7 @@
         state.targetDvKps,
         state.radiatorId,
         state.showImpracticalCandidates ? 1 : 0,
-        state.usePowerResearch ? 1 : 0,
+        normalizePowerResearchView(state.powerResearchView),
         state.logX ? 1 : 0,
         state.logY ? 1 : 0,
         state.searchTerm,
@@ -154,14 +154,14 @@
       if (isBandMetric()) {
         const item = document.createElement("span");
         item.className = "legend-item";
-        item.textContent = state.usePowerResearch
-          ? `${metricLabel(state.metric)} ${localText("밴드: 추가 전원 연구력 포함", "band: including additional power research")}`
-          : `${metricLabel(state.metric)} ${localText("밴드: 최초 전원 연구력 기준", "band: first power research basis")}`;
+        item.textContent = powerResearchActive()
+          ? `${metricLabel(state.metric)} ${localText("전원 사다리", "power ladders")}`
+          : `${metricLabel(state.metric)} ${localText("기본 전원", "base power")}`;
         legend.appendChild(item);
         const powerResearch = document.createElement("span");
         powerResearch.className = "legend-item";
-        powerResearch.textContent = state.usePowerResearch
-          ? localText("X축: 최초+추가 전원 포함 연구력", "X axis: first + additional power research")
+        powerResearch.textContent = powerResearchActive()
+          ? `${localText("전원 보기", "Power view")}: ${powerResearchViewLabel()}`
           : localText("X축: 최초 전원 포함 연구력", "X axis: first power-inclusive research");
         legend.appendChild(powerResearch);
         if (secondaryEncodingEnabled()) {
@@ -183,7 +183,7 @@
 
     function valueDomain(rows) {
       if (isBandMetric()) {
-        const values = rows.flatMap(row => chartMassOptions(row).map(option => optionMetricValue(option)));
+        const values = rows.flatMap(row => chartSummaryMassOptions(row).map(option => optionMetricValue(option)));
         return paddedDomain(values, state.logY);
       }
       const values = rows.map(metricDefs[state.metric].value).filter(v => Number.isFinite(v) && v > 0);
@@ -213,7 +213,9 @@
       const innerH = height - margin.top - margin.bottom;
       currentChartRows = rows;
       chartHitTargets = [];
-      state.hoverPoints = state.tooltipPinned ? dedupeTooltipRefs(state.lastTooltipItems) : pinnedTooltipRefs();
+      state.hoverPoints = state.tooltipPinned
+        ? dedupeTooltipRefs(state.lastTooltipItems)
+        : (powerResearchActive() ? mergePinnedTooltipRefs(state.hoverPoints) : pinnedTooltipRefs());
       chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
       chart.setAttribute("preserveAspectRatio", "xMidYMid meet");
       chart.innerHTML = "";
