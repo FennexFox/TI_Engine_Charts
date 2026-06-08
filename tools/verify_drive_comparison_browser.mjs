@@ -35,7 +35,14 @@ async function verifyHtmlFile(browser, htmlFile) {
   await page.waitForSelector("#chart .data-point", { timeout: 15000 });
 
   const title = await page.locator("h1").innerText();
+  const initialLanguage = await page.evaluate(() => ({
+    lang: document.documentElement.lang,
+    selector: document.getElementById("uiLanguageSelect")?.value || "",
+  }));
   const languageOptions = await page.locator("#uiLanguageSelect option").count();
+  expect(initialLanguage.lang === "en", `${htmlFile}: initial document language should be English`);
+  expect(initialLanguage.selector === "en", `${htmlFile}: initial language selector should be English`);
+  expect(/Drive Comparison/.test(title), `${htmlFile}: initial title should render in English`);
   expect(title.trim().length > 0, `${htmlFile}: title did not render`);
   expect(languageOptions === 2, `${htmlFile}: language selector missing`);
 
@@ -50,6 +57,47 @@ async function verifyHtmlFile(browser, htmlFile) {
       && /Simulation \(total mass, fuel mass, TWR\)/.test(englishMetricGroups[0] || "")
       && /Basic information \(thrust, efficiency, power\)/.test(englishMetricGroups[1] || ""),
     `${htmlFile}: English metric group labels were not localized`,
+  );
+  const filterSummaryChecks = await page.evaluate(() => {
+    const summaryText = () => document.querySelector('.control-card[data-control-card="filter"] [data-card-summary]')?.textContent || "";
+
+    setLanguage("en", { rerender: false });
+    Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
+    syncUiFromState();
+    updateLeftPanelCardSummaries();
+    const totalMassSummary = summaryText();
+
+    Object.assign(state, { metric: "twr", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
+    syncUiFromState();
+    updateLeftPanelCardSummaries();
+    const twrSummary = summaryText();
+
+    setLanguage("ko", { rerender: false });
+    Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
+    syncUiFromState();
+    updateLeftPanelCardSummaries();
+    const koreanSummary = summaryText();
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    updateLeftPanelCardSummaries();
+
+    return { totalMassSummary, twrSummary, koreanSummary };
+  });
+  expect(
+    /TWR/.test(filterSummaryChecks.totalMassSummary) && !/dV/.test(filterSummaryChecks.totalMassSummary),
+    `${htmlFile}: total-mass filter summary should show only the TWR threshold`,
+  );
+  expect(
+    /dV/.test(filterSummaryChecks.twrSummary) && !/TWR/.test(filterSummaryChecks.twrSummary),
+    `${htmlFile}: TWR filter summary should show only the dV threshold`,
+  );
+  expect(
+    /X축 로그/.test(filterSummaryChecks.koreanSummary)
+      && /Y축 로그/.test(filterSummaryChecks.koreanSummary)
+      && !/log X|log Y|Log X|Log Y/.test(filterSummaryChecks.koreanSummary),
+    `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
 
   await page.locator("#chartPresetActionsMenu > summary").click();

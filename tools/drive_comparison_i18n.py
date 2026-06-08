@@ -182,6 +182,17 @@ def client_translation_pairs() -> list[tuple[str, str]]:
     return pairs
 
 
+def apply_static_english_html(html: str) -> str:
+    replacements = sorted(
+        (*ENGLISH_BLOCK_REPLACEMENTS, *ENGLISH_REPLACEMENTS),
+        key=lambda pair: len(pair[0]),
+        reverse=True,
+    )
+    for korean, english in replacements:
+        html = html.replace(korean, english)
+    return html
+
+
 def note_html_translations() -> dict[str, str]:
     korean, english = ENGLISH_BLOCK_REPLACEMENTS[0]
     return {"ko": korean, "en": english}
