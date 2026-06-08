@@ -578,8 +578,14 @@
         nose: { armorId: DEFAULT_ARMOR_ID, points: 0 },
       },
       notes: "",
+      simulationDefaults: {
+        targetDvKps: DATA.defaults.targetDvKps,
+        radiatorId: DATA.defaults.radiatorId,
+      },
     };
     let chartPresetLibrary = loadChartPresetLibrary();
     let dryMassPresetLibrary = loadDryMassPresetLibrary();
+    const builtInChartPresetLibrary = loadBuiltInChartPresetLibrary();
+    const builtInDryMassPresetLibrary = loadBuiltInDryMassPresetLibrary();
     let startupChartPresetId = loadStartupChartPresetId();
 

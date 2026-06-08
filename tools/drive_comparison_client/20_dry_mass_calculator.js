@@ -280,6 +280,27 @@
       normalizeDryMassCalcArmor();
     }
 
+    function normalizeShipDesignSimulationDefaults() {
+      if (!dryMassCalcState.simulationDefaults || typeof dryMassCalcState.simulationDefaults !== "object") {
+        dryMassCalcState.simulationDefaults = {};
+      }
+      const defaults = dryMassCalcState.simulationDefaults;
+      if (!Number.isFinite(Number(defaults.targetDvKps))) defaults.targetDvKps = state.targetDvKps;
+      defaults.targetDvKps = clamp(Number(defaults.targetDvKps), 0, 100000);
+      if (typeof defaults.radiatorId !== "string" || !DATA.radiators.some(item => item.id === defaults.radiatorId)) {
+        defaults.radiatorId = state.radiatorId || (DATA.radiators[0] && DATA.radiators[0].id) || "";
+      }
+      return defaults;
+    }
+
+    function applyShipDesignSimulationDefaultsToState() {
+      const defaults = normalizeShipDesignSimulationDefaults();
+      state.targetDvKps = clamp(Number(defaults.targetDvKps), 0, 100000);
+      if (DATA.radiators.some(item => item.id === defaults.radiatorId)) {
+        state.radiatorId = defaults.radiatorId;
+      }
+    }
+
     function resetDryMassCalcState() {
       dryMassCalcState.classId = SHIP_CLASS_OPTIONS[0] ? SHIP_CLASS_OPTIONS[0].dataName : "";
       dryMassCalcState.slotModules = [];
@@ -290,6 +311,11 @@
         nose: { armorId: DEFAULT_ARMOR_ID, points: 0 },
       };
       dryMassCalcState.notes = "";
+      dryMassCalcState.simulationDefaults = {
+        targetDvKps: state.targetDvKps,
+        radiatorId: state.radiatorId,
+      };
+      normalizeShipDesignSimulationDefaults();
       normalizeDryMassCalcSlots();
     }
 
@@ -310,6 +336,7 @@
           }];
         })),
         notes: String(dryMassCalcState.notes || ""),
+        simulationDefaults: cloneJson(normalizeShipDesignSimulationDefaults()),
       };
     }
 
@@ -350,6 +377,20 @@
       if (typeof rawCalculator.notes === "string") {
         dryMassCalcState.notes = rawCalculator.notes.slice(0, 2000);
       }
+
+      if (rawCalculator.simulationDefaults && typeof rawCalculator.simulationDefaults === "object") {
+        const rawDefaults = rawCalculator.simulationDefaults;
+        if (!dryMassCalcState.simulationDefaults || typeof dryMassCalcState.simulationDefaults !== "object") {
+          dryMassCalcState.simulationDefaults = {};
+        }
+        if (Number.isFinite(Number(rawDefaults.targetDvKps))) {
+          dryMassCalcState.simulationDefaults.targetDvKps = clamp(Number(rawDefaults.targetDvKps), 0, 100000);
+        }
+        if (typeof rawDefaults.radiatorId === "string" && DATA.radiators.some(item => item.id === rawDefaults.radiatorId)) {
+          dryMassCalcState.simulationDefaults.radiatorId = rawDefaults.radiatorId;
+        }
+      }
+      normalizeShipDesignSimulationDefaults();
 
       normalizeDryMassCalcSlots();
       return true;

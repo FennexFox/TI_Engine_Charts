@@ -73,6 +73,7 @@ def build_pages(args: argparse.Namespace) -> None:
     common_chart_args = ["--portable"]
     if args.game_version:
         common_chart_args.extend(["--game-version", args.game_version])
+    optional_arg(common_chart_args, "--preset-library", args.preset_library)
 
     if args.ui_only:
         input_html_data = args.input_html_data or DRIVE_COMPARISON_HTML
@@ -157,6 +158,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--templates-dir", help="Path to TerraInvicta_Data/StreamingAssets/Templates.")
     parser.add_argument("--game-version", help="Version label to embed in the generated chart footer.")
+    parser.add_argument(
+        "--preset-library",
+        help="Optional JSON file containing built-in chartPresets and dryMassPresets to embed.",
+    )
     parser.add_argument(
         "--ui-only",
         action="store_true",

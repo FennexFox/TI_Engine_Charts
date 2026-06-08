@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import { chromium } from "playwright";
 
 const htmlFile = process.argv[2] || "docs/index.html";
@@ -7,6 +7,19 @@ const failures = [];
 
 function expect(condition, message) {
   if (!condition) failures.push(message);
+}
+
+function htmlFileUrl(htmlFile) {
+  const absolutePath = resolve(htmlFile);
+  if (!process.env.PLAYWRIGHT_BASE_URL) return pathToFileURL(absolutePath).href;
+
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL.endsWith("/")
+    ? process.env.PLAYWRIGHT_BASE_URL
+    : `${process.env.PLAYWRIGHT_BASE_URL}/`;
+  const pagePath = (isAbsolute(htmlFile) ? relative(process.cwd(), absolutePath) : htmlFile)
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "");
+  return new URL(pagePath, baseUrl).href;
 }
 
 function axisSpace(value, logScale) {
@@ -60,10 +73,17 @@ function verifySnapshotAxis(snapshot, axisName, maxTicks) {
   expect(Number.isFinite(axis.lastTick), `snapshot ${axisName}: non-finite last tick`);
 }
 
-const browser = await chromium.launch({ headless: true });
+const launchOptions = { headless: true };
+if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+  launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+}
+
+const browser = await chromium.launch(launchOptions);
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  await page.goto(pathToFileURL(resolve(htmlFile)).href, { waitUntil: "domcontentloaded" });
+  await page.route("**/favicon.ico", route => route.fulfill({ status: 204, body: "" }));
+  const targetUrl = htmlFileUrl(htmlFile);
+  await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#chart .data-point", { timeout: 15000 });
 
   const hasDebug = await page.evaluate(() => !!(window.TI_ENGINE_CHART_DEBUG && window.TI_ENGINE_CHART_DEBUG.tickPlan && window.TI_ENGINE_CHART_DEBUG.axisSnapshot));
