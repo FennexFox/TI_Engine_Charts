@@ -663,6 +663,12 @@
       align-items: center;
       width: 100%;
     }
+    .preset-toolbar-row select {
+      min-width: 0;
+    }
+    .dry-mass-preset-toolbar {
+      grid-template-columns: minmax(220px, 1fr) auto;
+    }
     .preset-library-label {
       color: var(--muted);
       font-weight: 650;
@@ -688,13 +694,14 @@
       align-items: center;
       justify-content: center;
       min-height: 28px;
-      padding: 5px 9px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
+      padding: 4px 8px;
+      border: 1px solid var(--strong-line);
+      border-radius: 7px;
       color: var(--ink);
-      background: #202521;
+      background: #202421;
       cursor: pointer;
-      font-weight: 650;
+      font: inherit;
+      font-size: 12px;
       list-style: none;
       user-select: none;
       white-space: nowrap;
@@ -728,6 +735,33 @@
       background: #171b18;
       box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
     }
+    .preset-menu-grouped {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 350px;
+    }
+    .preset-menu-section {
+      display: grid;
+      gap: 6px;
+    }
+    .preset-menu-heading {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .preset-menu-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(118px, 1fr));
+      gap: 6px;
+    }
+    .preset-menu-actions-transfer {
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+    }
+    .preset-menu-actions-two {
+      grid-template-columns: repeat(2, minmax(132px, 1fr));
+    }
     .preset-menu-panel .compact-command {
       justify-content: center;
       width: 100%;
@@ -735,6 +769,12 @@
     #dryMassPresetActionsMenu .preset-menu-panel {
       top: auto;
       bottom: calc(100% + 5px);
+    }
+    #dryMassPresetActionsMenu .dry-mass-transfer-menu {
+      min-width: 260px;
+    }
+    #dryMassPresetActionsMenu .preset-menu-actions {
+      grid-template-columns: 1fr;
     }
     .preset-divider {
       align-self: stretch;
@@ -773,6 +813,10 @@
     }
     .modal.is-open {
       display: flex;
+    }
+
+    #presetExportModal {
+      z-index: 80;
     }
     .modal-dialog {
       width: min(980px, 96vw);
@@ -1050,6 +1094,45 @@
     }
     .dry-mass-preset-panel {
       gap: 8px;
+    }
+    .dry-mass-preset-actions {
+      justify-content: flex-end;
+    }
+    .export-modal-card {
+      max-width: min(760px, calc(100vw - 28px));
+    }
+    .modal-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .export-format-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 8px;
+    }
+    .export-format-row .label {
+      margin-right: 4px;
+    }
+    .export-output {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 160px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #0f1311;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .export-modal-footer {
+      align-items: center;
+      margin-top: 10px;
     }
     .modal-footer {
       display: flex;
@@ -1553,6 +1636,14 @@
         min-width: 0;
         margin-top: 6px;
       }
+      .preset-menu-grouped {
+        min-width: 0;
+      }
+      .preset-menu-actions,
+      .preset-menu-actions-two,
+      .preset-menu-actions-transfer {
+        grid-template-columns: 1fr;
+      }
       #dryMassPresetActionsMenu .preset-menu-panel {
         bottom: auto;
       }
@@ -1595,5 +1686,22 @@
         width: 108px;
         min-width: 0;
         margin-left: auto;
+      }
+    }
+    .simulation-defaults-panel {
+      gap: 8px;
+    }
+    .simulation-defaults-grid {
+      display: grid;
+      grid-template-columns: minmax(110px, auto) minmax(160px, 1fr);
+      gap: 8px 10px;
+      align-items: center;
+    }
+    .simulation-defaults-grid .searchable-select {
+      min-width: 0;
+    }
+    @media (max-width: 640px) {
+      .simulation-defaults-grid {
+        grid-template-columns: 1fr;
       }
     }

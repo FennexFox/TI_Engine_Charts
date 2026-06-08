@@ -251,15 +251,14 @@
         render();
       });
       presetExport.addEventListener("click", async () => {
-        try {
-          const payload = await serializePresetPayload();
-          const copied = await copyToClipboard(payload);
-          showPresetStatus(copied
-            ? localText("압축 설정 문자열을 클립보드에 복사했습니다.", "Compressed preset copied to clipboard.")
-            : localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."), !copied);
-        } catch {
-          showPresetStatus(localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."), true);
-        }
+        await copySerializedObject(
+          exportedPreset(),
+          localText("현재 차트 설정을 클립보드에 복사했습니다.", "Current chart settings copied to clipboard."),
+          localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
+          showPresetStatus,
+          localText("현재 차트 설정 내보내기", "Export current chart settings"),
+          localText("현재 차트 상태를 JSON 또는 압축 문자열로 내보냅니다.", "Export the current chart state as JSON or a compressed string."),
+        );
       });
       presetImport.addEventListener("click", async () => {
         const clip = (await readFromClipboard()).trim();

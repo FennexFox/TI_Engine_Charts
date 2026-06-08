@@ -9,6 +9,7 @@
       const title = document.getElementById("dryMassCalcTitle");
       const close = document.getElementById("dryMassCalcClose");
       const apply = document.getElementById("dryMassCalcApply");
+      const applyWithDefaults = document.getElementById("dryMassCalcApplyWithDefaults");
       const reset = document.getElementById("dryMassCalcReset");
       const classLabel = document.getElementById("dryMassCalcClassLabel");
       const slotsLabel = document.getElementById("dryMassCalcSlotsLabel");
@@ -16,6 +17,11 @@
       const armorLabel = document.getElementById("dryMassCalcArmorLabel");
       const notesLabel = document.getElementById("dryMassCalcNotesLabel");
       const notes = document.getElementById("dryMassCalcNotes");
+      const simulationDefaultsLabel = document.getElementById("shipPresetSimulationDefaultsLabel");
+      const targetDvLabel = document.getElementById("shipPresetTargetDvLabel");
+      const targetDvInput = document.getElementById("shipPresetTargetDv");
+      const radiatorLabel = document.getElementById("shipPresetRadiatorLabel");
+      const radiatorSelect = document.getElementById("shipPresetRadiator");
       const button = document.getElementById("dryMassCalcButton");
 
       if (button) {
@@ -24,13 +30,23 @@
       }
       if (title) title.textContent = localText("건조질량 계산기", "Dry-mass calculator");
       if (close) close.textContent = localText("닫기", "Close");
-      if (apply) apply.textContent = localText("건조질량에 적용", "Apply to dry mass");
+      if (apply) apply.textContent = localText("건조질량만 적용", "Apply dry mass only");
+      setTextById("dryMassCalcApplyWithDefaults", "건조질량 + 조건 적용", "Apply dry mass + defaults");
       if (reset) reset.textContent = localText("초기화", "Reset");
       if (classLabel) classLabel.textContent = localText("함급", "Hull Class");
       if (slotsLabel) slotsLabel.textContent = localText("내부 유틸리티 모듈", "Internal utility modules");
       if (weaponsLabel) weaponsLabel.textContent = localText("무장 하드포인트", "Weapon hardpoints");
       if (armorLabel) armorLabel.textContent = localText("장갑", "Armor");
       if (notesLabel) notesLabel.textContent = localText("메모", "Notes");
+      if (simulationDefaultsLabel) simulationDefaultsLabel.textContent = localText("시뮬레이션 기본 조건", "Simulation defaults");
+      if (targetDvLabel) targetDvLabel.textContent = localText("목표 dV (km/s)", "Target dV (km/s)");
+      if (radiatorLabel) radiatorLabel.textContent = localText("라디에이터", "Radiator");
+      const simulationDefaults = normalizeShipDesignSimulationDefaults();
+      if (targetDvInput) targetDvInput.value = String(Math.round(simulationDefaults.targetDvKps));
+      if (radiatorSelect) {
+        renderRadiatorOptions(radiatorSelect);
+        radiatorSelect.value = simulationDefaults.radiatorId;
+      }
       if (notes) {
         notes.placeholder = localText("선박 설계 가정 메모", "Ship design assumption notes");
         if (notes.value !== String(dryMassCalcState.notes || "")) notes.value = String(dryMassCalcState.notes || "");
@@ -123,11 +139,14 @@
       const armor = document.getElementById("dryMassCalcArmor");
       const close = document.getElementById("dryMassCalcClose");
       const apply = document.getElementById("dryMassCalcApply");
+      const applyWithDefaults = document.getElementById("dryMassCalcApplyWithDefaults");
       const reset = document.getElementById("dryMassCalcReset");
       const dryMass = document.getElementById("dryMass");
       const dryMassNumber = document.getElementById("dryMassNumber");
       const notes = document.getElementById("dryMassCalcNotes");
-      if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !reset || !dryMass || !dryMassNumber || !notes) return;
+      const presetTargetDv = document.getElementById("shipPresetTargetDv");
+      const presetRadiator = document.getElementById("shipPresetRadiator");
+      if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !applyWithDefaults || !reset || !dryMass || !dryMassNumber || !notes || !presetTargetDv || !presetRadiator) return;
 
       const openModal = () => {
         renderDryMassCalcModal();
@@ -147,6 +166,15 @@
       });
       notes.addEventListener("input", () => {
         dryMassCalcState.notes = notes.value.slice(0, 2000);
+      });
+      presetTargetDv.addEventListener("input", () => {
+        normalizeShipDesignSimulationDefaults().targetDvKps = clamp(Number(presetTargetDv.value) || 0, 0, 100000);
+      });
+      presetRadiator.addEventListener("change", () => {
+        const defaults = normalizeShipDesignSimulationDefaults();
+        if (DATA.radiators.some(item => item.id === presetRadiator.value)) {
+          defaults.radiatorId = presetRadiator.value;
+        }
       });
       modal.addEventListener("click", event => {
         if (event.target === modal) closeModal();
@@ -207,6 +235,14 @@
         state.dryMassTons = value;
         dryMass.value = String(clamp(value, Number(dryMass.min), Number(dryMass.max)));
         dryMassNumber.value = String(Math.round(value));
+        closeModal();
+        render();
+      });
+      applyWithDefaults.addEventListener("click", () => {
+        const value = clamp(dryMassCalcTotalTons(), 0, 1000000);
+        state.dryMassTons = value;
+        applyShipDesignSimulationDefaultsToState();
+        syncUiFromState();
         closeModal();
         render();
       });
@@ -302,24 +338,35 @@
       };
     }
 
-    function normalizeDryMassPresetEntry(rawEntry, fallbackName = "Dry-mass preset") {
+    function normalizeDryMassPresetEntry(rawEntry, fallbackName = "Design preset") {
       if (!rawEntry || typeof rawEntry !== "object") return null;
       const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
-      const calculator = source.calculator && typeof source.calculator === "object"
-        ? source.calculator
-        : source.settings && typeof source.settings === "object"
-          ? source.settings
-          : source.dryMassCalculator && typeof source.dryMassCalculator === "object"
-            ? source.dryMassCalculator
-            : source.dryMassCalc && typeof source.dryMassCalc === "object"
-              ? source.dryMassCalc
-              : source;
-      if (!calculator || typeof calculator !== "object") return null;
+      const dryMassDesign = source.dryMassDesign && typeof source.dryMassDesign === "object"
+        ? source.dryMassDesign
+        : source.design && typeof source.design === "object"
+          ? source.design
+          : source.calculator && typeof source.calculator === "object"
+            ? source.calculator
+            : source.settings && typeof source.settings === "object"
+              ? source.settings
+              : source.dryMassCalculator && typeof source.dryMassCalculator === "object"
+                ? source.dryMassCalculator
+                : source.dryMassCalc && typeof source.dryMassCalc === "object"
+                  ? source.dryMassCalc
+                  : source;
+      if (!dryMassDesign || typeof dryMassDesign !== "object") return null;
+      const calculator = cloneJson(dryMassDesign);
+      const simulationDefaults = source.simulationDefaults && typeof source.simulationDefaults === "object"
+        ? source.simulationDefaults
+        : calculator.simulationDefaults && typeof calculator.simulationDefaults === "object"
+          ? calculator.simulationDefaults
+          : null;
+      if (simulationDefaults) calculator.simulationDefaults = cloneJson(simulationDefaults);
       const now = presetTimestamp();
       return {
-        id: typeof source.id === "string" && source.id.trim() ? source.id : uniquePresetId("drymass"),
+        id: typeof source.id === "string" && source.id.trim() ? source.id : uniquePresetId("design"),
         name: sanitizePresetName(source.name, fallbackName),
-        calculator: cloneJson(calculator),
+        calculator,
         createdAt: typeof source.createdAt === "string" ? source.createdAt : now,
         updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : now,
       };
@@ -362,8 +409,8 @@
       if (!rawEntry || typeof rawEntry !== "object") return null;
       const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
       const entry = normalizeDryMassPresetEntry(
-        { ...source, id: builtInPresetId("built-in-drymass", rawEntry, index) },
-        `Built-in dry-mass preset ${index + 1}`,
+        { ...source, id: builtInPresetId("built-in-design", rawEntry, index) },
+        `Built-in design preset ${index + 1}`,
       );
       if (entry) entry.builtIn = true;
       return entry;
@@ -420,7 +467,7 @@
 
     function saveDryMassPresetLibrary() {
       return storageWriteJson(DRY_MASS_PRESET_STORAGE_KEY, {
-        format: "ti-engine-chart-dry-mass-preset-library/v1",
+        format: "ti-engine-chart-design-preset-library/v1",
         presets: dryMassPresetLibrary,
       });
     }
@@ -445,11 +492,18 @@
     }
 
     function dryMassPresetExportObject(entry) {
+      const calculator = cloneJson(entry.calculator);
+      const simulationDefaults = calculator && calculator.simulationDefaults && typeof calculator.simulationDefaults === "object"
+        ? cloneJson(calculator.simulationDefaults)
+        : null;
+      const dryMassDesign = cloneJson(calculator);
+      if (dryMassDesign && typeof dryMassDesign === "object") delete dryMassDesign.simulationDefaults;
       return {
-        format: "ti-engine-chart-dry-mass-preset/v1",
+        format: "ti-engine-chart-design-preset/v1",
         id: entry.id,
         name: entry.name,
-        calculator: cloneJson(entry.calculator),
+        dryMassDesign,
+        simulationDefaults,
         createdAt: entry.createdAt,
         updatedAt: entry.updatedAt,
       };
@@ -457,7 +511,7 @@
 
     function dryMassPresetLibraryExportObject() {
       return {
-        format: "ti-engine-chart-dry-mass-preset-library/v1",
+        format: "ti-engine-chart-design-preset-library/v1",
         presets: dryMassPresetLibrary.map(dryMassPresetExportObject),
       };
     }
@@ -486,14 +540,52 @@
       return allDryMassPresetEntries().find(item => item.id === (select && select.value)) || null;
     }
 
-    function applyStartupChartPreset() {
-      if (!startupChartPresetId) return false;
-      const entry = allChartPresetEntries().find(item => item.id === startupChartPresetId);
-      if (!entry) {
-        setStartupChartPreset("");
+    function firstChartPresetEntry() {
+      return allChartPresetEntries()[0] || null;
+    }
+
+    function firstDryMassPresetEntry() {
+      return allDryMassPresetEntries()[0] || null;
+    }
+
+    function applyChartPresetEntry(entry, { showStatus = true } = {}) {
+      if (!entry) return false;
+      if (!applyPresetToState(entry.settings)) {
+        if (showStatus) showPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
         return false;
       }
-      return applyPresetToState(entry.settings);
+      syncUiFromState();
+      renderChartPresetControls(entry.id);
+      if (showStatus) showPresetStatus(localText(`“${entry.name}” 차트 프리셋을 적용했습니다.`, `Applied chart preset “${entry.name}”.`));
+      return true;
+    }
+
+    function applySelectedChartPreset(options = {}) {
+      return applyChartPresetEntry(selectedChartPresetEntry(), options);
+    }
+
+    function applyDryMassPresetEntry(entry, { showStatus = true } = {}) {
+      if (!entry) return false;
+      if (!applyDryMassCalculatorPreset(entry.calculator)) {
+        if (showStatus) showDryMassPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
+        return false;
+      }
+      renderDryMassCalcModal();
+      if (showStatus) showDryMassPresetStatus(localText(`“${entry.name}” 설계 프리셋을 적용했습니다. 적용 버튼으로 차트에 반영하세요.`, `Applied design preset “${entry.name}”. Use an apply button to update the chart.`));
+      return true;
+    }
+
+    function applySelectedDryMassPreset(options = {}) {
+      return applyDryMassPresetEntry(selectedDryMassPresetEntry(), options);
+    }
+
+    function applyStartupChartPreset() {
+      let entry = startupChartPresetId
+        ? allChartPresetEntries().find(item => item.id === startupChartPresetId)
+        : null;
+      if (startupChartPresetId && !entry) setStartupChartPreset("");
+      entry = entry || firstChartPresetEntry();
+      return !!entry && applyPresetToState(entry.settings);
     }
 
     function setDisabled(id, disabled) {
@@ -509,7 +601,7 @@
         const option = document.createElement("option");
         option.value = entry.id;
         option.textContent = entry.id === startupId
-          ? `${entry.name} ${localText("(시작)", "(startup)")}`
+          ? `${entry.name} ${localText("(기본)", "(default)")}`
           : entry.name;
         group.appendChild(option);
       });
@@ -519,8 +611,8 @@
     function renderChartPresetControls(preferredId = "") {
       const select = document.getElementById("chartPresetSelect");
       if (!select) return;
-      const selectedId = preferredId || select.value;
       const allEntries = allChartPresetEntries();
+      const selectedId = preferredId || select.value || startupChartPresetId || (allEntries[0] && allEntries[0].id) || "";
       const hasPresets = allEntries.length > 0;
       if (startupChartPresetId && !allEntries.some(item => item.id === startupChartPresetId)) {
         setStartupChartPreset("");
@@ -541,27 +633,24 @@
       select.disabled = !hasPresets;
       const entry = selectedChartPresetEntry();
       [
-        "chartPresetLoad",
-        "chartPresetDuplicate",
         "chartPresetSetStartup",
-        "chartPresetExportSelected",
       ].forEach(id => setDisabled(id, !hasPresets));
+      setDisabled("chartPresetSave", false);
       ["chartPresetRename", "chartPresetDelete"].forEach(id => setDisabled(id, !entry || !!entry.builtIn));
       setDisabled("chartPresetClearStartup", !startupChartPresetId);
-      setDisabled("chartPresetExportAll", !chartPresetLibrary.length);
     }
 
     function renderDryMassPresetControls(preferredId = "") {
       const select = document.getElementById("dryMassPresetSelect");
       if (!select) return;
-      const selectedId = preferredId || select.value;
       const allEntries = allDryMassPresetEntries();
+      const selectedId = preferredId || select.value || (allEntries[0] && allEntries[0].id) || "";
       const hasPresets = allEntries.length > 0;
       select.innerHTML = "";
       if (!hasPresets) {
         const option = document.createElement("option");
         option.value = "";
-        option.textContent = localText("건조질량 프리셋 없음", "No dry-mass presets");
+        option.textContent = localText("설계 프리셋 없음", "No design presets");
         select.appendChild(option);
       } else {
         appendPresetOptionGroup(select, localText("예시 프리셋", "Example presets"), builtInDryMassPresetLibrary);
@@ -572,13 +661,8 @@
       }
       select.disabled = !hasPresets;
       const entry = selectedDryMassPresetEntry();
-      [
-        "dryMassPresetLoad",
-        "dryMassPresetDuplicate",
-        "dryMassPresetExportSelected",
-      ].forEach(id => setDisabled(id, !hasPresets));
+      setDisabled("dryMassPresetSave", false);
       ["dryMassPresetRename", "dryMassPresetDelete"].forEach(id => setDisabled(id, !entry || !!entry.builtIn));
-      setDisabled("dryMassPresetExportAll", !dryMassPresetLibrary.length);
     }
 
     function renderPresetLibraryControls() {
@@ -642,12 +726,11 @@
       entries.map((entry, index) => normalizeChartPresetEntry(entry, `Imported chart preset ${index + 1}`))
         .filter(Boolean)
         .forEach(entry => {
-          const idIndex = chartPresetLibrary.findIndex(item => item.id === entry.id);
-          if (idIndex >= 0) {
-            chartPresetLibrary[idIndex] = { ...entry, name: uniquePresetName(entry.name, chartPresetLibrary, entry.id) };
-          } else {
-            chartPresetLibrary.push({ ...entry, name: uniquePresetName(entry.name, chartPresetLibrary) });
-          }
+          const usedIds = new Set(allChartPresetEntries().map(item => item.id));
+          const imported = { ...entry, builtIn: false };
+          if (usedIds.has(imported.id)) imported.id = uniquePresetId("chart");
+          imported.name = uniquePresetName(imported.name, chartPresetLibrary);
+          chartPresetLibrary.push(imported);
           changed += 1;
         });
       if (!changed) return 0;
@@ -658,15 +741,14 @@
 
     function mergeDryMassPresetEntries(entries) {
       let changed = 0;
-      entries.map((entry, index) => normalizeDryMassPresetEntry(entry, `Imported dry-mass preset ${index + 1}`))
+      entries.map((entry, index) => normalizeDryMassPresetEntry(entry, `Imported design preset ${index + 1}`))
         .filter(Boolean)
         .forEach(entry => {
-          const idIndex = dryMassPresetLibrary.findIndex(item => item.id === entry.id);
-          if (idIndex >= 0) {
-            dryMassPresetLibrary[idIndex] = { ...entry, name: uniquePresetName(entry.name, dryMassPresetLibrary, entry.id) };
-          } else {
-            dryMassPresetLibrary.push({ ...entry, name: uniquePresetName(entry.name, dryMassPresetLibrary) });
-          }
+          const usedIds = new Set(allDryMassPresetEntries().map(item => item.id));
+          const imported = { ...entry, builtIn: false };
+          if (usedIds.has(imported.id)) imported.id = uniquePresetId("drymass");
+          imported.name = uniquePresetName(imported.name, dryMassPresetLibrary);
+          dryMassPresetLibrary.push(imported);
           changed += 1;
         });
       if (!changed) return 0;
@@ -699,12 +781,17 @@
 
     function extractDryMassCalculatorFromImport(raw) {
       if (!raw || typeof raw !== "object") return null;
-      if (raw.format === "ti-engine-chart-dry-mass-preset/v1" && raw.calculator && typeof raw.calculator === "object") {
+      if ((raw.format === "ti-engine-chart-dry-mass-preset/v1" || raw.format === "ti-engine-chart-design-preset/v1") && raw.calculator && typeof raw.calculator === "object") {
         return raw.calculator;
       }
-      const calculator = raw.calculator || raw.dryMassCalculator || raw.dryMassCalc;
+      if (raw.format === "ti-engine-chart-design-preset/v1" && raw.dryMassDesign && typeof raw.dryMassDesign === "object") {
+        const calculator = cloneJson(raw.dryMassDesign);
+        if (raw.simulationDefaults && typeof raw.simulationDefaults === "object") calculator.simulationDefaults = cloneJson(raw.simulationDefaults);
+        return calculator;
+      }
+      const calculator = raw.calculator || raw.dryMassDesign || raw.design || raw.dryMassCalculator || raw.dryMassCalc;
       if (calculator && typeof calculator === "object") return calculator;
-      const hasCalculatorField = ["classId", "slotModules", "weaponModules", "armor", "notes"]
+      const hasCalculatorField = ["classId", "slotModules", "weaponModules", "armor", "notes", "simulationDefaults"]
         .some(key => Object.prototype.hasOwnProperty.call(raw, key));
       return hasCalculatorField ? raw : null;
     }
@@ -720,32 +807,36 @@
           setStartupChartPreset(raw.startupPresetId);
           renderChartPresetControls(raw.startupPresetId);
         }
+        if (count > 0) applySelectedChartPreset({ showStatus: false });
         return { ok: count > 0, message: count > 0
           ? localText(`차트 프리셋 ${count}개를 가져왔습니다.`, `Imported ${count} chart presets.`)
           : localText("가져올 차트 프리셋이 없습니다.", "No chart presets to import.") };
       }
 
-      if (raw.format === "ti-engine-chart-dry-mass-preset-library/v1" && Array.isArray(raw.presets)) {
+      if ((raw.format === "ti-engine-chart-dry-mass-preset-library/v1" || raw.format === "ti-engine-chart-design-preset-library/v1") && Array.isArray(raw.presets)) {
         const count = mergeDryMassPresetEntries(raw.presets);
+        if (count > 0) applySelectedDryMassPreset({ showStatus: false });
         return { ok: count > 0, message: count > 0
-          ? localText(`건조질량 프리셋 ${count}개를 가져왔습니다.`, `Imported ${count} dry-mass presets.`)
-          : localText("가져올 건조질량 프리셋이 없습니다.", "No dry-mass presets to import.") };
+          ? localText(`설계 프리셋 ${count}개를 가져왔습니다.`, `Imported ${count} design presets.`)
+          : localText("가져올 설계 프리셋이 없습니다.", "No design presets to import.") };
       }
 
       if (raw.format === "ti-engine-chart-named-preset/v1") {
         const entry = normalizeChartPresetEntry(raw, raw.name || "Imported chart preset");
         const count = entry ? mergeChartPresetEntries([entry]) : 0;
+        if (count > 0) applySelectedChartPreset({ showStatus: false });
         return { ok: count > 0, message: count > 0
           ? localText("차트 프리셋을 라이브러리에 추가했습니다.", "Chart preset added to the library.")
           : localText("차트 프리셋을 가져오지 못했습니다.", "Failed to import chart preset.") };
       }
 
-      if (raw.format === "ti-engine-chart-dry-mass-preset/v1") {
-        const entry = normalizeDryMassPresetEntry(raw, raw.name || "Imported dry-mass preset");
+      if (raw.format === "ti-engine-chart-dry-mass-preset/v1" || raw.format === "ti-engine-chart-design-preset/v1") {
+        const entry = normalizeDryMassPresetEntry(raw, raw.name || "Imported design preset");
         const count = entry ? mergeDryMassPresetEntries([entry]) : 0;
+        if (count > 0) applySelectedDryMassPreset({ showStatus: false });
         return { ok: count > 0, message: count > 0
-          ? localText("건조질량 프리셋을 라이브러리에 추가했습니다.", "Dry-mass preset added to the library.")
-          : localText("건조질량 프리셋을 가져오지 못했습니다.", "Failed to import dry-mass preset.") };
+          ? localText("설계 프리셋을 라이브러리에 추가했습니다.", "Design preset added to the library.")
+          : localText("설계 프리셋을 가져오지 못했습니다.", "Failed to import design preset.") };
       }
 
       if (preferredKind === "dryMass") {
@@ -754,13 +845,13 @@
           renderDryMassCalcModal();
           if (promptToSaveCurrent && window.confirm(localText("가져온 계산기 설정을 이름 있는 프리셋으로 저장할까요?", "Save imported calculator settings as a named preset?"))) {
             const name = promptPresetName(
-              localText("건조질량 프리셋 이름", "Dry-mass preset name"),
-              raw.name || localText("가져온 건조질량 프리셋", "Imported dry-mass preset"),
+              localText("설계 프리셋 이름", "Design preset name"),
+              raw.name || localText("가져온 설계 프리셋", "Imported design preset"),
               showDryMassPresetStatus,
             );
             if (name) saveDryMassPresetFromCalculator(name, exportedDryMassCalculatorPreset());
           }
-          return { ok: true, message: localText("건조질량 설정을 불러왔습니다.", "Dry-mass settings imported.") };
+          return { ok: true, message: localText("설계 설정을 불러왔습니다.", "Design settings imported.") };
         }
       }
 
@@ -781,11 +872,13 @@
       const calculator = extractDryMassCalculatorFromImport(raw);
       if (calculator && applyDryMassCalculatorPreset(calculator)) {
         renderDryMassCalcModal();
-        return { ok: true, message: localText("건조질량 설정을 불러왔습니다.", "Dry-mass settings imported.") };
+        return { ok: true, message: localText("설계 설정을 불러왔습니다.", "Design settings imported.") };
       }
 
       return { ok: false, message: localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format.") };
     }
+
+    let presetExportModalState = null;
 
     async function serializePayloadObject(object) {
       const jsonText = JSON.stringify(object);
@@ -795,39 +888,117 @@
       return `tijp1:${bytesToBase64(sourceBytes)}`;
     }
 
-    async function copySerializedObject(object, successText, failureText, statusFn = showPresetStatus) {
+    async function formatExportPayloadObject(object, format) {
+      if (format === "json") return JSON.stringify(object, null, 2);
+      return serializePayloadObject(object);
+    }
+
+    function selectedExportFormat() {
+      const selected = document.querySelector('input[name="presetExportFormat"]:checked');
+      return selected && selected.value === "json" ? "json" : "compressed";
+    }
+
+    async function refreshPresetExportOutput() {
+      const output = document.getElementById("presetExportOutput");
+      const status = document.getElementById("presetExportStatus");
+      if (!output || !presetExportModalState) return;
       try {
-        const payload = await serializePayloadObject(object);
-        const copied = await copyToClipboard(payload);
-        statusFn(copied ? successText : failureText, !copied);
+        output.value = await formatExportPayloadObject(presetExportModalState.object, selectedExportFormat());
+        if (status) {
+          status.textContent = localText("출력 형식을 선택한 뒤 복사할 수 있습니다.", "Choose a format, then copy it to the clipboard.");
+          status.classList.remove("error");
+        }
       } catch {
-        statusFn(failureText, true);
+        output.value = "";
+        if (status) {
+          status.textContent = presetExportModalState.failureText;
+          status.classList.add("error");
+        }
       }
     }
 
+    function openPresetExportModal({ object, title, description, successText, failureText, statusFn = showPresetStatus }) {
+      const modal = document.getElementById("presetExportModal");
+      const titleElement = document.getElementById("presetExportTitle");
+      const descriptionElement = document.getElementById("presetExportDescription");
+      const compressed = document.querySelector('input[name="presetExportFormat"][value="compressed"]');
+      if (!modal) return;
+      presetExportModalState = { object, successText, failureText, statusFn };
+      if (titleElement) titleElement.textContent = title || localText("프리셋 내보내기", "Export preset");
+      if (descriptionElement) descriptionElement.textContent = description || localText("출력 형식을 선택하고 클립보드에 복사하세요.", "Choose an output format and copy it to the clipboard.");
+      if (compressed) compressed.checked = true;
+      modal.classList.add("is-open");
+      refreshPresetExportOutput();
+      document.getElementById("presetExportCopy")?.focus();
+    }
+
+    function closePresetExportModal() {
+      const modal = document.getElementById("presetExportModal");
+      if (modal) modal.classList.remove("is-open");
+      presetExportModalState = null;
+    }
+
+    async function copyPresetExportOutput() {
+      const output = document.getElementById("presetExportOutput");
+      const status = document.getElementById("presetExportStatus");
+      if (!output || !presetExportModalState) return;
+      try {
+        if (!output.value) output.value = await formatExportPayloadObject(presetExportModalState.object, selectedExportFormat());
+        const copied = await copyToClipboard(output.value);
+        const message = copied ? presetExportModalState.successText : presetExportModalState.failureText;
+        if (status) {
+          status.textContent = message;
+          status.classList.toggle("error", !copied);
+        }
+        presetExportModalState.statusFn(message, !copied);
+      } catch {
+        if (status) {
+          status.textContent = presetExportModalState.failureText;
+          status.classList.add("error");
+        }
+        presetExportModalState.statusFn(presetExportModalState.failureText, true);
+      }
+    }
+
+    async function copySerializedObject(object, successText, failureText, statusFn = showPresetStatus, title = "", description = "") {
+      openPresetExportModal({ object, title, description, successText, failureText, statusFn });
+    }
+
+    function setupPresetExportModal() {
+      const modal = document.getElementById("presetExportModal");
+      document.getElementById("presetExportClose")?.addEventListener("click", closePresetExportModal);
+      document.getElementById("presetExportCopy")?.addEventListener("click", copyPresetExportOutput);
+      document.querySelectorAll('input[name="presetExportFormat"]').forEach(input => {
+        input.addEventListener("change", refreshPresetExportOutput);
+      });
+      modal?.addEventListener("click", event => {
+        if (event.target === modal) closePresetExportModal();
+      });
+      modal?.addEventListener("keydown", event => {
+        if (event.key === "Escape") closePresetExportModal();
+      });
+    }
+
     function setupPresetLibraryControls() {
+      setupPresetExportModal();
       renderChartPresetControls();
       document.getElementById("chartPresetSelect")?.addEventListener("change", event => {
         renderChartPresetControls(event.target.value);
+        applySelectedChartPreset();
       });
       document.getElementById("chartPresetSave")?.addEventListener("click", () => {
+        const entry = selectedChartPresetEntry();
+        const existingId = entry && !entry.builtIn ? entry.id : "";
         const name = promptPresetName(
           localText("차트 프리셋 이름", "Chart preset name"),
-          "",
+          entry ? (entry.builtIn ? `${entry.name} copy` : entry.name) : "",
           showPresetStatus,
         );
         if (!name) return;
-        const saved = saveChartPresetFromSettings(name, exportedPreset());
+        const saved = saveChartPresetFromSettings(name, exportedPreset(), existingId);
         showPresetStatus(saved
           ? localText("차트 프리셋을 저장했습니다.", "Chart preset saved.")
           : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
-      });
-      document.getElementById("chartPresetLoad")?.addEventListener("click", () => {
-        const entry = selectedChartPresetEntry();
-        if (!entry) return showPresetStatus(localText("불러올 차트 프리셋이 없습니다.", "No chart preset selected."), true);
-        if (!applyPresetToState(entry.settings)) return showPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
-        syncUiFromState();
-        showPresetStatus(localText("차트 프리셋을 불러왔습니다.", "Chart preset loaded."));
       });
       document.getElementById("chartPresetRename")?.addEventListener("click", () => {
         const entry = selectedChartPresetEntry();
@@ -841,14 +1012,6 @@
         renderChartPresetControls(entry.id);
         showPresetStatus(saved ? localText("프리셋 이름을 변경했습니다.", "Preset renamed.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
       });
-      document.getElementById("chartPresetDuplicate")?.addEventListener("click", () => {
-        const entry = selectedChartPresetEntry();
-        if (!entry) return;
-        const name = promptPresetName(localText("복제할 차트 프리셋 이름", "Duplicate chart preset name"), `${entry.name} copy`, showPresetStatus);
-        if (!name) return;
-        const saved = saveChartPresetFromSettings(name, entry.settings);
-        showPresetStatus(saved ? localText("차트 프리셋을 복제했습니다.", "Chart preset duplicated.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
-      });
       document.getElementById("chartPresetDelete")?.addEventListener("click", () => {
         const entry = selectedChartPresetEntry();
         if (entry && entry.builtIn) return showPresetStatus(localText("예시 프리셋은 삭제할 수 없습니다.", "Example presets cannot be deleted."), true);
@@ -857,6 +1020,7 @@
         if (startupChartPresetId === entry.id) setStartupChartPreset("");
         const saved = saveChartPresetLibrary();
         renderChartPresetControls();
+        if (saved) applySelectedChartPreset({ showStatus: false });
         showPresetStatus(saved ? localText("차트 프리셋을 삭제했습니다.", "Chart preset deleted.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
       });
       document.getElementById("chartPresetSetStartup")?.addEventListener("click", () => {
@@ -864,17 +1028,12 @@
         if (!entry) return;
         const saved = setStartupChartPreset(entry.id);
         renderChartPresetControls(entry.id);
-        showPresetStatus(saved ? localText("시작 프리셋을 설정했습니다.", "Startup preset set.") : localText("시작 프리셋 저장에 실패했습니다.", "Failed to save startup preset."), !saved);
+        showPresetStatus(saved ? localText("기본 프리셋을 설정했습니다.", "Default preset set.") : localText("기본 프리셋 저장에 실패했습니다.", "Failed to save default preset."), !saved);
       });
       document.getElementById("chartPresetClearStartup")?.addEventListener("click", () => {
         const saved = setStartupChartPreset("");
         renderChartPresetControls();
-        showPresetStatus(saved ? localText("시작 프리셋을 해제했습니다.", "Startup preset cleared.") : localText("시작 프리셋 저장에 실패했습니다.", "Failed to save startup preset."), !saved);
-      });
-      document.getElementById("chartPresetReset")?.addEventListener("click", () => {
-        resetChartStateToDefaults();
-        syncUiFromState();
-        showPresetStatus(localText("기본 설정으로 되돌렸습니다.", "Default settings restored."));
+        showPresetStatus(saved ? localText("기본 프리셋을 해제했습니다.", "Default preset cleared.") : localText("기본 프리셋 저장에 실패했습니다.", "Failed to save default preset."), !saved);
       });
       document.getElementById("chartPresetExportSelected")?.addEventListener("click", async () => {
         const entry = selectedChartPresetEntry();
@@ -883,6 +1042,9 @@
           chartPresetExportObject(entry),
           localText("선택한 차트 프리셋을 클립보드에 복사했습니다.", "Selected chart preset copied to clipboard."),
           localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
+          showPresetStatus,
+          localText("차트 프리셋 내보내기", "Export chart preset"),
+          localText("선택한 차트 프리셋 1개를 JSON 또는 압축 문자열로 내보냅니다.", "Export the selected chart preset as JSON or a compressed string."),
         );
       });
       document.getElementById("chartPresetExportAll")?.addEventListener("click", async () => {
@@ -891,39 +1053,39 @@
           chartPresetLibraryExportObject(),
           localText("차트 프리셋 라이브러리를 클립보드에 복사했습니다.", "Chart preset library copied to clipboard."),
           localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
+          showPresetStatus,
+          localText("전체 차트 프리셋 내보내기", "Export all chart presets"),
+          localText("사용자가 저장한 차트 프리셋 전체를 JSON 또는 압축 문자열로 내보냅니다.", "Export all saved user chart presets as JSON or a compressed string."),
         );
       });
     }
 
     function setupDryMassPresetControls() {
       renderDryMassPresetControls();
+      applySelectedDryMassPreset({ showStatus: false });
       document.getElementById("dryMassPresetSelect")?.addEventListener("change", event => {
         renderDryMassPresetControls(event.target.value);
+        applySelectedDryMassPreset();
       });
       document.getElementById("dryMassPresetSave")?.addEventListener("click", () => {
+        const entry = selectedDryMassPresetEntry();
+        const existingId = entry && !entry.builtIn ? entry.id : "";
         const name = promptPresetName(
-          localText("건조질량 프리셋 이름", "Dry-mass preset name"),
-          "",
+          localText("설계 프리셋 이름", "Design preset name"),
+          entry ? (entry.builtIn ? `${entry.name} copy` : entry.name) : "",
           showDryMassPresetStatus,
         );
         if (!name) return;
-        const saved = saveDryMassPresetFromCalculator(name, exportedDryMassCalculatorPreset());
+        const saved = saveDryMassPresetFromCalculator(name, exportedDryMassCalculatorPreset(), existingId);
         showDryMassPresetStatus(saved
-          ? localText("건조질량 프리셋을 저장했습니다.", "Dry-mass preset saved.")
+          ? localText("설계 프리셋을 저장했습니다.", "Design preset saved.")
           : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
-      });
-      document.getElementById("dryMassPresetLoad")?.addEventListener("click", () => {
-        const entry = selectedDryMassPresetEntry();
-        if (!entry) return showDryMassPresetStatus(localText("불러올 건조질량 프리셋이 없습니다.", "No dry-mass preset selected."), true);
-        if (!applyDryMassCalculatorPreset(entry.calculator)) return showDryMassPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
-        renderDryMassCalcModal();
-        showDryMassPresetStatus(localText("건조질량 프리셋을 불러왔습니다. 건조질량에 적용 버튼으로 차트에 반영하세요.", "Dry-mass preset loaded. Use Apply to dry mass to update the chart."));
       });
       document.getElementById("dryMassPresetRename")?.addEventListener("click", () => {
         const entry = selectedDryMassPresetEntry();
         if (!entry) return;
         if (entry.builtIn) return showDryMassPresetStatus(localText("예시 프리셋은 이름을 변경할 수 없습니다.", "Example presets cannot be renamed."), true);
-        const name = promptPresetName(localText("새 건조질량 프리셋 이름", "New dry-mass preset name"), entry.name, showDryMassPresetStatus);
+        const name = promptPresetName(localText("새 설계 프리셋 이름", "New design preset name"), entry.name, showDryMassPresetStatus);
         if (!name) return;
         entry.name = uniquePresetName(name, dryMassPresetLibrary, entry.id);
         entry.updatedAt = presetTimestamp();
@@ -931,45 +1093,46 @@
         renderDryMassPresetControls(entry.id);
         showDryMassPresetStatus(saved ? localText("프리셋 이름을 변경했습니다.", "Preset renamed.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
       });
-      document.getElementById("dryMassPresetDuplicate")?.addEventListener("click", () => {
-        const entry = selectedDryMassPresetEntry();
-        if (!entry) return;
-        const name = promptPresetName(localText("복제할 건조질량 프리셋 이름", "Duplicate dry-mass preset name"), `${entry.name} copy`, showDryMassPresetStatus);
-        if (!name) return;
-        const saved = saveDryMassPresetFromCalculator(name, entry.calculator);
-        showDryMassPresetStatus(saved ? localText("건조질량 프리셋을 복제했습니다.", "Dry-mass preset duplicated.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
-      });
       document.getElementById("dryMassPresetDelete")?.addEventListener("click", () => {
         const entry = selectedDryMassPresetEntry();
         if (entry && entry.builtIn) return showDryMassPresetStatus(localText("예시 프리셋은 삭제할 수 없습니다.", "Example presets cannot be deleted."), true);
-        if (!entry || !window.confirm(localText("선택한 건조질량 프리셋을 삭제할까요?", "Delete the selected dry-mass preset?"))) return;
+        if (!entry || !window.confirm(localText("선택한 설계 프리셋을 삭제할까요?", "Delete the selected design preset?"))) return;
         dryMassPresetLibrary = dryMassPresetLibrary.filter(item => item.id !== entry.id);
         const saved = saveDryMassPresetLibrary();
         renderDryMassPresetControls();
-        showDryMassPresetStatus(saved ? localText("건조질량 프리셋을 삭제했습니다.", "Dry-mass preset deleted.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
+        if (saved) applySelectedDryMassPreset({ showStatus: false });
+        showDryMassPresetStatus(saved ? localText("설계 프리셋을 삭제했습니다.", "Design preset deleted.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
       });
       document.getElementById("dryMassPresetExportSelected")?.addEventListener("click", async () => {
-        const entry = selectedDryMassPresetEntry();
-        if (!entry) return showDryMassPresetStatus(localText("내보낼 건조질량 프리셋이 없습니다.", "No dry-mass preset selected."), true);
         await copySerializedObject(
-          dryMassPresetExportObject(entry),
-          localText("선택한 건조질량 프리셋을 클립보드에 복사했습니다.", "Selected dry-mass preset copied to clipboard."),
+          dryMassPresetExportObject({
+            id: uniquePresetId("design-export"),
+            name: localText("현재 설계", "Current design"),
+            calculator: exportedDryMassCalculatorPreset(),
+            createdAt: presetTimestamp(),
+            updatedAt: presetTimestamp(),
+          }),
+          localText("현재 설계를 클립보드에 복사했습니다.", "Current design copied to clipboard."),
           localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
           showDryMassPresetStatus,
+          localText("현재 설계 설정 내보내기", "Export current design settings"),
+          localText("현재 계산기 화면의 설정을 JSON 또는 압축 문자열로 내보냅니다.", "Export the current calculator settings as JSON or a compressed string."),
         );
       });
       document.getElementById("dryMassPresetExportAll")?.addEventListener("click", async () => {
-        if (!dryMassPresetLibrary.length) return showDryMassPresetStatus(localText("내보낼 건조질량 프리셋이 없습니다.", "No dry-mass presets to export."), true);
+        if (!dryMassPresetLibrary.length) return showDryMassPresetStatus(localText("내보낼 설계 프리셋이 없습니다.", "No design presets to export."), true);
         await copySerializedObject(
           dryMassPresetLibraryExportObject(),
-          localText("건조질량 프리셋 라이브러리를 클립보드에 복사했습니다.", "Dry-mass preset library copied to clipboard."),
+          localText("설계 프리셋 라이브러리를 클립보드에 복사했습니다.", "Design preset library copied to clipboard."),
           localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
           showDryMassPresetStatus,
+          localText("전체 설계 프리셋 내보내기", "Export all design presets"),
+          localText("사용자가 저장한 설계 프리셋 전체를 JSON 또는 압축 문자열로 내보냅니다.", "Export all saved user design presets as JSON or a compressed string."),
         );
       });
       document.getElementById("dryMassPresetImport")?.addEventListener("click", async () => {
         const clip = (await readFromClipboard()).trim();
-        const payload = window.prompt(localText("건조질량 프리셋 문자열을 붙여넣으세요", "Paste dry-mass preset string"), clip || "");
+        const payload = window.prompt(localText("설계 프리셋 문자열을 붙여넣으세요", "Paste design preset string"), clip || "");
         if (payload === null) return showDryMassPresetStatus(localText("가져오기를 취소했습니다.", "Preset import canceled."));
         if (!payload.trim()) return showDryMassPresetStatus(localText("가져올 설정 문자열이 없습니다.", "No preset string to import."), true);
         try {
@@ -989,30 +1152,31 @@
     function setPresetUiText() {
       const exportButton = document.getElementById("presetExport");
       const importButton = document.getElementById("presetImport");
-      if (exportButton) exportButton.textContent = localText("현재 설정 Export", "Export Current");
-      if (importButton) importButton.textContent = localText("설정 Import", "Import Settings");
+      if (exportButton) exportButton.textContent = localText("현재 설정 Export", "Export current settings");
+      if (importButton) importButton.textContent = localText("설정 Import", "Import settings");
       setTextById("chartPresetLibraryLabel", "차트 프리셋", "Chart presets");
-      setTextById("chartPresetMoreLabel", "관리", "Manage");
-      setTextById("chartPresetSave", "현재 저장", "Save Current");
-      setTextById("chartPresetLoad", "불러오기", "Load");
+      setTextById("chartPresetMoreLabel", "프리셋 관리", "Preset management");
+      setTextById("chartPresetSelectedGroupLabel", "선택 프리셋", "Selected preset");
+      setTextById("chartPresetDefaultGroupLabel", "기본 프리셋", "Default preset");
+      setTextById("chartPresetTransferGroupLabel", "가져오기 / 내보내기", "Import / Export");
+      setTextById("chartPresetSave", "저장", "Save");
       setTextById("chartPresetRename", "이름 변경", "Rename");
-      setTextById("chartPresetDuplicate", "복제", "Duplicate");
       setTextById("chartPresetDelete", "삭제", "Delete");
-      setTextById("chartPresetSetStartup", "시작 프리셋", "Set Startup");
-      setTextById("chartPresetClearStartup", "시작 해제", "Clear Startup");
-      setTextById("chartPresetReset", "기본값", "Defaults");
-      setTextById("chartPresetExportSelected", "선택 Export", "Export Selected");
-      setTextById("chartPresetExportAll", "내 프리셋 Export", "Export My Presets");
-      setTextById("dryMassPresetLibraryLabel", "건조질량 프리셋", "Dry-mass presets");
-      setTextById("dryMassPresetMoreLabel", "관리", "Manage");
-      setTextById("dryMassPresetSave", "현재 저장", "Save Current");
-      setTextById("dryMassPresetLoad", "불러오기", "Load");
+      setTextById("chartPresetSetStartup", "기본 지정", "Set default");
+      setTextById("chartPresetClearStartup", "기본 해제", "Clear default");
+      setTextById("dryMassPresetLibraryLabel", "설계 프리셋", "Design presets");
+      setTextById("dryMassPresetMoreLabel", "프리셋 관리", "Preset management");
+      setTextById("dryMassPresetTransferGroupLabel", "가져오기 / 내보내기", "Import / Export");
+      setTextById("dryMassPresetSave", "저장", "Save");
       setTextById("dryMassPresetRename", "이름 변경", "Rename");
-      setTextById("dryMassPresetDuplicate", "복제", "Duplicate");
       setTextById("dryMassPresetDelete", "삭제", "Delete");
-      setTextById("dryMassPresetExportSelected", "선택 Export", "Export Selected");
-      setTextById("dryMassPresetExportAll", "내 프리셋 Export", "Export My Presets");
+      setTextById("dryMassPresetExportSelected", "현재 설정 Export", "Export current settings");
       setTextById("dryMassPresetImport", "Import", "Import");
+      setTextById("presetExportClose", "닫기", "Close");
+      setTextById("presetExportFormatLabel", "출력 형식", "Output format");
+      setTextById("presetExportFormatCompressedLabel", "압축 문자열", "Compressed string");
+      setTextById("presetExportFormatJsonLabel", "JSON", "JSON");
+      setTextById("presetExportCopy", "클립보드에 복사", "Copy to clipboard");
       renderPresetLibraryControls();
     }
 
@@ -1028,6 +1192,22 @@
       if (!status) return;
       status.textContent = message || "";
       status.classList.toggle("error", !!isError);
+    }
+
+
+    function chartPresetDesignLibrarySnapshot() {
+      return dryMassPresetLibrary.map(dryMassPresetExportObject);
+    }
+
+    function restoreDesignPresetLibrarySnapshot(rawEntries) {
+      if (!Array.isArray(rawEntries)) return false;
+      const entries = rawEntries
+        .map((entry, index) => normalizeDryMassPresetEntry(entry, `Restored design preset ${index + 1}`))
+        .filter(Boolean)
+        .map(entry => ({ ...entry, builtIn: false }));
+      dryMassPresetLibrary = dedupePresetEntries(entries);
+      saveDryMassPresetLibrary();
+      return true;
     }
 
     function exportedPreset() {
@@ -1053,6 +1233,9 @@
         categories: Object.fromEntries(DATA.categories.map(category => [category.key, !!state.categories[category.key]])),
         families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, !!state.families[family.key]])),
         dryMassCalculator: exportedDryMassCalculatorPreset(),
+        designPresetLibrary: chartPresetDesignLibrarySnapshot(),
+        dryMassPresetLibrary: chartPresetDesignLibrarySnapshot(),
+        selectedDesignPresetId: document.getElementById("dryMassPresetSelect")?.value || "",
       };
     }
 
@@ -1183,10 +1366,24 @@
         });
       }
 
+      const designLibrarySnapshot = Array.isArray(preset.designPresetLibrary)
+        ? preset.designPresetLibrary
+        : Array.isArray(preset.dryMassPresetLibrary)
+          ? preset.dryMassPresetLibrary
+          : null;
+      if (designLibrarySnapshot) {
+        restoreDesignPresetLibrarySnapshot(designLibrarySnapshot);
+      }
+
+      const selectedDesignPresetId = typeof preset.selectedDesignPresetId === "string" ? preset.selectedDesignPresetId : "";
       const calculatorPreset = preset.dryMassCalculator || preset.dryMassCalc;
       if (calculatorPreset && typeof calculatorPreset === "object") {
         applyDryMassCalculatorPreset(calculatorPreset);
+      } else if (selectedDesignPresetId) {
+        const selectedDesign = allDryMassPresetEntries().find(item => item.id === selectedDesignPresetId);
+        if (selectedDesign) applyDryMassCalculatorPreset(selectedDesign.calculator);
       }
+      renderDryMassPresetControls(selectedDesignPresetId);
 
       return true;
     }

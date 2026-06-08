@@ -19,6 +19,9 @@ async function setLanguage(page, value) {
 
 async function verifyHtmlFile(browser, htmlFile) {
   const absolutePath = resolve(htmlFile);
+  const targetUrl = process.env.PLAYWRIGHT_BASE_URL
+    ? new URL(htmlFile, process.env.PLAYWRIGHT_BASE_URL).href
+    : pathToFileURL(absolutePath).href;
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const consoleErrors = [];
   const pageErrors = [];
@@ -26,8 +29,9 @@ async function verifyHtmlFile(browser, htmlFile) {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
   page.on("pageerror", error => pageErrors.push(error.message));
+  await page.route("**/favicon.ico", route => route.fulfill({ status: 204, body: "" }));
 
-  await page.goto(pathToFileURL(absolutePath).href, { waitUntil: "domcontentloaded" });
+  await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#chart .data-point", { timeout: 15000 });
 
   const title = await page.locator("h1").innerText();
@@ -48,6 +52,22 @@ async function verifyHtmlFile(browser, htmlFile) {
     `${htmlFile}: English metric group labels were not localized`,
   );
 
+  await page.locator("#chartPresetActionsMenu > summary").click();
+  const chartPresetMenuState = await page.evaluate(() => {
+    const overflow = [...document.querySelectorAll("#presetClipboard .compact-command")]
+      .some(button => button.scrollWidth > button.clientWidth + 1);
+    return {
+      overflow,
+      exportSelected: !!document.querySelector("#chartPresetExportSelected"),
+      exportAll: !!document.querySelector("#chartPresetExportAll"),
+      exportCurrentText: document.querySelector("#presetExport")?.textContent?.trim() || "",
+    };
+  });
+  expect(chartPresetMenuState.exportCurrentText === "Export current settings", `${htmlFile}: chart current-settings export label missing`);
+  expect(!chartPresetMenuState.exportSelected && !chartPresetMenuState.exportAll, `${htmlFile}: removed chart export buttons still render`);
+  expect(!chartPresetMenuState.overflow, `${htmlFile}: chart preset management menu text overflows its buttons`);
+  await page.locator("#chartPresetActionsMenu > summary").click();
+
   await setLanguage(page, "ko");
   const visiblePoints = await page.locator("#chart .data-point").count();
   const categoryHelpCount = await page.locator(".category-row[data-help]").count();
@@ -67,6 +87,26 @@ async function verifyHtmlFile(browser, htmlFile) {
 
   await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
+  const dryMassManageSizing = await page.evaluate(() => {
+    const manage = document.querySelector("#dryMassPresetActionsMenu > summary")?.getBoundingClientRect();
+    const save = document.querySelector("#dryMassPresetSave")?.getBoundingClientRect();
+    return !!manage && !!save && Math.abs(manage.height - save.height) < 1;
+  });
+  expect(dryMassManageSizing, `${htmlFile}: dry-mass preset Manage button height differs from adjacent buttons`);
+  await page.locator("#dryMassPresetActionsMenu > summary").click();
+  await page.locator("#dryMassPresetExportSelected").click();
+  await page.waitForSelector("#presetExportModal.is-open", { timeout: 5000 });
+  const exportModalAboveDryMassModal = await page.evaluate(() => {
+    const card = document.querySelector("#presetExportModal .modal-card");
+    if (!card) return false;
+    const box = card.getBoundingClientRect();
+    const top = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(20, box.height / 2));
+    return !!top && !!top.closest("#presetExportModal");
+  });
+  expect(exportModalAboveDryMassModal, `${htmlFile}: export modal appears behind the dry-mass calculator modal`);
+  await page.locator("#presetExportClose").click();
+  await page.waitForFunction(() => !document.querySelector("#presetExportModal")?.classList.contains("is-open"), null, { timeout: 5000 });
+  await page.locator("#dryMassPresetActionsMenu > summary").click();
   expect(await page.locator('#dryMassCalcArmor select[data-armor-field="type"]').count() === 3, `${htmlFile}: dry-mass calculator armor type controls missing`);
   expect(await page.locator('#dryMassCalcArmor input[data-armor-field="points"]').count() === 3, `${htmlFile}: dry-mass calculator armor point controls missing`);
   const initialCalcMass = await page.evaluate(() => dryMassCalcTotalTons());
@@ -140,6 +180,15 @@ async function verifyHtmlFile(browser, htmlFile) {
     setStartupChartPreset("");
     renderPresetLibraryControls();
 
+    resetDryMassCalcState();
+    dryMassCalcState.notes = "snapshot design notes";
+    dryMassCalcState.simulationDefaults = {
+      targetDvKps: 777,
+      radiatorId: DATA.radiators[0] ? DATA.radiators[0].id : state.radiatorId,
+    };
+    const designSnapshot = saveDryMassPresetFromCalculator("Design Snapshot", exportedDryMassCalculatorPreset());
+    renderDryMassPresetControls(designSnapshot && designSnapshot.id);
+
     state.dryMassTons = 12345;
     state.targetDvKps = 321;
     state.thrusters = 4;
@@ -160,7 +209,18 @@ async function verifyHtmlFile(browser, htmlFile) {
     const chartCountAfterLibraryImport = chartPresetLibrary.length;
     const startupRestored = startupChartPresetId === chartA.id;
     const loadedChart = chartPresetLibrary.find(item => item.name === "Scenario Alpha");
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
     const chartApplied = !!loadedChart && applyPresetToState(loadedChart.settings);
+    const chartLoadedAfterManualApply = {
+      dryMass: state.dryMassTons,
+      dv: state.targetDvKps,
+      thrusters: state.thrusters,
+      search: state.searchTerm,
+      designCount: dryMassPresetLibrary.length,
+      designNotes: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.notes,
+      designDv: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.simulationDefaults && dryMassPresetLibrary[0].calculator.simulationDefaults.targetDvKps,
+    };
 
     const chartSelectedPayload = await serializePayloadObject(chartPresetExportObject(chartB));
     const parsedSelectedChart = await parsePresetPayload(chartSelectedPayload);
@@ -169,6 +229,8 @@ async function verifyHtmlFile(browser, htmlFile) {
     const selectedChartImport = await handleImportedPresetObject(parsedSelectedChart, { promptToSaveCurrent: false });
 
     resetDryMassCalcState();
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
     dryMassCalcState.notes = "alpha notes";
     const dryMassA = saveDryMassPresetFromCalculator("Hull Alpha", exportedDryMassCalculatorPreset());
     resetDryMassCalcState();
@@ -195,34 +257,51 @@ async function verifyHtmlFile(browser, htmlFile) {
     });
 
     const chartControls = [
+      "#chartPresetSelect",
       "#chartPresetSave",
-      "#chartPresetLoad",
+      "#chartPresetActionsMenu",
       "#chartPresetRename",
-      "#chartPresetDuplicate",
       "#chartPresetDelete",
       "#chartPresetSetStartup",
-      "#chartPresetExportSelected",
-      "#chartPresetExportAll",
-    ].every(selector => !!document.querySelector(selector));
+      "#chartPresetClearStartup",
+      "#presetExport",
+      "#presetImport",
+      "#presetExportModal",
+      "#presetExportOutput",
+      "#presetExportCopy",
+    ].every(selector => !!document.querySelector(selector))
+      && !document.querySelector("#chartPresetLoad")
+      && !document.querySelector("#chartPresetReset")
+      && !document.querySelector("#chartPresetDuplicate")
+      && !document.querySelector("#chartPresetExportSelected")
+      && !document.querySelector("#chartPresetExportAll");
     const dryMassControls = [
+      "#dryMassPresetSelect",
       "#dryMassPresetSave",
-      "#dryMassPresetLoad",
       "#dryMassPresetRename",
-      "#dryMassPresetDuplicate",
       "#dryMassPresetDelete",
+      "#dryMassPresetActionsMenu",
       "#dryMassPresetExportSelected",
-      "#dryMassPresetExportAll",
       "#dryMassPresetImport",
-    ].every(selector => !!document.querySelector(selector));
+      "#shipPresetTargetDv",
+      "#shipPresetRadiator",
+      "#dryMassCalcApplyWithDefaults",
+    ].every(selector => !!document.querySelector(selector))
+      && !document.querySelector("#dryMassPresetLoad")
+      && !document.querySelector("#dryMassPresetDuplicate")
+      && !document.querySelector("#dryMassPresetExportAll");
 
     const result = {
       chartCountAfterLibraryImport,
       chartImportOk: chartImport.ok,
       chartApplied,
-      chartLoadedDryMass: state.dryMassTons,
-      chartLoadedDv: state.targetDvKps,
-      chartLoadedThrusters: state.thrusters,
-      chartLoadedSearch: state.searchTerm,
+      chartLoadedDryMass: chartLoadedAfterManualApply.dryMass,
+      chartLoadedDv: chartLoadedAfterManualApply.dv,
+      chartLoadedThrusters: chartLoadedAfterManualApply.thrusters,
+      chartLoadedSearch: chartLoadedAfterManualApply.search,
+      chartLoadedDesignCount: chartLoadedAfterManualApply.designCount,
+      chartLoadedDesignNotes: chartLoadedAfterManualApply.designNotes,
+      chartLoadedDesignDv: chartLoadedAfterManualApply.designDv,
       selectedChartImportOk: selectedChartImport.ok,
       selectedChartCount: chartPresetLibrary.length,
       startupSaved,
@@ -256,6 +335,9 @@ async function verifyHtmlFile(browser, htmlFile) {
   expect(namedPresetRoundTrip.chartLoadedDv === 321, `${htmlFile}: named chart preset did not restore target dV`);
   expect(namedPresetRoundTrip.chartLoadedThrusters === 4, `${htmlFile}: named chart preset did not restore engine count`);
   expect(namedPresetRoundTrip.chartLoadedSearch === "alpha", `${htmlFile}: named chart preset did not restore search filter`);
+  expect(namedPresetRoundTrip.chartLoadedDesignCount === 1, `${htmlFile}: named chart preset did not restore design preset library`);
+  expect(namedPresetRoundTrip.chartLoadedDesignNotes === "snapshot design notes", `${htmlFile}: named chart preset did not restore design preset content`);
+  expect(namedPresetRoundTrip.chartLoadedDesignDv === 777, `${htmlFile}: named chart preset did not restore design preset simulation defaults`);
   expect(namedPresetRoundTrip.selectedChartImportOk, `${htmlFile}: selected chart preset import failed`);
   expect(namedPresetRoundTrip.selectedChartCount === 1, `${htmlFile}: selected chart preset import did not add one preset`);
   expect(namedPresetRoundTrip.startupSaved && namedPresetRoundTrip.startupRestored, `${htmlFile}: startup chart preset did not persist through library export/import`);
@@ -386,7 +468,12 @@ async function verifyHtmlFile(browser, htmlFile) {
   await page.close();
 }
 
-const browser = await chromium.launch({ headless: true });
+const launchOptions = { headless: true };
+if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+  launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+}
+
+const browser = await chromium.launch(launchOptions);
 try {
   for (const htmlFile of htmlFiles) {
     await verifyHtmlFile(browser, htmlFile);
