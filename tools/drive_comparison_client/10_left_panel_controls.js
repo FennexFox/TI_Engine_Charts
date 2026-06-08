@@ -15,7 +15,7 @@
       const paretoHighlight = document.getElementById("paretoHighlight");
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
       const powerResearchViewControl = document.getElementById("powerResearchViewControl");
-      const powerResearchViewInputs = Array.from(document.querySelectorAll('input[name="powerResearchView"]'));
+      const powerResearchViewSelect = document.getElementById("powerResearchView");
       const minTwrExp = document.getElementById("minTwrExp");
       const minTwrNumber = document.getElementById("minTwrNumber");
       const minDv = document.getElementById("minDv");
@@ -219,9 +219,9 @@
         state.showImpracticalCandidates = showImpracticalCandidates.checked;
         render();
       });
-      powerResearchViewInputs.forEach(input => {
-        input.addEventListener("change", () => {
-          if (!input.checked) return;
+      if (powerResearchViewSelect) {
+        powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
+        powerResearchViewSelect.addEventListener("change", () => {
           if (chartViewport && chartViewport.xDomain && chartViewport.yDomain) {
             state.zoom = {
               xDomain: chartViewport.xDomain.slice(),
@@ -229,10 +229,10 @@
             };
             state.preserveViewportOnce = true;
           }
-          state.powerResearchView = normalizePowerResearchView(input.value);
+          state.powerResearchView = normalizePowerResearchView(powerResearchViewSelect.value);
           render();
         });
-      });
+      }
       minTwrExp.addEventListener("input", () => {
         const exponent = Number(minTwrExp.value);
         state.minTwr = Math.pow(10, exponent);
@@ -357,9 +357,10 @@
       minTwrControl.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
       minDvControl.style.display = state.metric === "twr" ? "" : "none";
       powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
-      document.querySelectorAll('input[name="powerResearchView"]').forEach(input => {
-        input.checked = input.value === normalizePowerResearchView(state.powerResearchView);
-      });
+      const powerResearchViewSelect = document.getElementById("powerResearchView");
+      if (powerResearchViewSelect) {
+        powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
+      }
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
       if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
       syncMinTwrInputs();

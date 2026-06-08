@@ -423,14 +423,18 @@
     .power-view-control {
       gap: 8px;
     }
-    .power-view-segmented {
-      width: 286px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .power-view-segmented label {
-      min-width: 0;
-      padding: 0 7px;
+    .chart-select-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 28px;
+      color: var(--muted);
+      font-size: 12px;
       white-space: nowrap;
+    }
+    .chart-select-control select {
+      width: auto;
+      min-width: 148px;
     }
     .chart-toggle {
       display: flex;

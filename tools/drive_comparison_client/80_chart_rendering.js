@@ -223,6 +223,40 @@
       });
     }
 
+    function registerLadderHitTargets(row, optionPoints) {
+      if (!Array.isArray(optionPoints) || optionPoints.length < 2) return;
+      const baseOptionId = optionPoints[0].option ? optionPoints[0].option.id : null;
+      for (let index = 0; index < optionPoints.length - 1; index += 1) {
+        const start = optionPoints[index];
+        const end = optionPoints[index + 1];
+        if (!Number.isFinite(start.xCoord) || !Number.isFinite(start.yCoord)
+          || !Number.isFinite(end.xCoord) || !Number.isFinite(end.yCoord)) continue;
+        if (!segmentMayIntersectPlot(start, end)) continue;
+        chartLadderHitTargets.push({
+          ...tooltipRef(row, baseOptionId),
+          x1: start.xCoord,
+          y1: start.yCoord,
+          x2: end.xCoord,
+          y2: end.yCoord,
+          order: chartLadderHitTargets.length,
+        });
+      }
+    }
+
+    function segmentMayIntersectPlot(start, end) {
+      if (!chartViewport) return false;
+      if (pointVisibleInPlot(start.xCoord, start.yCoord) || pointVisibleInPlot(end.xCoord, end.yCoord)) return true;
+      const { margin, innerW, innerH } = chartViewport;
+      const minX = Math.min(start.xCoord, end.xCoord);
+      const maxX = Math.max(start.xCoord, end.xCoord);
+      const minY = Math.min(start.yCoord, end.yCoord);
+      const maxY = Math.max(start.yCoord, end.yCoord);
+      return maxX >= margin.left
+        && minX <= margin.left + innerW
+        && maxY >= margin.top
+        && minY <= margin.top + innerH;
+    }
+
     function pointVisibleInPlot(xCoord, yCoord) {
       if (!chartViewport) return false;
       const { margin, innerW, innerH } = chartViewport;
@@ -361,6 +395,7 @@
       if (!optionPoints.length) return;
       if (!options.pointsOnly) {
         if (showExtras && optionPoints.length > 1) {
+          registerLadderHitTargets(row, optionPoints);
           plot.appendChild(svgEl("path", {
             class: `power-ladder-line${focused ? " is-focused" : " is-subdued"}`,
             d: linePath(optionPoints.map(point => [point.xCoord, point.yCoord])),

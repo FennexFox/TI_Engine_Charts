@@ -213,6 +213,7 @@
       const innerH = height - margin.top - margin.bottom;
       currentChartRows = rows;
       chartHitTargets = [];
+      chartLadderHitTargets = [];
       state.hoverPoints = state.tooltipPinned
         ? dedupeTooltipRefs(state.lastTooltipItems)
         : (powerResearchActive() ? mergePinnedTooltipRefs(state.hoverPoints) : pinnedTooltipRefs());
@@ -451,6 +452,21 @@
       }
       const hits = hitTargetsAt(point);
       if (!hits.length) {
+        const ladderHits = ladderHitTargetsAt(point);
+        if (ladderHits.length) {
+          const signature = ladderHits.map(hit => `ladder:${hit.key}`).join("|");
+          if (signature !== state.hoverHitSignature) {
+            state.hoverHitSignature = signature;
+            state.dismissedTooltipKeys.clear();
+          }
+          const nextRefs = mergePinnedTooltipRefs(resolveLadderHoverRefs(ladderHits));
+          setHoverPoints(nextRefs);
+          if (nextRefs.length && !sameTooltipRefs(nextRefs, state.lastTooltipItems)) {
+            state.lastTooltipItems = nextRefs;
+            refreshTooltip(currentChartRows);
+          }
+          return;
+        }
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
         const pinned = pinnedTooltipRefs();
@@ -528,6 +544,37 @@
         }))
         .filter(target => target.distance <= CHART_HIT_RADIUS_PX)
         .sort((a, b) => a.distance - b.distance || a.order - b.order);
+    }
+
+    function ladderHitTargetsAt(point) {
+      if (!powerResearchActive() || !chartLadderHitTargets.length) return [];
+      const transform = svgViewportTransform();
+      return chartLadderHitTargets
+        .map(target => ({
+          ...target,
+          distance: distanceToSegment(point, target) * transform.scale,
+        }))
+        .filter(target => target.distance <= CHART_LADDER_HIT_RADIUS_PX)
+        .sort((a, b) => a.distance - b.distance || a.order - b.order);
+    }
+
+    function resolveLadderHoverRefs(ladderHits) {
+      const recentRefs = dedupeTooltipRefs([...state.hoverPoints, ...state.lastTooltipItems]);
+      return dedupeTooltipRefs(ladderHits.map(hit => {
+        const recentSameDrive = recentRefs.find(item => item.rowId === hit.rowId);
+        return recentSameDrive || hit;
+      }));
+    }
+
+    function distanceToSegment(point, segment) {
+      const dx = segment.x2 - segment.x1;
+      const dy = segment.y2 - segment.y1;
+      const lengthSq = dx * dx + dy * dy;
+      if (!lengthSq) return Math.hypot(point.x - segment.x1, point.y - segment.y1);
+      const t = clamp(((point.x - segment.x1) * dx + (point.y - segment.y1) * dy) / lengthSq, 0, 1);
+      const projectedX = segment.x1 + t * dx;
+      const projectedY = segment.y1 + t * dy;
+      return Math.hypot(point.x - projectedX, point.y - projectedY);
     }
 
     function invertScale(pixel, domain, range, logScale) {

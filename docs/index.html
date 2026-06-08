@@ -430,14 +430,18 @@
     .power-view-control {
       gap: 8px;
     }
-    .power-view-segmented {
-      width: 286px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .power-view-segmented label {
-      min-width: 0;
-      padding: 0 7px;
+    .chart-select-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 28px;
+      color: var(--muted);
+      font-size: 12px;
       white-space: nowrap;
+    }
+    .chart-select-control select {
+      width: auto;
+      min-width: 148px;
     }
     .chart-toggle {
       display: flex;
@@ -2019,14 +2023,14 @@
             <label><input type="radio" name="fuelUnit" value="kps" checked>km/s</label>
             <label><input type="radio" name="fuelUnit" value="seconds">s</label>
           </div>
-          <div id="powerResearchViewControl" class="chart-toggle power-view-control" role="group" aria-label="Power view" style="display: none;">
+          <label id="powerResearchViewControl" class="chart-select-control power-view-control" style="display: none;">
             <span class="chart-toggle-label">Power view</span>
-            <div class="segmented compact power-view-segmented">
-              <label><input type="radio" name="powerResearchView" value="off" checked><span>Base</span></label>
-              <label><input type="radio" name="powerResearchView" value="focus"><span>Selected ladder</span></label>
-              <label><input type="radio" name="powerResearchView" value="all"><span>All ladders</span></label>
-            </div>
-          </div>
+            <select id="powerResearchView" aria-label="Power view">
+              <option value="off">Base</option>
+              <option value="focus">Selected ladder</option>
+              <option value="all">All ladders</option>
+            </select>
+          </label>
           <button id="resetZoom" class="compact-command" type="button" disabled>Reset view</button>
           <div id="metricHint"></div>
         </div>
@@ -2667,6 +2671,7 @@
     const categoryRoot = document.getElementById("categories");
     const familyRoot = document.getElementById("families");
     const CHART_HIT_RADIUS_PX = 16;
+    const CHART_LADDER_HIT_RADIUS_PX = 14;
     const CHART_CLICK_TOLERANCE_PX = 5;
     const EXTREME_MASS_RATIO = 1_000_000;
     const MASS_RATIO_OVERFLOW_EXPONENT = 709;
@@ -2709,6 +2714,7 @@
     };
     let chartViewport = null;
     let chartHitTargets = [];
+    let chartLadderHitTargets = [];
     let currentChartRows = [];
     let currentDiagnostics = null;
     const allDriveRowsById = new Map(DATA.drives.map(row => [row.id, row]));
@@ -2784,7 +2790,7 @@
       const paretoHighlight = document.getElementById("paretoHighlight");
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
       const powerResearchViewControl = document.getElementById("powerResearchViewControl");
-      const powerResearchViewInputs = Array.from(document.querySelectorAll('input[name="powerResearchView"]'));
+      const powerResearchViewSelect = document.getElementById("powerResearchView");
       const minTwrExp = document.getElementById("minTwrExp");
       const minTwrNumber = document.getElementById("minTwrNumber");
       const minDv = document.getElementById("minDv");
@@ -2988,9 +2994,9 @@
         state.showImpracticalCandidates = showImpracticalCandidates.checked;
         render();
       });
-      powerResearchViewInputs.forEach(input => {
-        input.addEventListener("change", () => {
-          if (!input.checked) return;
+      if (powerResearchViewSelect) {
+        powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
+        powerResearchViewSelect.addEventListener("change", () => {
           if (chartViewport && chartViewport.xDomain && chartViewport.yDomain) {
             state.zoom = {
               xDomain: chartViewport.xDomain.slice(),
@@ -2998,10 +3004,10 @@
             };
             state.preserveViewportOnce = true;
           }
-          state.powerResearchView = normalizePowerResearchView(input.value);
+          state.powerResearchView = normalizePowerResearchView(powerResearchViewSelect.value);
           render();
         });
-      });
+      }
       minTwrExp.addEventListener("input", () => {
         const exponent = Number(minTwrExp.value);
         state.minTwr = Math.pow(10, exponent);
@@ -3126,9 +3132,10 @@
       minTwrControl.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
       minDvControl.style.display = state.metric === "twr" ? "" : "none";
       powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
-      document.querySelectorAll('input[name="powerResearchView"]').forEach(input => {
-        input.checked = input.value === normalizePowerResearchView(state.powerResearchView);
-      });
+      const powerResearchViewSelect = document.getElementById("powerResearchView");
+      if (powerResearchViewSelect) {
+        powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
+      }
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
       if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
       syncMinTwrInputs();
@@ -6029,6 +6036,7 @@
       const innerH = height - margin.top - margin.bottom;
       currentChartRows = rows;
       chartHitTargets = [];
+      chartLadderHitTargets = [];
       state.hoverPoints = state.tooltipPinned
         ? dedupeTooltipRefs(state.lastTooltipItems)
         : (powerResearchActive() ? mergePinnedTooltipRefs(state.hoverPoints) : pinnedTooltipRefs());
@@ -6267,6 +6275,21 @@
       }
       const hits = hitTargetsAt(point);
       if (!hits.length) {
+        const ladderHits = ladderHitTargetsAt(point);
+        if (ladderHits.length) {
+          const signature = ladderHits.map(hit => `ladder:${hit.key}`).join("|");
+          if (signature !== state.hoverHitSignature) {
+            state.hoverHitSignature = signature;
+            state.dismissedTooltipKeys.clear();
+          }
+          const nextRefs = mergePinnedTooltipRefs(resolveLadderHoverRefs(ladderHits));
+          setHoverPoints(nextRefs);
+          if (nextRefs.length && !sameTooltipRefs(nextRefs, state.lastTooltipItems)) {
+            state.lastTooltipItems = nextRefs;
+            refreshTooltip(currentChartRows);
+          }
+          return;
+        }
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
         const pinned = pinnedTooltipRefs();
@@ -6344,6 +6367,37 @@
         }))
         .filter(target => target.distance <= CHART_HIT_RADIUS_PX)
         .sort((a, b) => a.distance - b.distance || a.order - b.order);
+    }
+
+    function ladderHitTargetsAt(point) {
+      if (!powerResearchActive() || !chartLadderHitTargets.length) return [];
+      const transform = svgViewportTransform();
+      return chartLadderHitTargets
+        .map(target => ({
+          ...target,
+          distance: distanceToSegment(point, target) * transform.scale,
+        }))
+        .filter(target => target.distance <= CHART_LADDER_HIT_RADIUS_PX)
+        .sort((a, b) => a.distance - b.distance || a.order - b.order);
+    }
+
+    function resolveLadderHoverRefs(ladderHits) {
+      const recentRefs = dedupeTooltipRefs([...state.hoverPoints, ...state.lastTooltipItems]);
+      return dedupeTooltipRefs(ladderHits.map(hit => {
+        const recentSameDrive = recentRefs.find(item => item.rowId === hit.rowId);
+        return recentSameDrive || hit;
+      }));
+    }
+
+    function distanceToSegment(point, segment) {
+      const dx = segment.x2 - segment.x1;
+      const dy = segment.y2 - segment.y1;
+      const lengthSq = dx * dx + dy * dy;
+      if (!lengthSq) return Math.hypot(point.x - segment.x1, point.y - segment.y1);
+      const t = clamp(((point.x - segment.x1) * dx + (point.y - segment.y1) * dy) / lengthSq, 0, 1);
+      const projectedX = segment.x1 + t * dx;
+      const projectedY = segment.y1 + t * dy;
+      return Math.hypot(point.x - projectedX, point.y - projectedY);
     }
 
     function invertScale(pixel, domain, range, logScale) {
@@ -6684,6 +6738,40 @@
       });
     }
 
+    function registerLadderHitTargets(row, optionPoints) {
+      if (!Array.isArray(optionPoints) || optionPoints.length < 2) return;
+      const baseOptionId = optionPoints[0].option ? optionPoints[0].option.id : null;
+      for (let index = 0; index < optionPoints.length - 1; index += 1) {
+        const start = optionPoints[index];
+        const end = optionPoints[index + 1];
+        if (!Number.isFinite(start.xCoord) || !Number.isFinite(start.yCoord)
+          || !Number.isFinite(end.xCoord) || !Number.isFinite(end.yCoord)) continue;
+        if (!segmentMayIntersectPlot(start, end)) continue;
+        chartLadderHitTargets.push({
+          ...tooltipRef(row, baseOptionId),
+          x1: start.xCoord,
+          y1: start.yCoord,
+          x2: end.xCoord,
+          y2: end.yCoord,
+          order: chartLadderHitTargets.length,
+        });
+      }
+    }
+
+    function segmentMayIntersectPlot(start, end) {
+      if (!chartViewport) return false;
+      if (pointVisibleInPlot(start.xCoord, start.yCoord) || pointVisibleInPlot(end.xCoord, end.yCoord)) return true;
+      const { margin, innerW, innerH } = chartViewport;
+      const minX = Math.min(start.xCoord, end.xCoord);
+      const maxX = Math.max(start.xCoord, end.xCoord);
+      const minY = Math.min(start.yCoord, end.yCoord);
+      const maxY = Math.max(start.yCoord, end.yCoord);
+      return maxX >= margin.left
+        && minX <= margin.left + innerW
+        && maxY >= margin.top
+        && minY <= margin.top + innerH;
+    }
+
     function pointVisibleInPlot(xCoord, yCoord) {
       if (!chartViewport) return false;
       const { margin, innerW, innerH } = chartViewport;
@@ -6822,6 +6910,7 @@
       if (!optionPoints.length) return;
       if (!options.pointsOnly) {
         if (showExtras && optionPoints.length > 1) {
+          registerLadderHitTargets(row, optionPoints);
           plot.appendChild(svgEl("path", {
             class: `power-ladder-line${focused ? " is-focused" : " is-subdued"}`,
             d: linePath(optionPoints.map(point => [point.xCoord, point.yCoord])),

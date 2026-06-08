@@ -144,13 +144,19 @@ async function verifyHtmlFile(browser, htmlFile) {
   expect(usageText.trim().length > 0, `${htmlFile}: empty detail panel usage text missing`);
 
   const powerViewChecks = await page.evaluate(() => {
+    const selectedPowerResearchView = () => {
+      const select = document.getElementById("powerResearchView");
+      if (select) return select.value || "";
+      return document.querySelector('input[name="powerResearchView"]:checked')?.value || "";
+    };
+
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
     state.metric = "totalMassTons";
     syncUiFromState();
     render();
     const baseMode = {
-      selected: document.querySelector('input[name="powerResearchView"]:checked')?.value || "",
+      selected: selectedPowerResearchView(),
       controlVisible: getComputedStyle(document.getElementById("powerResearchViewControl")).display !== "none",
       basePoints: document.querySelectorAll("#chart .power-base-point").length,
       extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
@@ -167,7 +173,7 @@ async function verifyHtmlFile(browser, htmlFile) {
     syncUiFromState();
     render();
     const focusIdle = {
-      selected: document.querySelector('input[name="powerResearchView"]:checked')?.value || "",
+      selected: selectedPowerResearchView(),
       basePoints: document.querySelectorAll("#chart .power-base-point").length,
       extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
@@ -196,7 +202,7 @@ async function verifyHtmlFile(browser, htmlFile) {
     syncUiFromState();
     render();
     const allMode = {
-      selected: document.querySelector('input[name="powerResearchView"]:checked')?.value || "",
+      selected: selectedPowerResearchView(),
       extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
       subduedExtraPoints: document.querySelectorAll("#chart .power-extra-point.is-subdued").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
@@ -217,7 +223,7 @@ async function verifyHtmlFile(browser, htmlFile) {
   expect(powerViewChecks.baseMode.ladderLines === 0, `${htmlFile}: Base mode rendered ladder lines`);
   expect(powerViewChecks.baseMode.bandSurfaces === 0, `${htmlFile}: Base mode rendered old power band surfaces`);
   expect(powerViewChecks.hasMultiOptionTarget, `${htmlFile}: no multi-power-option drive available for ladder verification`);
-  expect(powerViewChecks.focusIdle.selected === "focus", `${htmlFile}: Selected ladder radio did not select focus mode`);
+  expect(powerViewChecks.focusIdle.selected === "focus", `${htmlFile}: Selected ladder Power view did not select focus mode`);
   expect(powerViewChecks.focusIdle.basePoints > 0, `${htmlFile}: Selected ladder mode removed base points`);
   expect(powerViewChecks.focusIdle.extraPoints === 0, `${htmlFile}: idle Selected ladder mode rendered unrelated extra points`);
   expect(powerViewChecks.focusActive.extraPoints > 0, `${htmlFile}: active Selected ladder mode did not render extra points`);
@@ -225,7 +231,7 @@ async function verifyHtmlFile(browser, htmlFile) {
   expect(powerViewChecks.focusActive.focusedLines > 0, `${htmlFile}: active Selected ladder mode did not render focused dashed lines`);
   expect(powerViewChecks.focusActive.powerStepRows > 1, `${htmlFile}: Power steps table did not include multiple power options`);
   expect(/Wet mass/.test(powerViewChecks.focusActive.powerStepText) && /TWR/.test(powerViewChecks.focusActive.powerStepText), `${htmlFile}: Power steps table missing key columns`);
-  expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All ladders radio did not select all mode`);
+  expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All ladders Power view did not select all mode`);
   expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All ladders mode did not render extra points`);
   expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All ladders mode did not apply subdued point styling`);
   expect(powerViewChecks.allMode.ladderLines > 0 && powerViewChecks.allMode.subduedLines > 0, `${htmlFile}: All ladders mode did not render subdued ladder lines`);

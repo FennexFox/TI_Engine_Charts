@@ -508,6 +508,7 @@
     const categoryRoot = document.getElementById("categories");
     const familyRoot = document.getElementById("families");
     const CHART_HIT_RADIUS_PX = 16;
+    const CHART_LADDER_HIT_RADIUS_PX = 14;
     const CHART_CLICK_TOLERANCE_PX = 5;
     const EXTREME_MASS_RATIO = 1_000_000;
     const MASS_RATIO_OVERFLOW_EXPONENT = 709;
@@ -550,6 +551,7 @@
     };
     let chartViewport = null;
     let chartHitTargets = [];
+    let chartLadderHitTargets = [];
     let currentChartRows = [];
     let currentDiagnostics = null;
     const allDriveRowsById = new Map(DATA.drives.map(row => [row.id, row]));
