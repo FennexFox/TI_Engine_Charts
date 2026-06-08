@@ -17,6 +17,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 
 from ti_chart_core import as_float, detect_game_version, load_named_templates, resolve_templates_dir  # noqa: E402
 from drive_comparison_i18n import (  # noqa: E402
+    apply_static_english_html,
     client_translation_pairs,
     note_html_translations,
     portable_data,
@@ -828,7 +829,7 @@ def load_embedded_page_data(html_path: Path) -> dict[str, Any]:
 def build_html(data: dict[str, Any], portable: bool = False) -> str:
     if portable:
         data = portable_data(data)
-    html = load_template_source(DRIVE_COMPARISON_TEMPLATE_PATH)
+    html = apply_static_english_html(load_template_source(DRIVE_COMPARISON_TEMPLATE_PATH))
     html = replace_placeholder(html, "__STYLES__", load_template_source(DRIVE_COMPARISON_STYLES_PATH).rstrip("\n"))
     html = replace_placeholder(html, "__CLIENT_SCRIPT__", load_client_script())
 

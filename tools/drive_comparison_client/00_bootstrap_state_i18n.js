@@ -156,15 +156,20 @@
       }
       if (key === "filter") {
         const parts = [];
-        if (state.metric === "totalMassTons" || state.metric === "fuelMassTons" || state.metric === "twr") {
+        if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
           parts.push(`TWR ≥ ${formatTwrDynamicUnit(state.minTwr)}`);
         }
-        if (state.metric !== "totalMassTons" && state.metric !== "fuelMassTons" && state.metric !== "twr") {
+        if (state.metric === "twr") {
           parts.push(`dV ≥ ${formatNumber(state.minDvKps, " km/s")}`);
         }
         if (state.paretoHighlight) parts.push(localText("파레토 ON", "Pareto ON"));
         if (state.showImpracticalCandidates) parts.push(localText("비현실 후보 ON", "Impractical ON"));
-        if (state.logX || state.logY) parts.push(`${state.logX ? "log X" : ""}${state.logX && state.logY ? " · " : ""}${state.logY ? "log Y" : ""}`);
+        if (state.logX || state.logY) {
+          parts.push([
+            state.logX ? localText("X축 로그", "Log X") : "",
+            state.logY ? localText("Y축 로그", "Log Y") : "",
+          ].filter(Boolean).join(" · "));
+        }
         return parts.filter(Boolean).join(" · ") || localText("기본 필터", "Default filters");
       }
       if (key === "driveFilter") {
