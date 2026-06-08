@@ -154,8 +154,11 @@
       if (isBandMetric()) {
         const item = document.createElement("span");
         item.className = "legend-item";
+        const powerViewDescription = state.powerResearchView === "best"
+          ? localText("최적 가용 전원", "best available power")
+          : localText("전원 사다리", "power ladders");
         item.textContent = powerResearchActive()
-          ? `${metricLabel(state.metric)} ${localText("전원 사다리", "power ladders")}`
+          ? `${metricLabel(state.metric)} ${powerViewDescription}`
           : `${metricLabel(state.metric)} ${localText("기본 전원", "base power")}`;
         legend.appendChild(item);
         const powerResearch = document.createElement("span");

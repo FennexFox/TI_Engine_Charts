@@ -5,11 +5,11 @@
     let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
     const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
     if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
-    const POWER_RESEARCH_VIEWS = ["off", "focus", "all"];
+    const POWER_RESEARCH_VIEWS = ["focus", "all", "best"];
     const POWER_RESEARCH_VIEW_LABELS = {
-      off: { ko: "기본", en: "Base" },
-      focus: { ko: "선택 사다리", en: "Selected ladder" },
+      focus: { ko: "기본", en: "Base" },
       all: { ko: "전체 사다리", en: "All ladders" },
+      best: { ko: "최적 가용", en: "Best Available" },
     };
     const state = {
       metric: "totalMassTons",
@@ -24,7 +24,7 @@
       showMassInfo: true,
       paretoHighlight: true,
       showImpracticalCandidates: false,
-      powerResearchView: "off",
+      powerResearchView: "focus",
       minTwr: 0.0001,
       minDvKps: 0,
       searchTerm: "",
@@ -58,7 +58,7 @@
         showMassInfo: true,
         paretoHighlight: true,
         showImpracticalCandidates: false,
-        powerResearchView: "off",
+        powerResearchView: "focus",
         minTwr: 0.0001,
         minDvKps: 0,
         searchTerm: "",
@@ -103,16 +103,16 @@
     }
 
     function normalizePowerResearchView(value) {
-      return POWER_RESEARCH_VIEWS.includes(value) ? value : "off";
+      return POWER_RESEARCH_VIEWS.includes(value) ? value : "focus";
     }
 
     function powerResearchViewLabel(value = state.powerResearchView) {
-      const label = POWER_RESEARCH_VIEW_LABELS[normalizePowerResearchView(value)] || POWER_RESEARCH_VIEW_LABELS.off;
+      const label = POWER_RESEARCH_VIEW_LABELS[normalizePowerResearchView(value)] || POWER_RESEARCH_VIEW_LABELS.focus;
       return localText(label.ko, label.en);
     }
 
     function powerResearchActive() {
-      return isBandMetric() && state.powerResearchView !== "off";
+      return isBandMetric() && POWER_RESEARCH_VIEWS.includes(state.powerResearchView);
     }
 
     const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";

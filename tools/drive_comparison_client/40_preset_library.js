@@ -1349,7 +1349,7 @@
       if (typeof preset.powerResearchView === "string") {
         state.powerResearchView = normalizePowerResearchView(preset.powerResearchView);
       } else if (typeof preset.usePowerResearch === "boolean") {
-        state.powerResearchView = preset.usePowerResearch ? "all" : "off";
+        state.powerResearchView = preset.usePowerResearch ? "all" : "focus";
       }
       if (Number.isFinite(Number(preset.minTwr))) state.minTwr = clamp(Number(preset.minTwr), 0.0001, 10);
       if (Number.isFinite(Number(preset.minDvKps))) state.minDvKps = clamp(Number(preset.minDvKps), 0, 100000);

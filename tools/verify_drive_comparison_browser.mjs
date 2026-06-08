@@ -149,20 +149,39 @@ async function verifyHtmlFile(browser, htmlFile) {
       if (select) return select.value || "";
       return document.querySelector('input[name="powerResearchView"]:checked')?.value || "";
     };
+    const powerResearchViewOptions = () => {
+      const select = document.getElementById("powerResearchView");
+      return select ? [...select.options].map(option => ({ value: option.value, label: option.textContent.trim() })) : [];
+    };
 
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
     state.metric = "totalMassTons";
     syncUiFromState();
     render();
-    const baseMode = {
+    const defaultMode = {
       selected: selectedPowerResearchView(),
+      options: powerResearchViewOptions(),
       controlVisible: getComputedStyle(document.getElementById("powerResearchViewControl")).display !== "none",
       basePoints: document.querySelectorAll("#chart .power-base-point").length,
       extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
       bandSurfaces: document.querySelectorAll("#chart [data-band-pair-step], #chart [data-band-step]").length,
     };
+    const legacyMigration = {};
+    applyPresetToState({ metric: "totalMassTons", powerResearchView: "off" });
+    legacyMigration.off = state.powerResearchView;
+    resetChartStateToDefaults();
+    applyPresetToState({ metric: "totalMassTons", usePowerResearch: false });
+    legacyMigration.falseBoolean = state.powerResearchView;
+    resetChartStateToDefaults();
+    applyPresetToState({ metric: "totalMassTons", usePowerResearch: true });
+    legacyMigration.trueBoolean = state.powerResearchView;
+    resetChartStateToDefaults();
+    state.metric = "totalMassTons";
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    render();
     const target = currentChartRows.find(row => chartMassOptions(row).length > 1);
     const targetOptions = target ? chartMassOptions(target) : [];
 
@@ -207,35 +226,100 @@ async function verifyHtmlFile(browser, htmlFile) {
       subduedExtraPoints: document.querySelectorAll("#chart .power-extra-point.is-subdued").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
       subduedLines: document.querySelectorAll("#chart .power-ladder-line.is-subdued").length,
+      dashedLines: [...document.querySelectorAll("#chart .power-ladder-line")]
+        .filter(path => (path.getAttribute("stroke-dasharray") || "").trim().length > 0).length,
       bandSurfaces: document.querySelectorAll("#chart [data-band-pair-step], #chart [data-band-step]").length,
+    };
+
+    state.powerResearchView = "best";
+    state.hoverPoints = [];
+    state.lastTooltipItems = [];
+    state.tooltipPinned = false;
+    syncUiFromState();
+    render();
+    const bestPoint = document.querySelector("#chart .power-best-point");
+    if (bestPoint) {
+      const ref = tooltipRef(bestPoint.getAttribute("data-row-id"), bestPoint.getAttribute("data-power-option-id"));
+      state.lastTooltipItems = [ref];
+      state.hoverPoints = [ref];
+      refreshTooltip(currentChartRows);
+    }
+    const bestMode = {
+      selected: selectedPowerResearchView(),
+      basePoints: document.querySelectorAll("#chart .power-base-point").length,
+      bestPoints: document.querySelectorAll("#chart .power-best-point").length,
+      bestLines: document.querySelectorAll("#chart .power-best-line").length,
+      solidLines: [...document.querySelectorAll("#chart .power-best-line")]
+        .filter(path => !(path.getAttribute("stroke-dasharray") || "").trim()).length,
+      bestExtraPoints: document.querySelectorAll("#chart .power-best-point.power-extra-point").length,
+      subduedBestPoints: document.querySelectorAll("#chart .power-best-point.is-subdued").length,
+      extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
+      ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
+      bandSurfaces: document.querySelectorAll("#chart [data-band-pair-step], #chart [data-band-step]").length,
+      powerStepText: document.querySelector("#tooltip .tooltip-power-steps")?.textContent || "",
+      selectedPowerText: document.querySelector("#tooltip .tooltip-title-power")?.textContent || "",
+    };
+
+    state.metric = "thrustMN";
+    syncUiFromState();
+    render();
+    const nonPowerMetric = {
+      controlVisible: getComputedStyle(document.getElementById("powerResearchViewControl")).display !== "none",
+      bestLines: document.querySelectorAll("#chart .power-best-line").length,
+      ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
     };
 
     resetChartStateToDefaults();
     setLanguage("ko", { rerender: false });
     syncUiFromState();
     render();
-    return { baseMode, hasMultiOptionTarget: !!target, focusIdle, focusActive, allMode };
+    return { defaultMode, legacyMigration, hasMultiOptionTarget: !!target, focusIdle, focusActive, allMode, bestMode, nonPowerMetric };
   });
-  expect(powerViewChecks.baseMode.controlVisible, `${htmlFile}: Power view control is hidden on band metric`);
-  expect(powerViewChecks.baseMode.selected === "off", `${htmlFile}: Base mode is not the default Power view`);
-  expect(powerViewChecks.baseMode.basePoints > 0, `${htmlFile}: Base mode did not render base points`);
-  expect(powerViewChecks.baseMode.extraPoints === 0, `${htmlFile}: Base mode rendered extra power points`);
-  expect(powerViewChecks.baseMode.ladderLines === 0, `${htmlFile}: Base mode rendered ladder lines`);
-  expect(powerViewChecks.baseMode.bandSurfaces === 0, `${htmlFile}: Base mode rendered old power band surfaces`);
+  expect(powerViewChecks.defaultMode.controlVisible, `${htmlFile}: Power view control is hidden on band metric`);
+  expect(powerViewChecks.defaultMode.selected === "focus", `${htmlFile}: Base is not the default Power view`);
+  expect(
+    JSON.stringify(powerViewChecks.defaultMode.options.map(option => option.value)) === JSON.stringify(["focus", "all", "best"]),
+    `${htmlFile}: Power view options are not exactly focus/all/best`,
+  );
+  expect(
+    JSON.stringify(powerViewChecks.defaultMode.options.map(option => option.label)) === JSON.stringify(["Base", "All ladders", "Best Available"]),
+    `${htmlFile}: Power view labels are not exactly the expected English labels`,
+  );
+  expect(!powerViewChecks.defaultMode.options.some(option => /envelope/i.test(option.label) || option.value === "off" || option.value === "envelope"), `${htmlFile}: removed Power view option still appears`);
+  expect(powerViewChecks.defaultMode.basePoints > 0, `${htmlFile}: default Base mode did not render base points`);
+  expect(powerViewChecks.defaultMode.extraPoints === 0, `${htmlFile}: idle default Base mode rendered extra power points`);
+  expect(powerViewChecks.defaultMode.ladderLines === 0, `${htmlFile}: idle default Base mode rendered ladder lines`);
+  expect(powerViewChecks.defaultMode.bandSurfaces === 0, `${htmlFile}: default mode rendered old power band surfaces`);
+  expect(powerViewChecks.legacyMigration.off === "focus", `${htmlFile}: legacy powerResearchView off did not migrate to focus`);
+  expect(powerViewChecks.legacyMigration.falseBoolean === "focus", `${htmlFile}: legacy usePowerResearch false did not migrate to focus`);
+  expect(powerViewChecks.legacyMigration.trueBoolean === "all", `${htmlFile}: legacy usePowerResearch true did not migrate to all`);
   expect(powerViewChecks.hasMultiOptionTarget, `${htmlFile}: no multi-power-option drive available for ladder verification`);
-  expect(powerViewChecks.focusIdle.selected === "focus", `${htmlFile}: Selected ladder Power view did not select focus mode`);
-  expect(powerViewChecks.focusIdle.basePoints > 0, `${htmlFile}: Selected ladder mode removed base points`);
-  expect(powerViewChecks.focusIdle.extraPoints === 0, `${htmlFile}: idle Selected ladder mode rendered unrelated extra points`);
-  expect(powerViewChecks.focusActive.extraPoints > 0, `${htmlFile}: active Selected ladder mode did not render extra points`);
+  expect(powerViewChecks.focusIdle.selected === "focus", `${htmlFile}: Base Power view did not select focus mode`);
+  expect(powerViewChecks.focusIdle.basePoints > 0, `${htmlFile}: Base mode removed base points`);
+  expect(powerViewChecks.focusIdle.extraPoints === 0, `${htmlFile}: idle Base mode rendered unrelated extra points`);
+  expect(powerViewChecks.focusActive.extraPoints > 0, `${htmlFile}: active Base mode did not render extra points`);
   expect(powerViewChecks.focusActive.focusedExtraPoints === powerViewChecks.focusActive.extraPoints, `${htmlFile}: focus extra points were not marked focused`);
-  expect(powerViewChecks.focusActive.focusedLines > 0, `${htmlFile}: active Selected ladder mode did not render focused dashed lines`);
+  expect(powerViewChecks.focusActive.focusedLines > 0, `${htmlFile}: active Base mode did not render focused dashed lines`);
   expect(powerViewChecks.focusActive.powerStepRows > 1, `${htmlFile}: Power steps table did not include multiple power options`);
   expect(/Wet mass/.test(powerViewChecks.focusActive.powerStepText) && /TWR/.test(powerViewChecks.focusActive.powerStepText), `${htmlFile}: Power steps table missing key columns`);
   expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All ladders Power view did not select all mode`);
   expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All ladders mode did not render extra points`);
   expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All ladders mode did not apply subdued point styling`);
   expect(powerViewChecks.allMode.ladderLines > 0 && powerViewChecks.allMode.subduedLines > 0, `${htmlFile}: All ladders mode did not render subdued ladder lines`);
+  expect(powerViewChecks.allMode.dashedLines === powerViewChecks.allMode.ladderLines, `${htmlFile}: All ladders mode did not render dashed ladder lines`);
   expect(powerViewChecks.allMode.bandSurfaces === 0, `${htmlFile}: All ladders mode rendered old power band surfaces`);
+  expect(powerViewChecks.bestMode.selected === "best", `${htmlFile}: Best Available Power view did not select best mode`);
+  expect(powerViewChecks.bestMode.basePoints > 0, `${htmlFile}: Best Available did not preserve first-compatible baseline points`);
+  expect(powerViewChecks.bestMode.bestPoints > 0 && powerViewChecks.bestMode.bestLines > 1, `${htmlFile}: Best Available did not render best points and lines for multiple drives`);
+  expect(powerViewChecks.bestMode.solidLines === powerViewChecks.bestMode.bestLines, `${htmlFile}: Best Available lines should be solid, not dashed`);
+  expect(powerViewChecks.bestMode.bestExtraPoints === powerViewChecks.bestMode.bestPoints, `${htmlFile}: Best Available points do not use the ladder extra-point style`);
+  expect(powerViewChecks.bestMode.subduedBestPoints > 0, `${htmlFile}: Best Available did not apply subdued point styling`);
+  expect(powerViewChecks.bestMode.extraPoints === powerViewChecks.bestMode.bestPoints && powerViewChecks.bestMode.ladderLines === 0, `${htmlFile}: Best Available rendered unexpected ladder extras`);
+  expect(powerViewChecks.bestMode.bandSurfaces === 0, `${htmlFile}: Best Available rendered old power band surfaces`);
+  expect(/Wet mass/.test(powerViewChecks.bestMode.powerStepText) && /TWR/.test(powerViewChecks.bestMode.powerStepText), `${htmlFile}: Best Available tooltip missing power step details`);
+  expect(powerViewChecks.bestMode.selectedPowerText.trim().length > 0, `${htmlFile}: Best Available tooltip did not identify the selected power plant`);
+  expect(!powerViewChecks.nonPowerMetric.controlVisible, `${htmlFile}: Power view control is visible on a non-power-comparison metric`);
+  expect(powerViewChecks.nonPowerMetric.bestLines === 0 && powerViewChecks.nonPowerMetric.ladderLines === 0, `${htmlFile}: Power view rendered on a non-power-comparison metric`);
 
   await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
