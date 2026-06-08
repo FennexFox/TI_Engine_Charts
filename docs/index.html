@@ -35,12 +35,20 @@
       background: #151614;
     }
     h1 {
-      margin: 0 0 6px;
+      margin: 0;
       font-size: 24px;
       line-height: 1.2;
       letter-spacing: 0;
     }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-width: 0;
+    }
     .header-summary {
+      margin-top: 6px;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
@@ -1508,7 +1516,8 @@
       .tooltip { height: min(52vh, 520px); min-height: 220px; }
     }
     @media (max-width: 520px) {
-      .header-summary {
+      .header-top {
+        align-items: flex-start;
         flex-direction: column;
         gap: 10px;
       }
@@ -1517,16 +1526,19 @@
         justify-content: flex-start;
         flex-wrap: wrap;
       }
+      .header-language {
+        flex: 0 0 108px;
+        width: 108px;
+        min-width: 0;
+        margin-left: auto;
+      }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Terra Invicta 드라이브 비교</h1>
-    <div class="header-summary">
-      <div class="subtle">
-        X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.
-      </div>
+    <div class="header-top">
+      <h1>Terra Invicta 드라이브 비교</h1>
       <nav class="header-links" aria-label="프로젝트 링크">
         <a class="header-link" href="https://github.com/FennexFox/TI_Engine_Charts" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a class="header-link kofi-link" href="https://ko-fi.com/fennexfox" target="_blank" rel="noopener noreferrer">Ko-fi 후원</a>
@@ -1535,6 +1547,11 @@
           <option value="en" selected>English</option>
         </select>
       </nav>
+    </div>
+    <div class="header-summary">
+      <div class="subtle">
+        X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.
+      </div>
     </div>
   </header>
   <main>

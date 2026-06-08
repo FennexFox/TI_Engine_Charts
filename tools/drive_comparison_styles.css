@@ -28,12 +28,20 @@
       background: #151614;
     }
     h1 {
-      margin: 0 0 6px;
+      margin: 0;
       font-size: 24px;
       line-height: 1.2;
       letter-spacing: 0;
     }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-width: 0;
+    }
     .header-summary {
+      margin-top: 6px;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
@@ -1501,7 +1509,8 @@
       .tooltip { height: min(52vh, 520px); min-height: 220px; }
     }
     @media (max-width: 520px) {
-      .header-summary {
+      .header-top {
+        align-items: flex-start;
         flex-direction: column;
         gap: 10px;
       }
@@ -1509,5 +1518,11 @@
         width: 100%;
         justify-content: flex-start;
         flex-wrap: wrap;
+      }
+      .header-language {
+        flex: 0 0 108px;
+        width: 108px;
+        min-width: 0;
+        margin-left: auto;
       }
     }
