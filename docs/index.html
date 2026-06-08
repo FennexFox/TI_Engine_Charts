@@ -3282,6 +3282,7 @@
             </div>
           </div>
         `;
+
       }).join("");
     }
 
@@ -5734,6 +5735,51 @@
       const tolerance = Math.max(Math.abs(b1 - b0), 1) * 1e-8;
       return Math.abs(toSpace(a[0]) - b0) <= tolerance && Math.abs(toSpace(a[1]) - b1) <= tolerance;
     }
+
+    function axisDebugTickSummary(domain, pixelSpan, logScale, options) {
+      const ticks = buildAxisTickPlan(domain[0], domain[1], pixelSpan, logScale, options);
+      const labeled = ticks.filter(item => item.label);
+      return {
+        domain: domain.slice(),
+        logScale,
+        tickCount: ticks.length,
+        labeledTickCount: labeled.length,
+        firstTick: ticks.length ? ticks[0].value : null,
+        lastTick: ticks.length ? ticks[ticks.length - 1].value : null,
+        firstLabel: labeled.length ? labeled[0].value : null,
+        lastLabel: labeled.length ? labeled[labeled.length - 1].value : null,
+        ticks,
+      };
+    }
+
+    function axisSnapshot() {
+      if (!chartViewport) return null;
+      const x = axisDebugTickSummary(chartViewport.xDomain, chartViewport.innerW, state.logX, {
+        gridPixelGap: state.logX ? 72 : 78,
+        labelPixelGap: 112,
+        maxTicks: state.logX ? 96 : 48,
+        minTicks: 4,
+      });
+      const y = axisDebugTickSummary(chartViewport.yDomain, chartViewport.innerH, state.logY, {
+        gridPixelGap: state.logY ? 58 : 54,
+        labelPixelGap: 46,
+        maxTicks: state.logY ? 96 : 48,
+        minTicks: 4,
+      });
+      return {
+        metric: state.metric,
+        logX: state.logX,
+        logY: state.logY,
+        zoomed: !!state.zoom,
+        x,
+        y,
+      };
+    }
+
+    window.TI_ENGINE_CHART_DEBUG = {
+      axisSnapshot,
+      tickPlan: (min, max, pixelSpan, logScale, options = {}) => buildAxisTickPlan(min, max, pixelSpan, logScale, options),
+    };
 
     function drawGridAndAxes(ctx) {
       const { width, height, margin, innerW, innerH, x, y, xDomain, yDomain } = ctx;

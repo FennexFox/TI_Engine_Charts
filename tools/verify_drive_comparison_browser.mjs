@@ -269,6 +269,80 @@ async function verifyHtmlFile(browser, htmlFile) {
   expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
   await page.locator("#dryMassCalcClose").click();
 
+  const metricSearchable = page.locator("#metric + .searchable-select");
+  await metricSearchable.locator(".searchable-select-trigger").click();
+  await metricSearchable.locator(".searchable-select-search").fill("twr");
+  const twrSearchOptions = await metricSearchable.locator('.searchable-select-option[data-value="twr"]').count();
+  expect(twrSearchOptions > 0, `${htmlFile}: searchable select did not filter to the TWR option`);
+  await metricSearchable.locator('.searchable-select-option[data-value="twr"]').first().click();
+  await page.waitForTimeout(100);
+  expect(await page.locator("#metric").inputValue() === "twr", `${htmlFile}: searchable select did not apply selected metric`);
+  expect(await metricSearchable.locator(".searchable-select-menu").isHidden(), `${htmlFile}: searchable select menu did not close after selection`);
+
+  const leftPanelRoundTrip = await page.evaluate(() => {
+    localStorage.removeItem(LEFT_PANEL_LAYOUT_STORAGE_KEY);
+    leftPanelLayout = loadLeftPanelLayout();
+    applyLeftPanelOrder();
+    const displayCard = document.querySelector('.control-card[data-control-card="display"]');
+    const filterCard = document.querySelector('.control-card[data-control-card="filter"]');
+    displayCard.querySelector("[data-card-toggle]").click();
+    filterCard.querySelector('[data-panel-move="up"]').click();
+    const stored = JSON.parse(localStorage.getItem(LEFT_PANEL_LAYOUT_STORAGE_KEY));
+    return {
+      displayCollapsed: displayCard.dataset.collapsed === "true",
+      storedDisplayCollapsed: stored.collapsed.display === true,
+      storedOrder: stored.order,
+    };
+  });
+  expect(leftPanelRoundTrip.displayCollapsed, `${htmlFile}: left panel display card did not collapse`);
+  expect(leftPanelRoundTrip.storedDisplayCollapsed, `${htmlFile}: left panel collapsed state did not persist to localStorage`);
+  expect(
+    Array.isArray(leftPanelRoundTrip.storedOrder)
+      && leftPanelRoundTrip.storedOrder.indexOf("filter") < leftPanelRoundTrip.storedOrder.indexOf("simulation"),
+    `${htmlFile}: left panel order change did not persist to localStorage`,
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#chart .data-point", { timeout: 15000 });
+  const leftPanelAfterReload = await page.evaluate(() => {
+    const displayCard = document.querySelector('.control-card[data-control-card="display"]');
+    const cards = [...document.querySelectorAll(".control-card[data-control-card]")].map(card => card.dataset.controlCard);
+    return {
+      displayCollapsed: displayCard.dataset.collapsed === "true",
+      order: cards,
+    };
+  });
+  expect(leftPanelAfterReload.displayCollapsed, `${htmlFile}: left panel collapsed state did not restore after reload`);
+  expect(
+    leftPanelAfterReload.order.indexOf("filter") < leftPanelAfterReload.order.indexOf("simulation"),
+    `${htmlFile}: left panel order did not restore after reload`,
+  );
+  await page.locator("#resetLeftPanelLayout").click();
+  await page.waitForTimeout(100);
+
+  const zoomBefore = await page.evaluate(() => window.TI_ENGINE_CHART_DEBUG.axisSnapshot());
+  expect(!!zoomBefore && !zoomBefore.zoomed, `${htmlFile}: initial debug snapshot unexpectedly zoomed`);
+  const chartBox = await page.locator("#chart").boundingBox();
+  expect(!!chartBox, `${htmlFile}: chart has no screen box for zoom smoke`);
+  if (chartBox) {
+    await page.mouse.move(chartBox.x + chartBox.width / 2, chartBox.y + chartBox.height / 2);
+    await page.mouse.wheel(0, -600);
+    await page.waitForTimeout(120);
+  }
+  const zoomAfter = await page.evaluate(() => window.TI_ENGINE_CHART_DEBUG.axisSnapshot());
+  expect(!!zoomAfter && zoomAfter.zoomed, `${htmlFile}: wheel zoom did not create zoom state`);
+  expect(
+    zoomAfter
+      && zoomAfter.x.domain.every(Number.isFinite)
+      && zoomAfter.y.domain.every(Number.isFinite)
+      && zoomAfter.x.tickCount >= 2
+      && zoomAfter.y.tickCount >= 2,
+    `${htmlFile}: debug snapshot did not return finite axis metadata after zoom`,
+  );
+  await page.locator("#resetZoom").click();
+  await page.waitForTimeout(100);
+  const zoomReset = await page.evaluate(() => window.TI_ENGINE_CHART_DEBUG.axisSnapshot());
+  expect(!!zoomReset && !zoomReset.zoomed, `${htmlFile}: reset zoom did not clear zoom state`);
+
   const firstPoint = page.locator("#chart .data-point").first();
   const pointBox = await firstPoint.boundingBox();
   expect(!!pointBox, `${htmlFile}: first data point has no screen box`);
