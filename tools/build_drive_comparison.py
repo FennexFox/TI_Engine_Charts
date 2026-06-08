@@ -32,6 +32,7 @@ from ship_math import (  # noqa: E402
 STANDARD_GRAVITY_MPS2 = 9.80665
 TARGET_DV_KPS = 500.0
 DEFAULT_DRY_MASS_TONS = 10000.0
+DEFAULT_PRESET_LIBRARY_PATH = ROOT / "data" / "preset_library.json"
 
 CATEGORY_ORDER = ("Chemical", "Electric", "Fission", "Fusion", "Antimatter", "Alien")
 DEFAULT_CATEGORY_KEY = "Fusion"
@@ -538,6 +539,36 @@ def load_json_file(path: Path) -> dict[str, Any]:
     return raw
 
 
+def empty_preset_library() -> dict[str, Any]:
+    return {
+        "format": "ti-engine-chart-built-in-presets/v1",
+        "chartPresets": [],
+        "dryMassPresets": [],
+    }
+
+
+def load_preset_library(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.is_file():
+        return empty_preset_library()
+    raw = load_json_file(path)
+    chart_presets = raw.get("chartPresets", [])
+    dry_mass_presets = raw.get("dryMassPresets", [])
+    if not isinstance(chart_presets, list):
+        raise ValueError(f"Expected chartPresets array in {path}")
+    if not isinstance(dry_mass_presets, list):
+        raise ValueError(f"Expected dryMassPresets array in {path}")
+    return {
+        "format": str(raw.get("format") or "ti-engine-chart-built-in-presets/v1"),
+        "chartPresets": chart_presets,
+        "dryMassPresets": dry_mass_presets,
+    }
+
+
+def apply_preset_library(data: dict[str, Any], path: Path | None) -> None:
+    data["presetLibrary"] = load_preset_library(path)
+    data.setdefault("source", {})["presetLibrary"] = str(path) if path and path.is_file() else None
+
+
 def build_data(
     templates_dir: Path,
     research_catalog_path: Path,
@@ -855,6 +886,11 @@ def parse_args() -> argparse.Namespace:
         help="Path to generated ship_catalog.json.",
     )
     parser.add_argument(
+        "--preset-library",
+        default=str(DEFAULT_PRESET_LIBRARY_PATH),
+        help="Optional JSON file containing built-in chartPresets and dryMassPresets to embed.",
+    )
+    parser.add_argument(
         "--output",
         default=None,
         help="Standalone HTML output path.",
@@ -885,6 +921,7 @@ def main() -> None:
     else:
         default_output = ROOT / "docs" / "index.html"
     output = default_output.expanduser().resolve()
+    preset_library = Path(args.preset_library).expanduser().resolve() if args.preset_library else None
 
     if args.input_html_data:
         data = load_embedded_page_data(Path(args.input_html_data))
@@ -903,12 +940,15 @@ def main() -> None:
         game_version = detect_game_version(templates_dir, args.game_version)
         data = build_data(templates_dir, research_catalog, ship_catalog, game_version)
 
+    apply_preset_library(data, preset_library)
     html = build_html(data, args.portable)
     output.write_text(html, encoding="utf-8")
     print(f"Wrote {output}")
     print(f"Drive variants: {len(data['drives'])}")
     print(f"Categories: {len(data['categories'])}")
     print(f"Subfamilies: {len(data['subfamilies'])}")
+    print(f"Built-in chart presets: {len(data['presetLibrary']['chartPresets'])}")
+    print(f"Built-in dry-mass presets: {len(data['presetLibrary']['dryMassPresets'])}")
     print(f"Game version: {data['source']['gameVersion']}")
 
 

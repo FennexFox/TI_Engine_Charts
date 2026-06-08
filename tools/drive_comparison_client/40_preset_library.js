@@ -334,6 +334,63 @@
       });
     }
 
+    function presetLibraryData() {
+      const library = DATA.presetLibrary;
+      return library && typeof library === "object" ? library : {};
+    }
+
+    function builtInPresetId(prefix, rawEntry, index) {
+      const source = rawEntry && rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
+      const rawId = source && typeof source.id === "string" && source.id.trim()
+        ? source.id.trim()
+        : String(index + 1);
+      return `${prefix}:${rawId}`;
+    }
+
+    function normalizeBuiltInChartPresetEntry(rawEntry, index) {
+      if (!rawEntry || typeof rawEntry !== "object") return null;
+      const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
+      const entry = normalizeChartPresetEntry(
+        { ...source, id: builtInPresetId("built-in-chart", rawEntry, index) },
+        `Built-in chart preset ${index + 1}`,
+      );
+      if (entry) entry.builtIn = true;
+      return entry;
+    }
+
+    function normalizeBuiltInDryMassPresetEntry(rawEntry, index) {
+      if (!rawEntry || typeof rawEntry !== "object") return null;
+      const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
+      const entry = normalizeDryMassPresetEntry(
+        { ...source, id: builtInPresetId("built-in-drymass", rawEntry, index) },
+        `Built-in dry-mass preset ${index + 1}`,
+      );
+      if (entry) entry.builtIn = true;
+      return entry;
+    }
+
+    function loadBuiltInChartPresetLibrary() {
+      const presets = presetLibraryData().chartPresets;
+      return dedupePresetEntries((Array.isArray(presets) ? presets : [])
+        .map(normalizeBuiltInChartPresetEntry)
+        .filter(Boolean));
+    }
+
+    function loadBuiltInDryMassPresetLibrary() {
+      const presets = presetLibraryData().dryMassPresets;
+      return dedupePresetEntries((Array.isArray(presets) ? presets : [])
+        .map(normalizeBuiltInDryMassPresetEntry)
+        .filter(Boolean));
+    }
+
+    function allChartPresetEntries() {
+      return [...builtInChartPresetLibrary, ...chartPresetLibrary];
+    }
+
+    function allDryMassPresetEntries() {
+      return [...builtInDryMassPresetLibrary, ...dryMassPresetLibrary];
+    }
+
     function loadChartPresetLibrary() {
       const raw = storageReadJson(CHART_PRESET_STORAGE_KEY);
       const presets = Array.isArray(raw) ? raw : (Array.isArray(raw?.presets) ? raw.presets : []);
@@ -421,17 +478,17 @@
 
     function selectedChartPresetEntry() {
       const select = document.getElementById("chartPresetSelect");
-      return chartPresetLibrary.find(item => item.id === (select && select.value)) || null;
+      return allChartPresetEntries().find(item => item.id === (select && select.value)) || null;
     }
 
     function selectedDryMassPresetEntry() {
       const select = document.getElementById("dryMassPresetSelect");
-      return dryMassPresetLibrary.find(item => item.id === (select && select.value)) || null;
+      return allDryMassPresetEntries().find(item => item.id === (select && select.value)) || null;
     }
 
     function applyStartupChartPreset() {
       if (!startupChartPresetId) return false;
-      const entry = chartPresetLibrary.find(item => item.id === startupChartPresetId);
+      const entry = allChartPresetEntries().find(item => item.id === startupChartPresetId);
       if (!entry) {
         setStartupChartPreset("");
         return false;
@@ -444,77 +501,84 @@
       if (button) button.disabled = !!disabled;
     }
 
+    function appendPresetOptionGroup(select, label, entries, startupId = "") {
+      if (!entries.length) return;
+      const group = document.createElement("optgroup");
+      group.label = label;
+      entries.forEach(entry => {
+        const option = document.createElement("option");
+        option.value = entry.id;
+        option.textContent = entry.id === startupId
+          ? `${entry.name} ${localText("(시작)", "(startup)")}`
+          : entry.name;
+        group.appendChild(option);
+      });
+      select.appendChild(group);
+    }
+
     function renderChartPresetControls(preferredId = "") {
       const select = document.getElementById("chartPresetSelect");
       if (!select) return;
       const selectedId = preferredId || select.value;
-      const hasPresets = chartPresetLibrary.length > 0;
-      if (startupChartPresetId && !chartPresetLibrary.some(item => item.id === startupChartPresetId)) {
+      const allEntries = allChartPresetEntries();
+      const hasPresets = allEntries.length > 0;
+      if (startupChartPresetId && !allEntries.some(item => item.id === startupChartPresetId)) {
         setStartupChartPreset("");
       }
       select.innerHTML = "";
       if (!hasPresets) {
         const option = document.createElement("option");
         option.value = "";
-        option.textContent = localText("저장된 차트 프리셋 없음", "No saved chart presets");
+        option.textContent = localText("차트 프리셋 없음", "No chart presets");
         select.appendChild(option);
       } else {
-        chartPresetLibrary.forEach(entry => {
-          const option = document.createElement("option");
-          option.value = entry.id;
-          option.textContent = entry.id === startupChartPresetId
-            ? `${entry.name} ${localText("(시작)", "(startup)")}`
-            : entry.name;
-          select.appendChild(option);
-        });
-        select.value = chartPresetLibrary.some(item => item.id === selectedId)
+        appendPresetOptionGroup(select, localText("예시 프리셋", "Example presets"), builtInChartPresetLibrary, startupChartPresetId);
+        appendPresetOptionGroup(select, localText("내 프리셋", "My presets"), chartPresetLibrary, startupChartPresetId);
+        select.value = allEntries.some(item => item.id === selectedId)
           ? selectedId
-          : chartPresetLibrary[0].id;
+          : allEntries[0].id;
       }
       select.disabled = !hasPresets;
+      const entry = selectedChartPresetEntry();
       [
         "chartPresetLoad",
-        "chartPresetRename",
         "chartPresetDuplicate",
-        "chartPresetDelete",
         "chartPresetSetStartup",
         "chartPresetExportSelected",
       ].forEach(id => setDisabled(id, !hasPresets));
+      ["chartPresetRename", "chartPresetDelete"].forEach(id => setDisabled(id, !entry || !!entry.builtIn));
       setDisabled("chartPresetClearStartup", !startupChartPresetId);
-      setDisabled("chartPresetExportAll", !hasPresets);
+      setDisabled("chartPresetExportAll", !chartPresetLibrary.length);
     }
 
     function renderDryMassPresetControls(preferredId = "") {
       const select = document.getElementById("dryMassPresetSelect");
       if (!select) return;
       const selectedId = preferredId || select.value;
-      const hasPresets = dryMassPresetLibrary.length > 0;
+      const allEntries = allDryMassPresetEntries();
+      const hasPresets = allEntries.length > 0;
       select.innerHTML = "";
       if (!hasPresets) {
         const option = document.createElement("option");
         option.value = "";
-        option.textContent = localText("저장된 건조질량 프리셋 없음", "No saved dry-mass presets");
+        option.textContent = localText("건조질량 프리셋 없음", "No dry-mass presets");
         select.appendChild(option);
       } else {
-        dryMassPresetLibrary.forEach(entry => {
-          const option = document.createElement("option");
-          option.value = entry.id;
-          option.textContent = entry.name;
-          select.appendChild(option);
-        });
-        select.value = dryMassPresetLibrary.some(item => item.id === selectedId)
+        appendPresetOptionGroup(select, localText("예시 프리셋", "Example presets"), builtInDryMassPresetLibrary);
+        appendPresetOptionGroup(select, localText("내 프리셋", "My presets"), dryMassPresetLibrary);
+        select.value = allEntries.some(item => item.id === selectedId)
           ? selectedId
-          : dryMassPresetLibrary[0].id;
+          : allEntries[0].id;
       }
       select.disabled = !hasPresets;
+      const entry = selectedDryMassPresetEntry();
       [
         "dryMassPresetLoad",
-        "dryMassPresetRename",
         "dryMassPresetDuplicate",
-        "dryMassPresetDelete",
         "dryMassPresetExportSelected",
       ].forEach(id => setDisabled(id, !hasPresets));
-      setDisabled("dryMassPresetExportAll", !hasPresets);
+      ["dryMassPresetRename", "dryMassPresetDelete"].forEach(id => setDisabled(id, !entry || !!entry.builtIn));
+      setDisabled("dryMassPresetExportAll", !dryMassPresetLibrary.length);
     }
 
     function renderPresetLibraryControls() {
@@ -652,7 +716,7 @@
 
       if (raw.format === "ti-engine-chart-preset-library/v1" && Array.isArray(raw.presets)) {
         const count = mergeChartPresetEntries(raw.presets);
-        if (typeof raw.startupPresetId === "string" && chartPresetLibrary.some(item => item.id === raw.startupPresetId)) {
+        if (typeof raw.startupPresetId === "string" && allChartPresetEntries().some(item => item.id === raw.startupPresetId)) {
           setStartupChartPreset(raw.startupPresetId);
           renderChartPresetControls(raw.startupPresetId);
         }
@@ -743,6 +807,9 @@
 
     function setupPresetLibraryControls() {
       renderChartPresetControls();
+      document.getElementById("chartPresetSelect")?.addEventListener("change", event => {
+        renderChartPresetControls(event.target.value);
+      });
       document.getElementById("chartPresetSave")?.addEventListener("click", () => {
         const name = promptPresetName(
           localText("차트 프리셋 이름", "Chart preset name"),
@@ -765,6 +832,7 @@
       document.getElementById("chartPresetRename")?.addEventListener("click", () => {
         const entry = selectedChartPresetEntry();
         if (!entry) return;
+        if (entry.builtIn) return showPresetStatus(localText("예시 프리셋은 이름을 변경할 수 없습니다.", "Example presets cannot be renamed."), true);
         const name = promptPresetName(localText("새 차트 프리셋 이름", "New chart preset name"), entry.name, showPresetStatus);
         if (!name) return;
         entry.name = uniquePresetName(name, chartPresetLibrary, entry.id);
@@ -783,6 +851,7 @@
       });
       document.getElementById("chartPresetDelete")?.addEventListener("click", () => {
         const entry = selectedChartPresetEntry();
+        if (entry && entry.builtIn) return showPresetStatus(localText("예시 프리셋은 삭제할 수 없습니다.", "Example presets cannot be deleted."), true);
         if (!entry || !window.confirm(localText("선택한 차트 프리셋을 삭제할까요?", "Delete the selected chart preset?"))) return;
         chartPresetLibrary = chartPresetLibrary.filter(item => item.id !== entry.id);
         if (startupChartPresetId === entry.id) setStartupChartPreset("");
@@ -828,6 +897,9 @@
 
     function setupDryMassPresetControls() {
       renderDryMassPresetControls();
+      document.getElementById("dryMassPresetSelect")?.addEventListener("change", event => {
+        renderDryMassPresetControls(event.target.value);
+      });
       document.getElementById("dryMassPresetSave")?.addEventListener("click", () => {
         const name = promptPresetName(
           localText("건조질량 프리셋 이름", "Dry-mass preset name"),
@@ -850,6 +922,7 @@
       document.getElementById("dryMassPresetRename")?.addEventListener("click", () => {
         const entry = selectedDryMassPresetEntry();
         if (!entry) return;
+        if (entry.builtIn) return showDryMassPresetStatus(localText("예시 프리셋은 이름을 변경할 수 없습니다.", "Example presets cannot be renamed."), true);
         const name = promptPresetName(localText("새 건조질량 프리셋 이름", "New dry-mass preset name"), entry.name, showDryMassPresetStatus);
         if (!name) return;
         entry.name = uniquePresetName(name, dryMassPresetLibrary, entry.id);
@@ -868,6 +941,7 @@
       });
       document.getElementById("dryMassPresetDelete")?.addEventListener("click", () => {
         const entry = selectedDryMassPresetEntry();
+        if (entry && entry.builtIn) return showDryMassPresetStatus(localText("예시 프리셋은 삭제할 수 없습니다.", "Example presets cannot be deleted."), true);
         if (!entry || !window.confirm(localText("선택한 건조질량 프리셋을 삭제할까요?", "Delete the selected dry-mass preset?"))) return;
         dryMassPresetLibrary = dryMassPresetLibrary.filter(item => item.id !== entry.id);
         const saved = saveDryMassPresetLibrary();
@@ -915,9 +989,10 @@
     function setPresetUiText() {
       const exportButton = document.getElementById("presetExport");
       const importButton = document.getElementById("presetImport");
-      if (exportButton) exportButton.textContent = localText("설정 Export", "Export Preset");
-      if (importButton) importButton.textContent = localText("설정 Import", "Import Preset");
+      if (exportButton) exportButton.textContent = localText("현재 설정 Export", "Export Current");
+      if (importButton) importButton.textContent = localText("설정 Import", "Import Settings");
       setTextById("chartPresetLibraryLabel", "차트 프리셋", "Chart presets");
+      setTextById("chartPresetMoreLabel", "관리", "Manage");
       setTextById("chartPresetSave", "현재 저장", "Save Current");
       setTextById("chartPresetLoad", "불러오기", "Load");
       setTextById("chartPresetRename", "이름 변경", "Rename");
@@ -927,15 +1002,16 @@
       setTextById("chartPresetClearStartup", "시작 해제", "Clear Startup");
       setTextById("chartPresetReset", "기본값", "Defaults");
       setTextById("chartPresetExportSelected", "선택 Export", "Export Selected");
-      setTextById("chartPresetExportAll", "전체 Export", "Export Library");
+      setTextById("chartPresetExportAll", "내 프리셋 Export", "Export My Presets");
       setTextById("dryMassPresetLibraryLabel", "건조질량 프리셋", "Dry-mass presets");
+      setTextById("dryMassPresetMoreLabel", "관리", "Manage");
       setTextById("dryMassPresetSave", "현재 저장", "Save Current");
       setTextById("dryMassPresetLoad", "불러오기", "Load");
       setTextById("dryMassPresetRename", "이름 변경", "Rename");
       setTextById("dryMassPresetDuplicate", "복제", "Duplicate");
       setTextById("dryMassPresetDelete", "삭제", "Delete");
       setTextById("dryMassPresetExportSelected", "선택 Export", "Export Selected");
-      setTextById("dryMassPresetExportAll", "전체 Export", "Export Library");
+      setTextById("dryMassPresetExportAll", "내 프리셋 Export", "Export My Presets");
       setTextById("dryMassPresetImport", "Import", "Import");
       renderPresetLibraryControls();
     }

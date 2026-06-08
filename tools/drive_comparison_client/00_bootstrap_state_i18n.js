@@ -576,5 +576,7 @@
     };
     let chartPresetLibrary = loadChartPresetLibrary();
     let dryMassPresetLibrary = loadDryMassPresetLibrary();
+    const builtInChartPresetLibrary = loadBuiltInChartPresetLibrary();
+    const builtInDryMassPresetLibrary = loadBuiltInDryMassPresetLibrary();
     let startupChartPresetId = loadStartupChartPresetId();
 

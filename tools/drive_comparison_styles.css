@@ -641,19 +641,20 @@
       gap: 6px;
       min-width: 0;
     }
-    .preset-io {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      width: 100%;
-    }
     .preset-manager {
       display: grid;
       gap: 7px;
       width: 100%;
       max-width: 900px;
       font-size: 12px;
+    }
+    .preset-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
     }
     .preset-library-row {
       display: grid;
@@ -677,6 +678,64 @@
     .preset-button-row .compact-command {
       white-space: nowrap;
     }
+    .preset-actions-menu {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .preset-actions-menu > summary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      background: #202521;
+      cursor: pointer;
+      font-weight: 650;
+      list-style: none;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .preset-actions-menu > summary::-webkit-details-marker {
+      display: none;
+    }
+    .preset-actions-menu > summary::after {
+      content: "\25BE";
+      margin-left: 6px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .preset-actions-menu[open] > summary,
+    .preset-actions-menu > summary:hover {
+      border-color: #5f7c62;
+      background: #263229;
+    }
+    .preset-menu-panel {
+      position: absolute;
+      top: calc(100% + 5px);
+      right: 0;
+      z-index: 30;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(130px, 1fr));
+      gap: 6px;
+      min-width: 286px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #171b18;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+    }
+    .preset-menu-panel .compact-command {
+      justify-content: center;
+      width: 100%;
+    }
+    #dryMassPresetActionsMenu .preset-menu-panel {
+      top: auto;
+      bottom: calc(100% + 5px);
+    }
     .preset-divider {
       align-self: stretch;
       width: 1px;
@@ -686,7 +745,7 @@
     .preset-status {
       color: var(--muted);
       font-size: 11px;
-      white-space: nowrap;
+      white-space: normal;
     }
     .preset-status.error {
       color: var(--danger);
@@ -1485,6 +1544,18 @@
       .summary-strip { flex-direction: column; }
       .summary-controls { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
       .preset-library-row { grid-template-columns: 1fr; }
+      .preset-header-row { align-items: flex-start; flex-direction: column; }
+      .preset-actions-menu { display: block; width: 100%; }
+      .preset-actions-menu > summary { width: fit-content; }
+      .preset-menu-panel {
+        position: static;
+        grid-template-columns: 1fr;
+        min-width: 0;
+        margin-top: 6px;
+      }
+      #dryMassPresetActionsMenu .preset-menu-panel {
+        bottom: auto;
+      }
       .calculator-grid { grid-template-columns: 1fr; }
       #dryMassCalcArmor,
       #dryMassCalcWeapons { grid-template-columns: 1fr; }

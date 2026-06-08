@@ -43,6 +43,13 @@ Pass an explicit template directory or version when auto-detection is not enough
 python .\scripts\rebuild_pages.py --templates-dir "C:\Program Files (x86)\Steam\steamapps\common\Terra Invicta\TerraInvicta_Data\StreamingAssets\Templates" --game-version 1.0.32
 ```
 
+Built-in chart and dry-mass preset entries can be added to
+`data/preset_library.json`. The builder embeds `chartPresets` and
+`dryMassPresets` from that file into `docs/index.html`; use
+`--preset-library path\to\file.json` to build from a different preset library.
+Entries use the same shape as exported named presets: chart presets carry a
+`settings` object, and dry-mass presets carry a `calculator` object.
+
 The deploy script only stages these generated files:
 
 - `data/research_catalog.json`
