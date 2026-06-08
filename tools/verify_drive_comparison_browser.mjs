@@ -31,7 +31,14 @@ async function verifyHtmlFile(browser, htmlFile) {
   await page.waitForSelector("#chart .data-point", { timeout: 15000 });
 
   const title = await page.locator("h1").innerText();
+  const initialLanguage = await page.evaluate(() => ({
+    lang: document.documentElement.lang,
+    selector: document.getElementById("uiLanguageSelect")?.value || "",
+  }));
   const languageOptions = await page.locator("#uiLanguageSelect option").count();
+  expect(initialLanguage.lang === "en", `${htmlFile}: initial document language should be English`);
+  expect(initialLanguage.selector === "en", `${htmlFile}: initial language selector should be English`);
+  expect(/Drive Comparison/.test(title), `${htmlFile}: initial title should render in English`);
   expect(title.trim().length > 0, `${htmlFile}: title did not render`);
   expect(languageOptions === 2, `${htmlFile}: language selector missing`);
 
@@ -46,6 +53,46 @@ async function verifyHtmlFile(browser, htmlFile) {
       && /Simulation \(total mass, fuel mass, TWR\)/.test(englishMetricGroups[0] || "")
       && /Basic information \(thrust, efficiency, power\)/.test(englishMetricGroups[1] || ""),
     `${htmlFile}: English metric group labels were not localized`,
+  );
+  const filterSummaryChecks = await page.evaluate(() => {
+    const summaryText = () => document.querySelector('.control-card[data-control-card="filter"] [data-card-summary]')?.textContent || "";
+
+    setLanguage("en", { rerender: false });
+    Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
+    syncUiFromState();
+    updateLeftPanelCardSummaries();
+    const totalMassSummary = summaryText();
+
+    Object.assign(state, { metric: "twr", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
+    syncUiFromState();
+    updateLeftPanelCardSummaries();
+    const twrSummary = summaryText();
+
+    setLanguage("ko", { rerender: false });
+    Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
+    syncUiFromState();
+    updateLeftPanelCardSummaries();
+    const koreanSummary = summaryText();
+
+    resetChartStateToDefaults();
+    syncUiFromState();
+    updateLeftPanelCardSummaries();
+
+    return { totalMassSummary, twrSummary, koreanSummary };
+  });
+  expect(
+    /TWR/.test(filterSummaryChecks.totalMassSummary) && !/dV/.test(filterSummaryChecks.totalMassSummary),
+    `${htmlFile}: total-mass filter summary should show only the TWR threshold`,
+  );
+  expect(
+    /dV/.test(filterSummaryChecks.twrSummary) && !/TWR/.test(filterSummaryChecks.twrSummary),
+    `${htmlFile}: TWR filter summary should show only the dV threshold`,
+  );
+  expect(
+    /X축 로그/.test(filterSummaryChecks.koreanSummary)
+      && /Y축 로그/.test(filterSummaryChecks.koreanSummary)
+      && !/log X|log Y|Log X|Log Y/.test(filterSummaryChecks.koreanSummary),
+    `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
 
   await setLanguage(page, "ko");
@@ -130,7 +177,218 @@ async function verifyHtmlFile(browser, htmlFile) {
     presetRoundTrip.actual === presetRoundTrip.expected,
     `${htmlFile}: dry-mass calculator state did not round-trip through preset import/export`,
   );
+
+  const namedPresetRoundTrip = await page.evaluate(async () => {
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    renderPresetLibraryControls();
+
+    state.dryMassTons = 12345;
+    state.targetDvKps = 321;
+    state.thrusters = 4;
+    state.searchTerm = "alpha";
+    const chartA = saveChartPresetFromSettings("Scenario Alpha", exportedPreset());
+
+    state.dryMassTons = 67890;
+    state.targetDvKps = 654;
+    state.thrusters = 2;
+    const chartB = saveChartPresetFromSettings("Scenario Beta", exportedPreset());
+    const startupSaved = setStartupChartPreset(chartA.id);
+
+    const chartLibraryPayload = await serializePayloadObject(chartPresetLibraryExportObject());
+    const parsedChartLibrary = await parsePresetPayload(chartLibraryPayload);
+    chartPresetLibrary = [];
+    saveChartPresetLibrary();
+    const chartImport = await handleImportedPresetObject(parsedChartLibrary, { promptToSaveCurrent: false });
+    const chartCountAfterLibraryImport = chartPresetLibrary.length;
+    const startupRestored = startupChartPresetId === chartA.id;
+    const loadedChart = chartPresetLibrary.find(item => item.name === "Scenario Alpha");
+    const chartApplied = !!loadedChart && applyPresetToState(loadedChart.settings);
+
+    const chartSelectedPayload = await serializePayloadObject(chartPresetExportObject(chartB));
+    const parsedSelectedChart = await parsePresetPayload(chartSelectedPayload);
+    chartPresetLibrary = [];
+    saveChartPresetLibrary();
+    const selectedChartImport = await handleImportedPresetObject(parsedSelectedChart, { promptToSaveCurrent: false });
+
+    resetDryMassCalcState();
+    dryMassCalcState.notes = "alpha notes";
+    const dryMassA = saveDryMassPresetFromCalculator("Hull Alpha", exportedDryMassCalculatorPreset());
+    resetDryMassCalcState();
+    const dryMassApplied = !!dryMassA && applyDryMassCalculatorPreset(dryMassA.calculator);
+    const dryMassNotesRestored = dryMassCalcState.notes === "alpha notes";
+
+    const dryMassLibraryPayload = await serializePayloadObject(dryMassPresetLibraryExportObject());
+    const parsedDryMassLibrary = await parsePresetPayload(dryMassLibraryPayload);
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
+    const dryMassImport = await handleImportedPresetObject(parsedDryMassLibrary, {
+      preferredKind: "dryMass",
+      promptToSaveCurrent: false,
+    });
+    const dryMassCountAfterLibraryImport = dryMassPresetLibrary.length;
+
+    const dryMassSelectedPayload = await serializePayloadObject(dryMassPresetExportObject(dryMassPresetLibrary[0]));
+    const parsedSelectedDryMass = await parsePresetPayload(dryMassSelectedPayload);
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
+    const selectedDryMassImport = await handleImportedPresetObject(parsedSelectedDryMass, {
+      preferredKind: "dryMass",
+      promptToSaveCurrent: false,
+    });
+
+    const chartControls = [
+      "#chartPresetSave",
+      "#chartPresetLoad",
+      "#chartPresetRename",
+      "#chartPresetDuplicate",
+      "#chartPresetDelete",
+      "#chartPresetSetStartup",
+      "#chartPresetExportSelected",
+      "#chartPresetExportAll",
+    ].every(selector => !!document.querySelector(selector));
+    const dryMassControls = [
+      "#dryMassPresetSave",
+      "#dryMassPresetLoad",
+      "#dryMassPresetRename",
+      "#dryMassPresetDuplicate",
+      "#dryMassPresetDelete",
+      "#dryMassPresetExportSelected",
+      "#dryMassPresetExportAll",
+      "#dryMassPresetImport",
+    ].every(selector => !!document.querySelector(selector));
+
+    const result = {
+      chartCountAfterLibraryImport,
+      chartImportOk: chartImport.ok,
+      chartApplied,
+      chartLoadedDryMass: state.dryMassTons,
+      chartLoadedDv: state.targetDvKps,
+      chartLoadedThrusters: state.thrusters,
+      chartLoadedSearch: state.searchTerm,
+      selectedChartImportOk: selectedChartImport.ok,
+      selectedChartCount: chartPresetLibrary.length,
+      startupSaved,
+      startupRestored,
+      dryMassApplied,
+      dryMassNotesRestored,
+      dryMassImportOk: dryMassImport.ok,
+      dryMassCountAfterLibraryImport,
+      selectedDryMassImportOk: selectedDryMassImport.ok,
+      selectedDryMassCount: dryMassPresetLibrary.length,
+      chartControls,
+      dryMassControls,
+    };
+
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    syncUiFromState();
+    renderPresetLibraryControls();
+
+    return result;
+  });
+  expect(namedPresetRoundTrip.chartImportOk, `${htmlFile}: chart preset library import failed`);
+  expect(namedPresetRoundTrip.chartCountAfterLibraryImport === 2, `${htmlFile}: chart preset library did not merge two presets`);
+  expect(namedPresetRoundTrip.chartApplied, `${htmlFile}: named chart preset did not apply`);
+  expect(namedPresetRoundTrip.chartLoadedDryMass === 12345, `${htmlFile}: named chart preset did not restore dry mass`);
+  expect(namedPresetRoundTrip.chartLoadedDv === 321, `${htmlFile}: named chart preset did not restore target dV`);
+  expect(namedPresetRoundTrip.chartLoadedThrusters === 4, `${htmlFile}: named chart preset did not restore engine count`);
+  expect(namedPresetRoundTrip.chartLoadedSearch === "alpha", `${htmlFile}: named chart preset did not restore search filter`);
+  expect(namedPresetRoundTrip.selectedChartImportOk, `${htmlFile}: selected chart preset import failed`);
+  expect(namedPresetRoundTrip.selectedChartCount === 1, `${htmlFile}: selected chart preset import did not add one preset`);
+  expect(namedPresetRoundTrip.startupSaved && namedPresetRoundTrip.startupRestored, `${htmlFile}: startup chart preset did not persist through library export/import`);
+  expect(namedPresetRoundTrip.dryMassApplied, `${htmlFile}: dry-mass preset did not apply to calculator`);
+  expect(namedPresetRoundTrip.dryMassNotesRestored, `${htmlFile}: dry-mass preset notes did not restore`);
+  expect(namedPresetRoundTrip.dryMassImportOk, `${htmlFile}: dry-mass preset library import failed`);
+  expect(namedPresetRoundTrip.dryMassCountAfterLibraryImport === 1, `${htmlFile}: dry-mass preset library did not merge one preset`);
+  expect(namedPresetRoundTrip.selectedDryMassImportOk, `${htmlFile}: selected dry-mass preset import failed`);
+  expect(namedPresetRoundTrip.selectedDryMassCount === 1, `${htmlFile}: selected dry-mass preset import did not add one preset`);
+  expect(namedPresetRoundTrip.chartControls, `${htmlFile}: chart preset management controls missing`);
+  expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
   await page.locator("#dryMassCalcClose").click();
+
+  const metricSearchable = page.locator("#metric + .searchable-select");
+  await metricSearchable.locator(".searchable-select-trigger").click();
+  await metricSearchable.locator(".searchable-select-search").fill("twr");
+  const twrSearchOptions = await metricSearchable.locator('.searchable-select-option[data-value="twr"]').count();
+  expect(twrSearchOptions > 0, `${htmlFile}: searchable select did not filter to the TWR option`);
+  await metricSearchable.locator('.searchable-select-option[data-value="twr"]').first().click();
+  await page.waitForTimeout(100);
+  expect(await page.locator("#metric").inputValue() === "twr", `${htmlFile}: searchable select did not apply selected metric`);
+  expect(await metricSearchable.locator(".searchable-select-menu").isHidden(), `${htmlFile}: searchable select menu did not close after selection`);
+
+  const leftPanelRoundTrip = await page.evaluate(() => {
+    localStorage.removeItem(LEFT_PANEL_LAYOUT_STORAGE_KEY);
+    leftPanelLayout = loadLeftPanelLayout();
+    applyLeftPanelOrder();
+    const displayCard = document.querySelector('.control-card[data-control-card="display"]');
+    const filterCard = document.querySelector('.control-card[data-control-card="filter"]');
+    displayCard.querySelector("[data-card-toggle]").click();
+    filterCard.querySelector('[data-panel-move="up"]').click();
+    const stored = JSON.parse(localStorage.getItem(LEFT_PANEL_LAYOUT_STORAGE_KEY));
+    return {
+      displayCollapsed: displayCard.dataset.collapsed === "true",
+      storedDisplayCollapsed: stored.collapsed.display === true,
+      storedOrder: stored.order,
+    };
+  });
+  expect(leftPanelRoundTrip.displayCollapsed, `${htmlFile}: left panel display card did not collapse`);
+  expect(leftPanelRoundTrip.storedDisplayCollapsed, `${htmlFile}: left panel collapsed state did not persist to localStorage`);
+  expect(
+    Array.isArray(leftPanelRoundTrip.storedOrder)
+      && leftPanelRoundTrip.storedOrder.indexOf("filter") < leftPanelRoundTrip.storedOrder.indexOf("simulation"),
+    `${htmlFile}: left panel order change did not persist to localStorage`,
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#chart .data-point", { timeout: 15000 });
+  const leftPanelAfterReload = await page.evaluate(() => {
+    const displayCard = document.querySelector('.control-card[data-control-card="display"]');
+    const cards = [...document.querySelectorAll(".control-card[data-control-card]")].map(card => card.dataset.controlCard);
+    return {
+      displayCollapsed: displayCard.dataset.collapsed === "true",
+      order: cards,
+    };
+  });
+  expect(leftPanelAfterReload.displayCollapsed, `${htmlFile}: left panel collapsed state did not restore after reload`);
+  expect(
+    leftPanelAfterReload.order.indexOf("filter") < leftPanelAfterReload.order.indexOf("simulation"),
+    `${htmlFile}: left panel order did not restore after reload`,
+  );
+  await page.locator("#resetLeftPanelLayout").click();
+  await page.waitForTimeout(100);
+
+  const zoomBefore = await page.evaluate(() => window.TI_ENGINE_CHART_DEBUG.axisSnapshot());
+  expect(!!zoomBefore && !zoomBefore.zoomed, `${htmlFile}: initial debug snapshot unexpectedly zoomed`);
+  const chartBox = await page.locator("#chart").boundingBox();
+  expect(!!chartBox, `${htmlFile}: chart has no screen box for zoom smoke`);
+  if (chartBox) {
+    await page.mouse.move(chartBox.x + chartBox.width / 2, chartBox.y + chartBox.height / 2);
+    await page.mouse.wheel(0, -600);
+    await page.waitForTimeout(120);
+  }
+  const zoomAfter = await page.evaluate(() => window.TI_ENGINE_CHART_DEBUG.axisSnapshot());
+  expect(!!zoomAfter && zoomAfter.zoomed, `${htmlFile}: wheel zoom did not create zoom state`);
+  expect(
+    zoomAfter
+      && zoomAfter.x.domain.every(Number.isFinite)
+      && zoomAfter.y.domain.every(Number.isFinite)
+      && zoomAfter.x.tickCount >= 2
+      && zoomAfter.y.tickCount >= 2,
+    `${htmlFile}: debug snapshot did not return finite axis metadata after zoom`,
+  );
+  await page.locator("#resetZoom").click();
+  await page.waitForTimeout(100);
+  const zoomReset = await page.evaluate(() => window.TI_ENGINE_CHART_DEBUG.axisSnapshot());
+  expect(!!zoomReset && !zoomReset.zoomed, `${htmlFile}: reset zoom did not clear zoom state`);
 
   const firstPoint = page.locator("#chart .data-point").first();
   const pointBox = await firstPoint.boundingBox();

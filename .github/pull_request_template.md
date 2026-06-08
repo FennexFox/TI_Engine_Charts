@@ -6,7 +6,7 @@ PR title format:
 <type>(<scope>): <summary>
 
 Examples:
-- fix(systems): guard stale signature market flags
+- refactor(ui): split drive comparison sources
 - docs(readme): clarify release workflow
 
 Automation guardrails:
@@ -28,9 +28,9 @@ Automation guardrails:
 
 ## How
 - 
-- Note any important defaults, thresholds, reload/restart requirements, or
+- Note any important build, data-source, generated-output, or deployment
   constraints.
-- Save compatibility / migration impact:
+- Generated output / deployment impact:
   - 
 
 ## Testing
@@ -38,11 +38,11 @@ Automation guardrails:
   - 
 - Manual verification:
   - 
-- Settings touched:
-  - [ ] No settings changed
-  - [ ] Defaults changed
-  - [ ] Reload required
-  - [ ] Restart required
+- Generated files:
+  - [ ] No generated files changed
+  - [ ] `docs/index.html` regenerated
+  - [ ] Catalog outputs regenerated
+  - [ ] GitHub Pages workflow affected
 - If not tested, state why.
 
 ## Risk / Rollback
@@ -54,7 +54,7 @@ Automation guardrails:
 ## Reviewer Checklist
 - [ ] Linked issue, investigation, or release item when applicable
 - [ ] README or docs updated if behavior or defaults changed
-- [ ] Save compatibility impact called out
+- [ ] Generated output and deployment impact called out
 - [ ] Verification steps are specific enough to reproduce
 - [ ] Risk and rollback are concrete for shipped behavior
 
