@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import { chromium } from "playwright";
 
 const htmlFiles = process.argv.slice(2).length
@@ -12,16 +12,26 @@ function expect(condition, message) {
   if (!condition) failures.push(message);
 }
 
+function htmlFileUrl(htmlFile) {
+  const absolutePath = resolve(htmlFile);
+  if (!process.env.PLAYWRIGHT_BASE_URL) return pathToFileURL(absolutePath).href;
+
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL.endsWith("/")
+    ? process.env.PLAYWRIGHT_BASE_URL
+    : `${process.env.PLAYWRIGHT_BASE_URL}/`;
+  const pagePath = (isAbsolute(htmlFile) ? relative(process.cwd(), absolutePath) : htmlFile)
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "");
+  return new URL(pagePath, baseUrl).href;
+}
+
 async function setLanguage(page, value) {
   await page.locator("#uiLanguageSelect").selectOption(value);
   await page.waitForTimeout(100);
 }
 
 async function verifyHtmlFile(browser, htmlFile) {
-  const absolutePath = resolve(htmlFile);
-  const targetUrl = process.env.PLAYWRIGHT_BASE_URL
-    ? new URL(htmlFile, process.env.PLAYWRIGHT_BASE_URL).href
-    : pathToFileURL(absolutePath).href;
+  const targetUrl = htmlFileUrl(htmlFile);
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const consoleErrors = [];
   const pageErrors = [];

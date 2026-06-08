@@ -289,7 +289,7 @@ __STYLES__
         <label class="pill-toggle"><input type="radio" name="presetExportFormat" value="compressed" checked> <span id="presetExportFormatCompressedLabel">압축 문자열</span></label>
         <label class="pill-toggle"><input type="radio" name="presetExportFormat" value="json"> <span id="presetExportFormatJsonLabel">JSON</span></label>
       </div>
-      <textarea id="presetExportOutput" class="export-output" rows="8" readonly spellcheck="false"></textarea>
+      <textarea id="presetExportOutput" class="export-output" rows="8" readonly spellcheck="false" aria-labelledby="presetExportTitle" aria-describedby="presetExportDescription"></textarea>
       <div class="modal-footer export-modal-footer">
         <span id="presetExportStatus" class="preset-status" aria-live="polite"></span>
         <div class="modal-actions">

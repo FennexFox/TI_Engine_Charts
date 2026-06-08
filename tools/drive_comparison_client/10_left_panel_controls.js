@@ -251,7 +251,7 @@
         render();
       });
       presetExport.addEventListener("click", async () => {
-        await copySerializedObject(
+        openSerializedObjectExport(
           exportedPreset(),
           localText("현재 차트 설정을 클립보드에 복사했습니다.", "Current chart settings copied to clipboard."),
           localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),

@@ -705,7 +705,7 @@
       const now = presetTimestamp();
       const existing = dryMassPresetLibrary.find(item => item.id === existingId);
       const entry = {
-        id: existing ? existing.id : uniquePresetId("drymass"),
+        id: existing ? existing.id : uniquePresetId("design"),
         name: uniquePresetName(name, dryMassPresetLibrary, existing ? existing.id : ""),
         calculator: cloneJson(calculator),
         createdAt: existing ? existing.createdAt : now,
@@ -746,7 +746,7 @@
         .forEach(entry => {
           const usedIds = new Set(allDryMassPresetEntries().map(item => item.id));
           const imported = { ...entry, builtIn: false };
-          if (usedIds.has(imported.id)) imported.id = uniquePresetId("drymass");
+          if (usedIds.has(imported.id)) imported.id = uniquePresetId("design");
           imported.name = uniquePresetName(imported.name, dryMassPresetLibrary);
           dryMassPresetLibrary.push(imported);
           changed += 1;
@@ -960,7 +960,7 @@
       }
     }
 
-    async function copySerializedObject(object, successText, failureText, statusFn = showPresetStatus, title = "", description = "") {
+    function openSerializedObjectExport(object, successText, failureText, statusFn = showPresetStatus, title = "", description = "") {
       openPresetExportModal({ object, title, description, successText, failureText, statusFn });
     }
 
@@ -1038,7 +1038,7 @@
       document.getElementById("chartPresetExportSelected")?.addEventListener("click", async () => {
         const entry = selectedChartPresetEntry();
         if (!entry) return showPresetStatus(localText("내보낼 차트 프리셋이 없습니다.", "No chart preset selected."), true);
-        await copySerializedObject(
+        openSerializedObjectExport(
           chartPresetExportObject(entry),
           localText("선택한 차트 프리셋을 클립보드에 복사했습니다.", "Selected chart preset copied to clipboard."),
           localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
@@ -1049,7 +1049,7 @@
       });
       document.getElementById("chartPresetExportAll")?.addEventListener("click", async () => {
         if (!chartPresetLibrary.length) return showPresetStatus(localText("내보낼 차트 프리셋이 없습니다.", "No chart presets to export."), true);
-        await copySerializedObject(
+        openSerializedObjectExport(
           chartPresetLibraryExportObject(),
           localText("차트 프리셋 라이브러리를 클립보드에 복사했습니다.", "Chart preset library copied to clipboard."),
           localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),
@@ -1104,7 +1104,7 @@
         showDryMassPresetStatus(saved ? localText("설계 프리셋을 삭제했습니다.", "Design preset deleted.") : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
       });
       document.getElementById("dryMassPresetExportSelected")?.addEventListener("click", async () => {
-        await copySerializedObject(
+        openSerializedObjectExport(
           dryMassPresetExportObject({
             id: uniquePresetId("design-export"),
             name: localText("현재 설계", "Current design"),
@@ -1121,7 +1121,7 @@
       });
       document.getElementById("dryMassPresetExportAll")?.addEventListener("click", async () => {
         if (!dryMassPresetLibrary.length) return showDryMassPresetStatus(localText("내보낼 설계 프리셋이 없습니다.", "No design presets to export."), true);
-        await copySerializedObject(
+        openSerializedObjectExport(
           dryMassPresetLibraryExportObject(),
           localText("설계 프리셋 라이브러리를 클립보드에 복사했습니다.", "Design preset library copied to clipboard."),
           localText("클립보드 복사에 실패했습니다.", "Failed to copy to clipboard."),

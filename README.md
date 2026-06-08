@@ -48,7 +48,8 @@ Built-in chart and dry-mass preset entries can be added to
 `dryMassPresets` from that file into `docs/index.html`; use
 `--preset-library path\to\file.json` to build from a different preset library.
 Entries use the same shape as exported named presets: chart presets carry a
-`settings` object, and dry-mass presets carry a `calculator` object.
+`settings` object, and dry-mass design presets carry a `dryMassDesign` object
+plus optional `simulationDefaults`.
 
 The deploy script only stages these generated files:
 
