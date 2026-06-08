@@ -59,8 +59,8 @@ not rely on merge commit bodies for routine reviewer context.
 
 ## How
 - Capture key implementation choices, constraints, and tradeoffs
-- Mention important defaults, thresholds, reload/restart requirements,
-  and save/migration impact when relevant
+- Mention important build, data-source, generated-output, and GitHub
+  Pages deployment impact when relevant
 
 ## Testing
 - State what was tested: unit, integration, manual, or none
@@ -82,6 +82,6 @@ If asked to classify the PR, use one label:
 Provide a one to two sentence justification.
 
 ## Examples
-- `feat(infra): automate raw log triage and evidence promotion`
-- `fix(systems): tighten promoted issue duplicate detection`
-- `docs(instructions): clarify commit message and PR guidelines`
+- `refactor(ui): split drive comparison sources`
+- `fix(ui): align mobile header controls`
+- `docs(readme): clarify local rebuild workflow`
