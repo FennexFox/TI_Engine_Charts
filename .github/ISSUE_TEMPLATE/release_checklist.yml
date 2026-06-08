@@ -1,0 +1,50 @@
+name: Release checklist
+description: Prepare and verify a release.
+title: "[Release] "
+labels: ["release"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Target version
+      placeholder: e.g. v0.2.0
+    validations:
+      required: true
+  - type: textarea
+    id: changes
+    attributes:
+      label: Included changes
+      description: Summarize the user-facing changes.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Release-gate evidence / validation
+      description: List only the gate or validation artifacts that apply to this release scope. For software-track releases, link the release-build software evidence entry, the comparison summary against the current anchor evidence entry, and the release PR validation note. For telemetry/performance releases, link the performance telemetry issue or other validation artifact and summarize what it proves. If no scoped gate applies, say so explicitly.
+      placeholder: |
+        - software gate (if applicable):
+          - comparable software evidence: #...
+          - software anchor comparison summary: same / better / worse / unclear
+          - software release PR validation note: ...
+        - telemetry validation (if applicable):
+          - performance telemetry issue or validation artifact: #...
+          - telemetry validation summary: capture OK / comparison OK / triage OK / unclear
+        - no scoped gate:
+          - none required for this release
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: README updated
+        - label: PublishConfiguration wording reviewed against shipped behavior
+        - label: Diagnostics wording reviewed
+        - label: Release build completed successfully
+        - label: Applicable release-gate evidence or validation artifacts captured
+        - label: Applicable comparison summaries and release PR validation notes recorded
+        - label: Tag/version confirmed
+        - label: Release notes reviewed
+        - label: Local release script verified

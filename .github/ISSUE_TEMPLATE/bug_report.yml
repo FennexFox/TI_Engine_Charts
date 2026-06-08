@@ -1,0 +1,65 @@
+name: Bug report
+description: Report a reproducible bug or incorrect behavior.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for confirmed or at least reproducible problems.
+        For raw diagnostics intake, use the `Raw log report` form.
+        For open-ended theories, use the Investigation form, the `Software investigation` form, or Discussions.
+  - type: input
+    id: game-version
+    attributes:
+      label: Game version
+      placeholder: e.g. 1.5.xf1
+    validations:
+      required: true
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version
+      placeholder: e.g. current release, unreleased, or local dev build
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is happening, and why is it wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Load save
+        2. Enable ...
+        3. Wait ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots / evidence
+      description: Paste logs or attach screenshots if available.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - phantom-vacancy
+        - software-track
+        - diagnostics
+        - optimization
+        - repo-meta
+    validations:
+      required: true
