@@ -243,7 +243,14 @@ __STYLES__
             <label><input type="radio" name="fuelUnit" value="kps" checked>km/s</label>
             <label><input type="radio" name="fuelUnit" value="seconds">s</label>
           </div>
-          <button id="powerResearchToggle" class="compact-command toggle-button" type="button" aria-pressed="false" style="display: none;">추가 전원 연구력 반영</button>
+          <label id="powerResearchViewControl" class="chart-select-control power-view-control" style="display: none;">
+            <span class="chart-toggle-label">전원 보기</span>
+            <select id="powerResearchView" aria-label="전원 보기">
+              <option value="focus">기본</option>
+              <option value="all">전체 사다리</option>
+              <option value="best">최적 가용</option>
+            </select>
+          </label>
           <button id="resetZoom" class="compact-command" type="button" disabled>보기 초기화</button>
           <div id="metricHint"></div>
         </div>

@@ -5,6 +5,12 @@
     let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
     const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
     if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
+    const POWER_RESEARCH_VIEWS = ["focus", "all", "best"];
+    const POWER_RESEARCH_VIEW_LABELS = {
+      focus: { ko: "기본", en: "Base" },
+      all: { ko: "전체 사다리", en: "All ladders" },
+      best: { ko: "최적 가용", en: "Best Available" },
+    };
     const state = {
       metric: "totalMassTons",
       thrusters: DATA.defaults.thrusterCount,
@@ -18,7 +24,7 @@
       showMassInfo: true,
       paretoHighlight: true,
       showImpracticalCandidates: false,
-      usePowerResearch: false,
+      powerResearchView: "focus",
       minTwr: 0.0001,
       minDvKps: 0,
       searchTerm: "",
@@ -52,7 +58,7 @@
         showMassInfo: true,
         paretoHighlight: true,
         showImpracticalCandidates: false,
-        usePowerResearch: false,
+        powerResearchView: "focus",
         minTwr: 0.0001,
         minDvKps: 0,
         searchTerm: "",
@@ -94,6 +100,19 @@
 
     function localText(ko, en) {
       return UI_LANG === "en" ? en : ko;
+    }
+
+    function normalizePowerResearchView(value) {
+      return POWER_RESEARCH_VIEWS.includes(value) ? value : "focus";
+    }
+
+    function powerResearchViewLabel(value = state.powerResearchView) {
+      const label = POWER_RESEARCH_VIEW_LABELS[normalizePowerResearchView(value)] || POWER_RESEARCH_VIEW_LABELS.focus;
+      return localText(label.ko, label.en);
+    }
+
+    function powerResearchActive() {
+      return isBandMetric() && POWER_RESEARCH_VIEWS.includes(state.powerResearchView);
     }
 
     const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
@@ -489,6 +508,7 @@
     const categoryRoot = document.getElementById("categories");
     const familyRoot = document.getElementById("families");
     const CHART_HIT_RADIUS_PX = 16;
+    const CHART_LADDER_HIT_RADIUS_PX = 14;
     const CHART_CLICK_TOLERANCE_PX = 5;
     const EXTREME_MASS_RATIO = 1_000_000;
     const MASS_RATIO_OVERFLOW_EXPONENT = 709;
@@ -531,6 +551,7 @@
     };
     let chartViewport = null;
     let chartHitTargets = [];
+    let chartLadderHitTargets = [];
     let currentChartRows = [];
     let currentDiagnostics = null;
     const allDriveRowsById = new Map(DATA.drives.map(row => [row.id, row]));

@@ -29,6 +29,27 @@ ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 
 ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ('<html lang="ko">', '<html lang="en">'),
+    ("전원 보기", "Power view"),
+    ("시뮬레이션 기본 조건", "Simulation defaults"),
+    ("기본 프리셋을 설정했습니다.", "Default preset set."),
+    ("기본 프리셋을 해제했습니다.", "Default preset cleared."),
+    ("기본 프리셋 저장에 실패했습니다.", "Failed to save default preset."),
+    ("기본 프리셋", "Default preset"),
+    ("기본 지정", "Set default"),
+    ("기본 해제", "Clear default"),
+    ("선체 기본 질량", "Hull mass"),
+    ("기본 필터", "Default filters"),
+    ("기본 정보(추력, 효율, 출력)", "Basic information (thrust, efficiency, power)"),
+    ("기본 전원", "base power"),
+    ("(기본)", "(default)"),
+    ("기본", "Base"),
+    ("전체 사다리", "All ladders"),
+    ("최적 가용", "Best Available"),
+    ("전원 사다리", "power ladders"),
+    ("전원 비교", "power comparison"),
+    ("최적 가용 전원", "best available power"),
+    ("누적 연구력 (전원 사다리 포함)", "Cumulative research (power ladder included)"),
+    ("누적 연구력 (전원 진행 포함)", "Cumulative research (power progression included)"),
     ("Terra Invicta 드라이브 비교", "Terra Invicta Drive Comparison"),
     (
         "X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.",
@@ -43,14 +64,12 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("카드 펼치기", "Expand card"),
     ("파레토 ON", "Pareto ON"),
     ("비현실 후보 ON", "Impractical ON"),
-    ("기본 필터", "Default filters"),
     ("검색 있음", "Search active"),
     ("검색 없음", "No search"),
     ("엔진", "Engine"),
     ("계열", "families"),
     ("세로축", "Vertical axis"),
     ("시뮬레이션(총 질량, 연료질량, TWR)", "Simulation (total mass, fuel mass, TWR)"),
-    ("기본 정보(추력, 효율, 출력)", "Basic information (thrust, efficiency, power)"),
     ("엔진/프로젝트 검색", "Engine/project search"),
     ("드라이브 또는 프로젝트 검색", "Search drive or project"),
     ("추력 (MN)", "Thrust (MN)"),
@@ -196,4 +215,3 @@ def apply_static_english_html(html: str) -> str:
 def note_html_translations() -> dict[str, str]:
     korean, english = ENGLISH_BLOCK_REPLACEMENTS[0]
     return {"ko": korean, "en": english}
-

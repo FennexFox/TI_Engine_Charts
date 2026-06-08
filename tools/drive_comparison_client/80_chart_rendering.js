@@ -73,8 +73,8 @@
         axis.appendChild(text);
       });
       const xTitle = svgEl("text", { class: "axis-title", x: margin.left + innerW / 2, y: height - 22, "text-anchor": "middle" });
-      xTitle.textContent = `${state.usePowerResearch && isBandMetric()
-        ? localText("누적 연구력 (최초+추가 전원 포함)", "Cumulative research (first + additional power included)")
+      xTitle.textContent = `${powerResearchActive()
+        ? localText("누적 연구력 (전원 진행 포함)", "Cumulative research (power progression included)")
         : localText("누적 연구력 (최초 전원 포함)", "Cumulative research (first power included)")}${state.logX ? " (log)" : ""}`;
       axis.appendChild(xTitle);
       const yTitle = svgEl("text", {
@@ -99,10 +99,10 @@
       return groups;
     }
 
-    function pointAttrs(row, powerOptionId, fill, stroke = "none", strokeWidth = 0) {
+    function pointAttrs(row, powerOptionId, fill, stroke = "none", strokeWidth = 0, extraClass = "") {
       const hovered = isHoveredPoint(row, powerOptionId);
       return {
-        class: "data-point",
+        class: `data-point${extraClass ? ` ${extraClass}` : ""}`,
         "data-row-id": row.id,
         "data-power-option-id": powerOptionId || "",
         "data-default-stroke": stroke,
@@ -179,14 +179,37 @@
       return a.length === b.length && a.every((item, index) => item.key === b[index].key);
     }
 
+    function powerResearchFocusedDriveIds() {
+      const refs = [
+        ...dedupeTooltipRefs(state.hoverPoints),
+        ...dedupeTooltipRefs(state.pinnedTooltipItems),
+        ...(state.tooltipPinned ? dedupeTooltipRefs(state.lastTooltipItems) : []),
+      ];
+      return new Set(refs.map(item => item.rowId).filter(Boolean));
+    }
+
+    function powerResearchFocusSignature() {
+      return Array.from(powerResearchFocusedDriveIds()).sort().join("|");
+    }
+
+    function redrawPowerResearchFocusIfChanged(previousSignature) {
+      if (!powerResearchActive() || !currentChartRows.length) return false;
+      if (previousSignature === powerResearchFocusSignature()) return false;
+      redrawChartOnly();
+      return true;
+    }
+
     function isHoveredPoint(row, powerOptionId = null) {
       const key = pointKey(row.id, powerOptionId);
       return state.hoverPoints.some(item => item.key === key);
     }
 
     function setHoverPoints(items) {
+      const previousSignature = powerResearchFocusSignature();
       state.hoverPoints = dedupeTooltipRefs(items);
-      updateHoverStyles();
+      if (!redrawPowerResearchFocusIfChanged(previousSignature)) {
+        updateHoverStyles();
+      }
     }
 
     function registerHitTarget(row, powerOptionId, xCoord, yCoord, radius = 5) {
@@ -198,6 +221,40 @@
         radius,
         order: chartHitTargets.length,
       });
+    }
+
+    function registerLadderHitTargets(row, optionPoints) {
+      if (!Array.isArray(optionPoints) || optionPoints.length < 2) return;
+      const baseOptionId = optionPoints[0].option ? optionPoints[0].option.id : null;
+      for (let index = 0; index < optionPoints.length - 1; index += 1) {
+        const start = optionPoints[index];
+        const end = optionPoints[index + 1];
+        if (!Number.isFinite(start.xCoord) || !Number.isFinite(start.yCoord)
+          || !Number.isFinite(end.xCoord) || !Number.isFinite(end.yCoord)) continue;
+        if (!segmentMayIntersectPlot(start, end)) continue;
+        chartLadderHitTargets.push({
+          ...tooltipRef(row, baseOptionId),
+          x1: start.xCoord,
+          y1: start.yCoord,
+          x2: end.xCoord,
+          y2: end.yCoord,
+          order: chartLadderHitTargets.length,
+        });
+      }
+    }
+
+    function segmentMayIntersectPlot(start, end) {
+      if (!chartViewport) return false;
+      if (pointVisibleInPlot(start.xCoord, start.yCoord) || pointVisibleInPlot(end.xCoord, end.yCoord)) return true;
+      const { margin, innerW, innerH } = chartViewport;
+      const minX = Math.min(start.xCoord, end.xCoord);
+      const maxX = Math.max(start.xCoord, end.xCoord);
+      const minY = Math.min(start.yCoord, end.yCoord);
+      const maxY = Math.max(start.yCoord, end.yCoord);
+      return maxX >= margin.left
+        && minX <= margin.left + innerW
+        && maxY >= margin.top
+        && minY <= margin.top + innerH;
     }
 
     function pointVisibleInPlot(xCoord, yCoord) {
@@ -242,7 +299,7 @@
       const values = isBandMetric()
         ? rows.flatMap(row => {
           const base = rowUnlockResearchValue(row);
-          if (!state.usePowerResearch) return [base];
+          if (!powerResearchActive()) return [base];
           return [
             base,
             ...chartMassOptions(row).map(option => optionAdditionalResearchValue(row, option)),
@@ -270,7 +327,7 @@
     }
 
     function optionResearchValue(row, option = null) {
-      if (isBandMetric() && state.usePowerResearch && option) {
+      if (powerResearchActive() && option) {
         return optionAdditionalResearchValue(row, option);
       }
       return rowUnlockResearchValue(row);
@@ -284,165 +341,284 @@
       const pointData = bandPointData(rows);
       const secondaryDomain = secondaryEncodingDomain(pointData);
       const paretoKeys = state.paretoHighlight ? paretoPointKeys(pointData) : new Set();
+      const focusedDriveIds = powerResearchFocusedDriveIds();
+      if (powerResearchComparisonMode()) {
+        drawPowerBestAvailableComparison(rows, x, y, plot, secondaryDomain, paretoKeys, focusedDriveIds);
+        return;
+      }
       const groups = groupedRows(rows);
       groups.forEach(group => {
         const color = group[0].familyBandColor || group[0].familyColor;
         const colorOklch = group[0].familyBandColorOklch || color;
         const fillStyle = paintStyle("fill", color, colorOklch);
         const strokeStyle = paintStyle("stroke", color, colorOklch);
-        const maxOptions = Math.max(...group.map(row => chartMassOptions(row).length), 0);
-        if (state.usePowerResearch) {
-          drawPowerResearchBandSurfaces(group, x, y, plot, color, fillStyle, strokeStyle);
-        } else {
-          for (let index = maxOptions - 2; index >= 0; index--) {
-            const pairs = group
-              .map(row => ({ row, options: chartMassOptions(row) }))
-              .filter(item => item.options[index] && item.options[index + 1]);
-            if (pairs.length < 2) continue;
-            const upper = pairs.map(item => [optionX(item.row, item.options[index], x), y(optionMetricValue(item.options[index]))]);
-            const lower = pairs.slice().reverse().map(item => [optionX(item.row, item.options[index + 1], x), y(optionMetricValue(item.options[index + 1]))]);
-            const polygon = [...upper, ...lower];
-            plot.appendChild(svgEl("path", {
-              d: linePath(polygon) + "Z",
-              fill: color,
-              style: fillStyle,
-              opacity: Math.max(0.06, 0.22 - index * 0.025),
-              stroke: "none",
-            }));
-          }
-          for (let index = 0; index < maxOptions; index++) {
-            const points = group
-              .map(row => ({ row, option: chartMassOptions(row)[index] }))
-              .filter(item => item.option);
-            if (points.length >= 2) {
-              plot.appendChild(svgEl("path", {
-                d: linePath(points.map(item => [optionX(item.row, item.option, x), y(optionMetricValue(item.option))])),
-                fill: "none",
-                stroke: color,
-                style: strokeStyle,
-                "stroke-width": index === 0 ? 2.1 : 1.2,
-                "stroke-dasharray": index === 0 ? "" : "5 5",
-                opacity: index === 0 ? 0.9 : 0.45,
-              }));
-            }
-          }
+        const basePoints = group.map(row => {
+          const option = chartMassOptions(row)[0];
+          if (!option) return null;
+          const xCoord = optionX(row, option, x);
+          const yCoord = y(optionMetricValue(option));
+          return Number.isFinite(xCoord) && Number.isFinite(yCoord) ? { row, option, xCoord, yCoord } : null;
+        }).filter(Boolean);
+        if (basePoints.length >= 2) {
+          plot.appendChild(svgEl("path", {
+            class: "base-drive-line",
+            d: linePath(basePoints.map(point => [point.xCoord, point.yCoord])),
+            fill: "none",
+            stroke: color,
+            style: strokeStyle,
+            "stroke-width": 1.7,
+            opacity: 0.58,
+          }));
         }
         group.forEach(row => {
-          const options = chartMassOptions(row);
-          if (!options.length) return;
-          const optionPoints = options.map(option => ({
-            option,
-            xCoord: optionX(row, option, x),
-            yCoord: y(optionMetricValue(option)),
-          })).sort((a, b) => a.xCoord - b.xCoord || a.yCoord - b.yCoord);
-          if (optionPoints.length > 1) {
-            if (state.usePowerResearch) {
-              plot.appendChild(svgEl("path", {
-                d: linePath(optionPoints.map(point => [point.xCoord, point.yCoord])),
-                fill: "none",
-                stroke: color,
-                style: strokeStyle,
-                "stroke-width": 1.1,
-                opacity: 0.28,
-              }));
-            } else {
-              const gx = optionPoints[0].xCoord;
-              const ys = optionPoints.map(point => point.yCoord);
-              plot.appendChild(svgEl("line", { x1: gx, x2: gx, y1: Math.min(...ys), y2: Math.max(...ys), stroke: color, style: strokeStyle, "stroke-width": 1.2, opacity: 0.32 }));
-            }
-          }
-          options.forEach((option, index) => {
-            const gx = optionX(row, option, x);
-            const cy = y(optionMetricValue(option));
-            const key = pointKey(row.id, option.id);
-            const visual = bandPointVisual(option, secondaryDomain, paretoKeys.has(key));
-            const impractical = isImpracticalOption(option);
-            registerHitTarget(row, option.id, gx, cy, index === 0 ? 5 : 3.4);
-            const circle = svgEl("circle", {
-              ...pointAttrs(row, option.id, index === 0 ? color : "var(--panel)", impractical ? "var(--danger)" : color, impractical ? 2 : 1.5),
-              cx: gx,
-              cy,
-              r: index === 0 ? 5 : 3.4,
-              style: `${index === 0 ? fillStyle : ""}${visual.style}`,
-              opacity: impractical ? Math.max(visual.opacity * 0.78, 0.38) : visual.opacity,
-              "data-impractical": impractical ? "true" : "false",
-            });
-            plot.appendChild(circle);
-          });
+          drawPowerLadder(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds, { pointsOnly: false });
+        });
+        group.forEach(row => {
+          drawPowerLadder(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds, { pointsOnly: true });
         });
       });
     }
 
-    function drawPowerResearchBandSurfaces(group, x, y, plot, color, fillStyle, strokeStyle) {
-      const stepGroups = new Map();
-      const pairGroups = new Map();
-      const familyKey = group[0] ? group[0].familyKey : "";
-      group.forEach(row => {
-        const options = chartMassOptions(row);
-        options.forEach((option, index) => {
-          const step = powerStepIndex(option, index);
-          if (!stepGroups.has(step)) stepGroups.set(step, []);
-          stepGroups.get(step).push({ row, option, index: step });
-          const next = options[index + 1];
-          if (next) {
-            const nextStep = powerStepIndex(next, index + 1);
-            const pairKey = `${step}::${nextStep}`;
-            if (!pairGroups.has(pairKey)) pairGroups.set(pairKey, []);
-            pairGroups.get(pairKey).push({ row, upper: option, lower: next, index: step, lowerIndex: nextStep });
-          }
+    function powerResearchComparisonMode() {
+      return state.powerResearchView === "best";
+    }
+
+    function drawPowerBestAvailableComparison(rows, x, y, plot, secondaryDomain, paretoKeys, focusedDriveIds) {
+      const groups = groupedRows(rows);
+      groups.forEach(group => {
+        const color = group[0].familyBandColor || group[0].familyColor;
+        const colorOklch = group[0].familyBandColorOklch || color;
+        const fillStyle = paintStyle("fill", color, colorOklch);
+        const strokeStyle = paintStyle("stroke", color, colorOklch);
+        const basePoints = group.map(row => firstCompatiblePowerPoint(row, x, y)).filter(Boolean);
+        if (basePoints.length >= 2) {
+          plot.appendChild(svgEl("path", {
+            class: "base-drive-line",
+            d: linePath(basePoints.map(point => [point.xCoord, point.yCoord])),
+            fill: "none",
+            stroke: color,
+            style: strokeStyle,
+            "stroke-width": 1.35,
+            "stroke-dasharray": "3 5",
+            opacity: 0.44,
+          }));
+        }
+        group.forEach(row => {
+          drawBestAvailablePowerPath(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds);
+        });
+        basePoints.forEach(point => {
+          drawFirstCompatiblePowerPoint(point.row, point.option, point.xCoord, point.yCoord, plot, color, fillStyle, secondaryDomain, paretoKeys);
         });
       });
+    }
 
-      pairGroups.forEach((pairs, pairKey) => {
-        if (pairs.length < 2) return;
-        const ordered = pairs.slice().sort((a, b) => pairSortValue(a) - pairSortValue(b)
-          || rowUnlockResearchValue(a.row) - rowUnlockResearchValue(b.row)
-          || a.row.baseDisplayName.localeCompare(b.row.baseDisplayName));
-        const upper = ordered.map(item => [optionX(item.row, item.upper, x), y(optionMetricValue(item.upper))]);
-        const lower = ordered.slice().reverse().map(item => [optionX(item.row, item.lower, x), y(optionMetricValue(item.lower))]);
-        const avgIndex = ordered.reduce((sum, item) => sum + item.index, 0) / ordered.length;
-        plot.appendChild(svgEl("path", {
-          d: linePath([...upper, ...lower]) + "Z",
-          fill: color,
-          style: fillStyle,
-          opacity: Math.max(0.05, 0.18 - avgIndex * 0.02),
-          stroke: "none",
-          "data-band-family": familyKey,
-          "data-band-pair-step": pairKey,
-        }));
-      });
+    function firstCompatiblePowerPoint(row, x, y) {
+      const option = sortedChartPowerOptions(row)[0];
+      if (!option) return null;
+      const xCoord = x(optionAdditionalResearchValue(row, option));
+      const yCoord = y(optionMetricValue(option));
+      return Number.isFinite(xCoord) && Number.isFinite(yCoord) ? { row, option, xCoord, yCoord } : null;
+    }
 
-      stepGroups.forEach((points, step) => {
-        if (points.length < 2) return;
-        const ordered = points.slice().sort((a, b) => optionResearchValue(a.row, a.option) - optionResearchValue(b.row, b.option)
-          || rowUnlockResearchValue(a.row) - rowUnlockResearchValue(b.row)
-          || a.row.baseDisplayName.localeCompare(b.row.baseDisplayName));
-        const avgIndex = ordered.reduce((sum, item) => sum + item.index, 0) / ordered.length;
+    function drawFirstCompatiblePowerPoint(row, option, xCoord, yCoord, plot, color, fillStyle, secondaryDomain, paretoKeys) {
+      const key = pointKey(row.id, option.id);
+      const visual = bandPointVisual(option, secondaryDomain, paretoKeys.has(key));
+      const impractical = isImpracticalOption(option);
+      registerHitTarget(row, option.id, xCoord, yCoord, 5.5);
+      plot.appendChild(svgEl("circle", {
+        ...pointAttrs(
+          row,
+          option.id,
+          color,
+          impractical ? "var(--danger)" : "none",
+          impractical ? 2 : 0,
+          "power-base-point",
+        ),
+        cx: xCoord,
+        cy: yCoord,
+        r: 5.5,
+        style: `${fillStyle}${visual.style}`,
+        opacity: clamp(visual.opacity, 0.12, 1),
+        "data-power-point-kind": "base",
+        "data-impractical": impractical ? "true" : "false",
+      }));
+    }
+
+    function drawBestAvailablePowerPath(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds) {
+      const steps = bestAvailablePowerSteps(row);
+      if (!steps.length) return;
+      const focused = focusedDriveIds.has(row.id);
+      const points = steps.map(step => {
+        const xCoord = x(step.research);
+        const yCoord = y(step.value);
+        return { ...step, xCoord, yCoord };
+      }).filter(point => Number.isFinite(point.xCoord) && Number.isFinite(point.yCoord));
+      if (!points.length) return;
+      if (points.length >= 2) {
         plot.appendChild(svgEl("path", {
-          d: linePath(ordered.map(item => [optionX(item.row, item.option, x), y(optionMetricValue(item.option))])),
+          class: `power-best-line${focused ? " is-focused" : " is-subdued"}`,
+          d: linePath(points.map(point => [point.xCoord, point.yCoord])),
           fill: "none",
           stroke: color,
           style: strokeStyle,
-          "stroke-width": avgIndex < 0.5 ? 2.1 : 1.2,
-          "stroke-dasharray": avgIndex < 0.5 ? "" : "5 5",
-          opacity: avgIndex < 0.5 ? 0.9 : 0.45,
-          "data-band-family": familyKey,
-          "data-band-step": step,
+          "stroke-width": focused ? 1.8 : 1.35,
+          "stroke-linejoin": "round",
+          "stroke-linecap": "round",
+          opacity: focused ? 0.9 : 0.62,
+          "data-row-id": row.id,
         }));
+      }
+      points.forEach((point, index) => {
+        if (index === 0) return;
+        const { option, xCoord, yCoord } = point;
+        const key = pointKey(row.id, option.id);
+        const visual = bandPointVisual(option, secondaryDomain, paretoKeys.has(key));
+        const impractical = isImpracticalOption(option);
+        const baseOpacity = impractical ? Math.max(visual.opacity * 0.78, 0.38) : visual.opacity;
+        plot.appendChild(svgEl("circle", {
+          ...pointAttrs(
+            row,
+            option.id,
+            "var(--panel)",
+            impractical ? "var(--danger)" : color,
+            impractical ? 2 : 1.65,
+            `power-extra-point power-best-point${focused ? " is-focused" : " is-subdued"}`,
+          ),
+          cx: xCoord,
+          cy: yCoord,
+          r: 3.7,
+          style: visual.style,
+          opacity: clamp(baseOpacity * (focused ? 1 : 0.58), 0.12, 1),
+          "data-power-point-kind": "best",
+          "data-impractical": impractical ? "true" : "false",
+        }));
+        registerHitTarget(row, option.id, xCoord, yCoord, 4.4);
       });
     }
 
-    function powerStepIndex(option, fallbackIndex = 0) {
-      const value = Number(option && option.sequenceIndex);
-      return Number.isFinite(value) ? value : fallbackIndex;
+    function sortedChartPowerOptions(row, metric = state.metric, availabilityPredicate = () => true) {
+      // TODO(save-aware): Issue #7 should pass save-derived project availability here so Best Available can exclude power plants unavailable in the loaded campaign.
+      return chartMassOptions(row, metric)
+        .filter(option => availabilityPredicate(row, option))
+        .filter(option => {
+          const research = optionAdditionalResearchValue(row, option);
+          const value = optionMetricValue(option, metric);
+          return Number.isFinite(research) && research > 0 && Number.isFinite(value) && value > 0;
+        })
+        .sort((left, right) => optionAdditionalResearchValue(row, left) - optionAdditionalResearchValue(row, right)
+          || (Number(left.sequenceIndex) || 0) - (Number(right.sequenceIndex) || 0)
+          || String(left.id || "").localeCompare(String(right.id || "")));
     }
 
-    function pairSortValue(item) {
-      return (optionResearchValue(item.row, item.upper) + optionResearchValue(item.row, item.lower)) / 2;
+    function bestAvailablePowerSteps(row, metric = state.metric, availabilityPredicate = () => true) {
+      const options = sortedChartPowerOptions(row, metric, availabilityPredicate);
+      if (!options.length) return [];
+      const steps = [];
+      let best = null;
+      for (let index = 0; index < options.length;) {
+        const research = optionAdditionalResearchValue(row, options[index]);
+        let groupEnd = index + 1;
+        while (groupEnd < options.length && Math.abs(optionAdditionalResearchValue(row, options[groupEnd]) - research) <= 1e-9) {
+          groupEnd += 1;
+        }
+        for (let groupIndex = index; groupIndex < groupEnd; groupIndex += 1) {
+          const option = options[groupIndex];
+          if (!best || betterPowerMetricValue(optionMetricValue(option, metric), optionMetricValue(best, metric), metric)) {
+            best = option;
+          }
+        }
+        if (best && (!steps.length || steps[steps.length - 1].option.id !== best.id)) {
+          steps.push({
+            research,
+            option: best,
+            value: optionMetricValue(best, metric),
+          });
+        }
+        index = groupEnd;
+      }
+      return steps;
+    }
+
+    function betterPowerMetricValue(candidate, current, metric = state.metric) {
+      if (!Number.isFinite(candidate)) return false;
+      if (!Number.isFinite(current)) return true;
+      if (metric === "twr") return candidate > current * (1 + 1e-9);
+      return candidate < current * (1 - 1e-9);
+    }
+
+    function drawPowerLadder(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds, options = {}) {
+      const powerOptions = chartMassOptions(row);
+      if (!powerOptions.length) return;
+      const focused = focusedDriveIds.has(row.id);
+      const showExtras = shouldShowExtraPowerOptions(row, focused);
+      const optionPoints = powerOptions.map((option, index) => {
+        const xCoord = optionX(row, option, x);
+        const yCoord = y(optionMetricValue(option));
+        return {
+          option,
+          index,
+          xCoord,
+          yCoord,
+          visible: index === 0 || showExtras,
+        };
+      }).filter(point => point.visible && Number.isFinite(point.xCoord) && Number.isFinite(point.yCoord))
+        .sort((a, b) => a.xCoord - b.xCoord || a.yCoord - b.yCoord);
+      if (!optionPoints.length) return;
+      if (!options.pointsOnly) {
+        if (showExtras && optionPoints.length > 1) {
+          registerLadderHitTargets(row, optionPoints);
+          plot.appendChild(svgEl("path", {
+            class: `power-ladder-line${focused ? " is-focused" : " is-subdued"}`,
+            d: linePath(optionPoints.map(point => [point.xCoord, point.yCoord])),
+            fill: "none",
+            stroke: color,
+            style: strokeStyle,
+            "stroke-width": focused ? 1.65 : 1.05,
+            "stroke-dasharray": "5 5",
+            opacity: focused ? 0.78 : 0.26,
+            "data-row-id": row.id,
+          }));
+        }
+        return;
+      }
+      optionPoints.forEach(point => {
+        const { option, index, xCoord, yCoord } = point;
+        const isBase = index === 0;
+        const key = pointKey(row.id, option.id);
+        const visual = bandPointVisual(option, secondaryDomain, paretoKeys.has(key));
+        const impractical = isImpracticalOption(option);
+        const baseOpacity = impractical ? Math.max(visual.opacity * 0.78, 0.38) : visual.opacity;
+        const subduedOpacity = !isBase && state.powerResearchView === "all" && !focused ? 0.38 : 1;
+        registerHitTarget(row, option.id, xCoord, yCoord, isBase ? 5.5 : 4.4);
+        const circle = svgEl("circle", {
+          ...pointAttrs(
+            row,
+            option.id,
+            isBase ? color : "var(--panel)",
+            impractical ? "var(--danger)" : color,
+            impractical ? 2 : (isBase ? 1 : 1.65),
+            isBase ? "power-base-point" : `power-extra-point${focused ? " is-focused" : " is-subdued"}`,
+          ),
+          cx: xCoord,
+          cy: yCoord,
+          r: isBase ? 5.5 : 3.7,
+          style: `${isBase ? fillStyle : ""}${visual.style}`,
+          opacity: clamp(baseOpacity * subduedOpacity, 0.12, 1),
+          "data-power-point-kind": isBase ? "base" : "extra",
+          "data-impractical": impractical ? "true" : "false",
+        });
+        plot.appendChild(circle);
+      });
+    }
+
+    function shouldShowExtraPowerOptions(row, focused) {
+      if (!powerResearchActive()) return false;
+      if (state.powerResearchView === "all") return true;
+      return focused;
     }
 
     function bandPointData(rows) {
-      return rows.flatMap(row => chartMassOptions(row).map(option => ({
+      return rows.flatMap(row => chartSummaryMassOptions(row).map(option => ({
         row,
         option,
         key: pointKey(row.id, option.id),

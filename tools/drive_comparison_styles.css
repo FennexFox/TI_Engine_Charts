@@ -420,6 +420,22 @@
       min-height: 28px;
       font-size: 12px;
     }
+    .power-view-control {
+      gap: 8px;
+    }
+    .chart-select-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 28px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .chart-select-control select {
+      width: auto;
+      min-width: 168px;
+    }
     .chart-toggle {
       display: flex;
       align-items: center;
@@ -1165,6 +1181,32 @@
     .diagnostic-banner[hidden] {
       display: none;
     }
+    .base-drive-line {
+      pointer-events: none;
+    }
+    .power-ladder-line,
+    .power-best-line {
+      pointer-events: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .power-ladder-line.is-focused {
+      opacity: 0.78;
+    }
+    .power-ladder-line.is-subdued {
+      opacity: 0.26;
+    }
+    .power-base-point,
+    .power-extra-point,
+    .power-best-point {
+      vector-effect: non-scaling-stroke;
+    }
+    .power-extra-point {
+      fill: var(--panel);
+    }
+    .power-extra-point.is-subdued {
+      opacity: 0.38;
+    }
     .tooltip {
       position: relative;
       pointer-events: auto;
@@ -1508,6 +1550,40 @@
     }
     .tooltip-stack span {
       box-shadow: inset -1px 0 rgb(0 0 0 / 0.28), inset 1px 0 rgb(255 255 255 / 0.05);
+    }
+    .power-steps-table-wrap {
+      overflow-x: auto;
+      border: 1px solid #29312c;
+      border-radius: 6px;
+    }
+    .power-steps-table {
+      width: 100%;
+      min-width: 620px;
+      border-collapse: collapse;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .power-steps-table th,
+    .power-steps-table td {
+      padding: 5px 7px;
+      border-bottom: 1px solid #29312c;
+      text-align: left;
+      vertical-align: top;
+    }
+    .power-steps-table th {
+      color: var(--muted);
+      font-weight: 650;
+    }
+    .power-steps-table tr:last-child td {
+      border-bottom: 0;
+    }
+    .power-steps-table tr.is-selected {
+      background: rgba(20, 184, 166, 0.1);
+    }
+    .power-steps-table .numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
     .stack-hull {
       background: #793e00;

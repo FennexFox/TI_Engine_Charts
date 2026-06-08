@@ -14,7 +14,8 @@
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
-      const powerResearchToggle = document.getElementById("powerResearchToggle");
+      const powerResearchViewControl = document.getElementById("powerResearchViewControl");
+      const powerResearchViewSelect = document.getElementById("powerResearchView");
       const minTwrExp = document.getElementById("minTwrExp");
       const minTwrNumber = document.getElementById("minTwrNumber");
       const minDv = document.getElementById("minDv");
@@ -218,17 +219,20 @@
         state.showImpracticalCandidates = showImpracticalCandidates.checked;
         render();
       });
-      powerResearchToggle.addEventListener("click", () => {
-        if (chartViewport && chartViewport.xDomain && chartViewport.yDomain) {
-          state.zoom = {
-            xDomain: chartViewport.xDomain.slice(),
-            yDomain: chartViewport.yDomain.slice(),
-          };
-          state.preserveViewportOnce = true;
-        }
-        state.usePowerResearch = !state.usePowerResearch;
-        render();
-      });
+      if (powerResearchViewSelect) {
+        powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
+        powerResearchViewSelect.addEventListener("change", () => {
+          if (chartViewport && chartViewport.xDomain && chartViewport.yDomain) {
+            state.zoom = {
+              xDomain: chartViewport.xDomain.slice(),
+              yDomain: chartViewport.yDomain.slice(),
+            };
+            state.preserveViewportOnce = true;
+          }
+          state.powerResearchView = normalizePowerResearchView(powerResearchViewSelect.value);
+          render();
+        });
+      }
       minTwrExp.addEventListener("input", () => {
         const exponent = Number(minTwrExp.value);
         state.minTwr = Math.pow(10, exponent);
@@ -345,15 +349,18 @@
       const showMassInfoRow = document.getElementById("showMassInfoRow");
       const minTwrControl = document.getElementById("minTwrControl");
       const minDvControl = document.getElementById("minDvControl");
-      const powerResearchToggle = document.getElementById("powerResearchToggle");
+      const powerResearchViewControl = document.getElementById("powerResearchViewControl");
       fuelUnitBlock.style.display = state.metric === "fuelEfficiency" ? "" : "none";
       bandAnalysisControls.style.display = isBandMetric() ? "" : "none";
       showTwrInfoRow.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
       showMassInfoRow.style.display = state.metric === "twr" ? "" : "none";
       minTwrControl.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
       minDvControl.style.display = state.metric === "twr" ? "" : "none";
-      powerResearchToggle.style.display = isBandMetric() ? "" : "none";
-      powerResearchToggle.setAttribute("aria-pressed", state.usePowerResearch ? "true" : "false");
+      powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
+      const powerResearchViewSelect = document.getElementById("powerResearchView");
+      if (powerResearchViewSelect) {
+        powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
+      }
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
       if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
       syncMinTwrInputs();

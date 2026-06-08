@@ -37,7 +37,7 @@
         state.targetDvKps,
         state.radiatorId,
         state.showImpracticalCandidates ? 1 : 0,
-        state.usePowerResearch ? 1 : 0,
+        normalizePowerResearchView(state.powerResearchView),
         state.logX ? 1 : 0,
         state.logY ? 1 : 0,
         state.searchTerm,
@@ -154,14 +154,17 @@
       if (isBandMetric()) {
         const item = document.createElement("span");
         item.className = "legend-item";
-        item.textContent = state.usePowerResearch
-          ? `${metricLabel(state.metric)} ${localText("밴드: 추가 전원 연구력 포함", "band: including additional power research")}`
-          : `${metricLabel(state.metric)} ${localText("밴드: 최초 전원 연구력 기준", "band: first power research basis")}`;
+        const powerViewDescription = state.powerResearchView === "best"
+          ? localText("최적 가용 전원", "best available power")
+          : localText("전원 사다리", "power ladders");
+        item.textContent = powerResearchActive()
+          ? `${metricLabel(state.metric)} ${powerViewDescription}`
+          : `${metricLabel(state.metric)} ${localText("기본 전원", "base power")}`;
         legend.appendChild(item);
         const powerResearch = document.createElement("span");
         powerResearch.className = "legend-item";
-        powerResearch.textContent = state.usePowerResearch
-          ? localText("X축: 최초+추가 전원 포함 연구력", "X axis: first + additional power research")
+        powerResearch.textContent = powerResearchActive()
+          ? `${localText("전원 보기", "Power view")}: ${powerResearchViewLabel()}`
           : localText("X축: 최초 전원 포함 연구력", "X axis: first power-inclusive research");
         legend.appendChild(powerResearch);
         if (secondaryEncodingEnabled()) {
@@ -183,7 +186,7 @@
 
     function valueDomain(rows) {
       if (isBandMetric()) {
-        const values = rows.flatMap(row => chartMassOptions(row).map(option => optionMetricValue(option)));
+        const values = rows.flatMap(row => chartSummaryMassOptions(row).map(option => optionMetricValue(option)));
         return paddedDomain(values, state.logY);
       }
       const values = rows.map(metricDefs[state.metric].value).filter(v => Number.isFinite(v) && v > 0);
@@ -213,7 +216,10 @@
       const innerH = height - margin.top - margin.bottom;
       currentChartRows = rows;
       chartHitTargets = [];
-      state.hoverPoints = state.tooltipPinned ? dedupeTooltipRefs(state.lastTooltipItems) : pinnedTooltipRefs();
+      chartLadderHitTargets = [];
+      state.hoverPoints = state.tooltipPinned
+        ? dedupeTooltipRefs(state.lastTooltipItems)
+        : (powerResearchActive() ? mergePinnedTooltipRefs(state.hoverPoints) : pinnedTooltipRefs());
       chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
       chart.setAttribute("preserveAspectRatio", "xMidYMid meet");
       chart.innerHTML = "";
@@ -449,6 +455,21 @@
       }
       const hits = hitTargetsAt(point);
       if (!hits.length) {
+        const ladderHits = ladderHitTargetsAt(point);
+        if (ladderHits.length) {
+          const signature = ladderHits.map(hit => `ladder:${hit.key}`).join("|");
+          if (signature !== state.hoverHitSignature) {
+            state.hoverHitSignature = signature;
+            state.dismissedTooltipKeys.clear();
+          }
+          const nextRefs = mergePinnedTooltipRefs(resolveLadderHoverRefs(ladderHits));
+          setHoverPoints(nextRefs);
+          if (nextRefs.length && !sameTooltipRefs(nextRefs, state.lastTooltipItems)) {
+            state.lastTooltipItems = nextRefs;
+            refreshTooltip(currentChartRows);
+          }
+          return;
+        }
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
         const pinned = pinnedTooltipRefs();
@@ -526,6 +547,37 @@
         }))
         .filter(target => target.distance <= CHART_HIT_RADIUS_PX)
         .sort((a, b) => a.distance - b.distance || a.order - b.order);
+    }
+
+    function ladderHitTargetsAt(point) {
+      if (!powerResearchActive() || !chartLadderHitTargets.length) return [];
+      const transform = svgViewportTransform();
+      return chartLadderHitTargets
+        .map(target => ({
+          ...target,
+          distance: distanceToSegment(point, target) * transform.scale,
+        }))
+        .filter(target => target.distance <= CHART_LADDER_HIT_RADIUS_PX)
+        .sort((a, b) => a.distance - b.distance || a.order - b.order);
+    }
+
+    function resolveLadderHoverRefs(ladderHits) {
+      const recentRefs = dedupeTooltipRefs([...state.hoverPoints, ...state.lastTooltipItems]);
+      return dedupeTooltipRefs(ladderHits.map(hit => {
+        const recentSameDrive = recentRefs.find(item => item.rowId === hit.rowId);
+        return recentSameDrive || hit;
+      }));
+    }
+
+    function distanceToSegment(point, segment) {
+      const dx = segment.x2 - segment.x1;
+      const dy = segment.y2 - segment.y1;
+      const lengthSq = dx * dx + dy * dy;
+      if (!lengthSq) return Math.hypot(point.x - segment.x1, point.y - segment.y1);
+      const t = clamp(((point.x - segment.x1) * dx + (point.y - segment.y1) * dy) / lengthSq, 0, 1);
+      const projectedX = segment.x1 + t * dx;
+      const projectedY = segment.y1 + t * dy;
+      return Math.hypot(point.x - projectedX, point.y - projectedY);
     }
 
     function invertScale(pixel, domain, range, logScale) {
