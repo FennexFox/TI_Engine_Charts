@@ -706,15 +706,17 @@ if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
   launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 }
 
-const staticServer = process.env.PLAYWRIGHT_BASE_URL ? null : await startStaticHttpServer(process.cwd());
-const baseUrl = process.env.PLAYWRIGHT_BASE_URL || staticServer.baseUrl;
-const browser = await chromium.launch(launchOptions);
+let staticServer = null;
+let browser = null;
 try {
+  staticServer = process.env.PLAYWRIGHT_BASE_URL ? null : await startStaticHttpServer(process.cwd());
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL || staticServer.baseUrl;
+  browser = await chromium.launch(launchOptions);
   for (const htmlFile of htmlFiles) {
     await verifyHtmlFile(browser, htmlFile, baseUrl);
   }
 } finally {
-  await browser.close();
+  if (browser) await browser.close();
   if (staticServer) await staticServer.close();
 }
 

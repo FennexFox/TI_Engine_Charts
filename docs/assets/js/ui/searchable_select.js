@@ -77,6 +77,8 @@ export function renderSearchableSelectOptions(select, wrapper, query = "") {
         button.type = "button";
         button.className = `searchable-select-option${row.selected ? " is-selected" : ""}`;
         button.dataset.value = row.value;
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", row.selected ? "true" : "false");
         button.disabled = !!row.disabled;
         button.textContent = row.label;
         button.addEventListener("click", () => {
@@ -106,7 +108,10 @@ export function enhanceSearchableSelect(select) {
           const value = existingWrapper.querySelector(".searchable-select-value");
           const search = existingWrapper.querySelector(".searchable-select-search");
           if (value) value.textContent = searchableSelectLabel(select);
-          if (search) search.placeholder = localText("검색...", "Search...");
+          if (search) {
+            search.placeholder = localText("검색...", "Search...");
+            search.setAttribute("aria-label", localText("옵션 검색", "Search options"));
+          }
           renderSearchableSelectOptions(select, existingWrapper, "");
         }
         return;
@@ -126,6 +131,7 @@ export function enhanceSearchableSelect(select) {
       search.type = "search";
       search.className = "searchable-select-search";
       search.placeholder = localText("검색...", "Search...");
+      search.setAttribute("aria-label", localText("옵션 검색", "Search options"));
       search.autocomplete = "off";
       const options = document.createElement("div");
       options.className = "searchable-select-options";

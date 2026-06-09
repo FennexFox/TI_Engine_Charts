@@ -11,9 +11,11 @@ const MIME_TYPES = {
   ".svg": "image/svg+xml",
 };
 
-function responseStatus(response, status, body) {
-  response.writeHead(status, { "content-type": "text/plain; charset=utf-8" });
-  response.end(body);
+const ALLOWED_METHODS = new Set(["GET", "HEAD"]);
+
+function responseStatus(request, response, status, body, headers = {}) {
+  response.writeHead(status, { "content-type": "text/plain; charset=utf-8", ...headers });
+  response.end(request.method === "HEAD" ? undefined : body);
 }
 
 function resolveRequestPath(root, requestUrl) {
@@ -35,9 +37,14 @@ function resolveRequestPath(root, requestUrl) {
 export async function startStaticHttpServer(root = process.cwd()) {
   const serverRoot = resolve(root);
   const server = createServer((request, response) => {
+    if (!ALLOWED_METHODS.has(request.method)) {
+      responseStatus(request, response, 405, "Method not allowed", { allow: "GET, HEAD" });
+      return;
+    }
+
     const resolved = resolveRequestPath(serverRoot, request.url);
     if (!resolved.filePath) {
-      responseStatus(response, resolved.status, resolved.body);
+      responseStatus(request, response, resolved.status, resolved.body);
       return;
     }
 
@@ -45,11 +52,11 @@ export async function startStaticHttpServer(root = process.cwd()) {
     try {
       stat = statSync(resolved.filePath);
     } catch {
-      responseStatus(response, 404, "Not found");
+      responseStatus(request, response, 404, "Not found");
       return;
     }
     if (!stat.isFile()) {
-      responseStatus(response, 404, "Not found");
+      responseStatus(request, response, 404, "Not found");
       return;
     }
 
@@ -57,6 +64,10 @@ export async function startStaticHttpServer(root = process.cwd()) {
       "content-length": stat.size,
       "content-type": MIME_TYPES[extname(resolved.filePath).toLowerCase()] || "application/octet-stream",
     });
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
     createReadStream(resolved.filePath).pipe(response);
   });
 

@@ -74,10 +74,12 @@ if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
   launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 }
 
-const staticServer = process.env.PLAYWRIGHT_BASE_URL ? null : await startStaticHttpServer(process.cwd());
-const baseUrl = process.env.PLAYWRIGHT_BASE_URL || staticServer.baseUrl;
-const browser = await chromium.launch(launchOptions);
+let staticServer = null;
+let browser = null;
 try {
+  staticServer = process.env.PLAYWRIGHT_BASE_URL ? null : await startStaticHttpServer(process.cwd());
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL || staticServer.baseUrl;
+  browser = await chromium.launch(launchOptions);
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204, body: "" }));
   const targetUrl = htmlFileUrl(htmlFile, baseUrl);
@@ -111,7 +113,7 @@ try {
   verifySnapshotAxis(snapshot, "y", 96);
   await page.close();
 } finally {
-  await browser.close();
+  if (browser) await browser.close();
   if (staticServer) await staticServer.close();
 }
 
