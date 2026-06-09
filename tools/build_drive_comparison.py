@@ -1,4 +1,4 @@
-"""Build a standalone all-drive comparison dashboard from local TI data."""
+"""Build an all-drive comparison dashboard from local TI data."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from drive_comparison_i18n import (  # noqa: E402
     apply_static_english_html,
     client_translation_pairs,
     note_html_translations,
-    portable_data,
+    redact_source_paths,
 )
 from ship_math import (  # noqa: E402
     ship_plan_drive_open_cycle,
@@ -808,12 +808,12 @@ def replace_placeholder(text: str, placeholder: str, value: str) -> str:
     return text.replace(placeholder, value)
 
 
-# Static translation and portable-output helpers live in drive_comparison_i18n.py.
+# Static translation and source metadata cleanup helpers live in drive_comparison_i18n.py.
 # Keeping them outside this large HTML-template builder reduces the amount of
 # unrelated data mixed into the chart generation logic.
 
 def load_embedded_page_data(html_path: Path) -> dict[str, Any]:
-    """Load DATA JSON from a previously generated standalone chart page.
+    """Load DATA JSON from a previously generated chart page.
 
     This supports UI-only rebuilds when the Terra Invicta template directory is
     not available.  The generated page stores the chart data in a dedicated
@@ -840,9 +840,9 @@ def load_embedded_page_data(html_path: Path) -> dict[str, Any]:
     return data
 
 
-def build_html(data: dict[str, Any], portable: bool = False) -> str:
-    if portable:
-        data = portable_data(data)
+def build_html(data: dict[str, Any], redact_paths: bool = False) -> str:
+    if redact_paths:
+        data = redact_source_paths(data)
     html = apply_static_english_html(load_template_source(DRIVE_COMPARISON_TEMPLATE_PATH))
     html = replace_placeholder(html, "__STYLES__", load_template_source(DRIVE_COMPARISON_STYLES_PATH).rstrip("\n"))
     html = replace_placeholder(html, "__CLIENT_ENTRY_SCRIPT__", CLIENT_ENTRY_SCRIPT)
@@ -889,19 +889,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         default=None,
-        help="Standalone HTML output path.",
+        help="Generated HTML output path.",
     )
     parser.add_argument(
         "--input-html-data",
         help=(
-            "Reuse embedded DATA JSON from an existing standalone HTML page. "
+            "Reuse embedded DATA JSON from an existing generated HTML page. "
             "This skips template loading and is intended for UI-only rebuilds."
         ),
     )
     parser.add_argument(
+        "--redact-source-paths",
+        action="store_true",
+        help="Scrub local absolute source paths from embedded metadata for shareable generated output.",
+    )
+    parser.add_argument(
         "--portable",
         action="store_true",
-        help="Scrub local absolute source paths so the generated single HTML file is suitable for sharing.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--game-version",
@@ -937,7 +942,7 @@ def main() -> None:
         data = build_data(templates_dir, research_catalog, ship_catalog, game_version)
 
     apply_preset_library(data, preset_library)
-    html = build_html(data, args.portable)
+    html = build_html(data, args.redact_source_paths or args.portable)
     output.write_text(html, encoding="utf-8")
     client_asset_dir = copy_client_modules(output)
     print(f"Wrote {output}")

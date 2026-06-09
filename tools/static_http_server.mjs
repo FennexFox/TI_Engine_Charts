@@ -17,26 +17,33 @@ function responseStatus(response, status, body) {
 }
 
 function resolveRequestPath(root, requestUrl) {
-  const url = new URL(requestUrl || "/", "http://127.0.0.1");
-  const decoded = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+  let decoded;
+  try {
+    const url = new URL(requestUrl || "/", "http://127.0.0.1");
+    decoded = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+  } catch {
+    return { status: 400, body: "Bad request" };
+  }
   const filePath = resolve(root, decoded || "index.html");
   const rootPrefix = root.endsWith(sep) ? root : `${root}${sep}`;
-  if (filePath !== root && !filePath.startsWith(rootPrefix)) return null;
-  return filePath;
+  if (filePath !== root && !filePath.startsWith(rootPrefix)) {
+    return { status: 403, body: "Forbidden" };
+  }
+  return { filePath };
 }
 
 export async function startStaticHttpServer(root = process.cwd()) {
   const serverRoot = resolve(root);
   const server = createServer((request, response) => {
-    const filePath = resolveRequestPath(serverRoot, request.url);
-    if (!filePath) {
-      responseStatus(response, 403, "Forbidden");
+    const resolved = resolveRequestPath(serverRoot, request.url);
+    if (!resolved.filePath) {
+      responseStatus(response, resolved.status, resolved.body);
       return;
     }
 
     let stat;
     try {
-      stat = statSync(filePath);
+      stat = statSync(resolved.filePath);
     } catch {
       responseStatus(response, 404, "Not found");
       return;
@@ -48,9 +55,9 @@ export async function startStaticHttpServer(root = process.cwd()) {
 
     response.writeHead(200, {
       "content-length": stat.size,
-      "content-type": MIME_TYPES[extname(filePath).toLowerCase()] || "application/octet-stream",
+      "content-type": MIME_TYPES[extname(resolved.filePath).toLowerCase()] || "application/octet-stream",
     });
-    createReadStream(filePath).pipe(response);
+    createReadStream(resolved.filePath).pipe(response);
   });
 
   await new Promise(resolveListen => server.listen(0, "127.0.0.1", resolveListen));

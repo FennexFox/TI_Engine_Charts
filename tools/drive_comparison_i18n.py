@@ -1,9 +1,9 @@
-"""Translation and portability helpers for the standalone drive comparison page.
+"""Translation and metadata-redaction helpers for the drive comparison page.
 
-This module keeps static i18n replacement data and portable-output helpers out of
-``build_drive_comparison.py``.  The chart builder still emits a single standalone
-HTML file, but the Python-side data used to prepare that file is no longer mixed
-into the large HTML/JS template body.
+This module keeps static i18n replacement data and source metadata cleanup out of
+``build_drive_comparison.py``.  The chart builder emits a GitHub Pages-ready HTML
+shell plus native ES module client assets, while embedded chart data remains in
+the page as JSON.
 """
 
 from __future__ import annotations
@@ -170,7 +170,7 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 )
 
 
-def portable_source_label(key: str, value: Any) -> str | None:
+def redacted_source_label(key: str, value: Any) -> str | None:
     if value is None:
         return value
     if key in {"gameVersion", "gameVersionSource", "steamBuildId"}:
@@ -181,12 +181,12 @@ def portable_source_label(key: str, value: Any) -> str | None:
     return name or str(value)
 
 
-def portable_data(data: dict[str, Any]) -> dict[str, Any]:
+def redact_source_paths(data: dict[str, Any]) -> dict[str, Any]:
     result = copy.deepcopy(data)
     source = result.get("source")
     if isinstance(source, dict):
         result["source"] = {
-            key: portable_source_label(str(key), value)
+            key: redacted_source_label(str(key), value)
             for key, value in source.items()
         }
     return result
