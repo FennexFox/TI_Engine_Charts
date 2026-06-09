@@ -35,7 +35,7 @@ Added this root-level tracking document:
 
 It records what was actually changed, what was validated, and what remains.
 
-### 4. Extracted Python-side i18n/portability helpers
+### 4. Extracted Python-side i18n/source metadata helpers
 
 Created:
 
@@ -45,7 +45,7 @@ Moved these Python-side responsibilities out of `tools/build_drive_comparison.py
 
 - static English replacement pairs;
 - note HTML translations;
-- `portable_data()` and related portable source-label helpers;
+- `redact_source_paths()` and related source-label helpers;
 - `client_translation_pairs()` and `note_html_translations()`.
 
 `tools/build_drive_comparison.py` now imports these helpers instead of carrying
@@ -61,7 +61,7 @@ Example:
 ```bash
 python tools/build_drive_comparison.py \
   --input-html-data docs/index.html \
-  --portable \
+  --redact-source-paths \
   --output docs/index.html
 ```
 

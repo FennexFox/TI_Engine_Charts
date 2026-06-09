@@ -16,12 +16,14 @@ RESEARCH_CATALOG_MARKDOWN = "docs/research_catalog.md"
 SHIP_CATALOG_JSON = "data/ship_catalog.json"
 SHIP_CATALOG_MARKDOWN = "docs/ship_catalog.md"
 DRIVE_COMPARISON_HTML = "docs/index.html"
+DRIVE_COMPARISON_CLIENT_ASSETS = "docs/assets/js"
 GENERATED_PATHS = (
     RESEARCH_CATALOG_JSON,
     RESEARCH_CATALOG_MARKDOWN,
     SHIP_CATALOG_JSON,
     SHIP_CATALOG_MARKDOWN,
     DRIVE_COMPARISON_HTML,
+    DRIVE_COMPARISON_CLIENT_ASSETS,
 )
 
 
@@ -70,7 +72,7 @@ def build_pages(args: argparse.Namespace) -> None:
     python = sys.executable
     npm = "npm.cmd" if os.name == "nt" else "npm"
 
-    common_chart_args = ["--portable"]
+    common_chart_args = ["--redact-source-paths"]
     if args.game_version:
         common_chart_args.extend(["--game-version", args.game_version])
     optional_arg(common_chart_args, "--preset-library", args.preset_library)
@@ -169,7 +171,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input-html-data",
-        help="Existing standalone HTML page whose embedded DATA JSON should be reused with --ui-only.",
+        help="Existing generated HTML page whose embedded DATA JSON should be reused with --ui-only.",
     )
     parser.add_argument("--skip-verify", action="store_true", help="Skip Playwright browser verification.")
     parser.add_argument("--no-commit", action="store_true", help="Build and verify without committing generated changes.")

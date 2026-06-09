@@ -1,4 +1,6 @@
-    function normalizeAxisDomain(min, max, logScale) {
+import { clamp } from "../calc/filtering.js";
+
+export function normalizeAxisDomain(min, max, logScale) {
       let d0 = Number(min);
       let d1 = Number(max);
       if (!Number.isFinite(d0) || !Number.isFinite(d1)) {
@@ -26,15 +28,15 @@
       return [d0, d1];
     }
 
-    function axisSpaceValue(value, logScale) {
+export function axisSpaceValue(value, logScale) {
       return logScale ? Math.log10(Math.max(value, 1e-12)) : value;
     }
 
-    function valueFromAxisSpace(space, logScale) {
+export function valueFromAxisSpace(space, logScale) {
       return logScale ? Math.pow(10, space) : space;
     }
 
-    function makeScale(domain, range, logScale) {
+export function makeScale(domain, range, logScale) {
       const [d0, d1] = normalizeAxisDomain(domain[0], domain[1], logScale);
       if (logScale) {
         const l0 = axisSpaceValue(d0, true);
@@ -50,10 +52,10 @@
     // Axis tick planning lives in axis-space: linear axes use raw values,
     // and log axes use log10(value). Keeping all axes on the same path avoids
     // the earlier pile of separate log-X/log-Y/deep-zoom helpers.
-    const AXIS_TICK_MULTIPLIERS = [1, 2, 2.5, 5, 10];
-    const AXIS_EPSILON = 1e-12;
+export const AXIS_TICK_MULTIPLIERS = [1, 2, 2.5, 5, 10];
+export const AXIS_EPSILON = 1e-12;
 
-    function niceAxisStep(rawStep, mode = "ceil") {
+export function niceAxisStep(rawStep, mode = "ceil") {
       if (!Number.isFinite(rawStep) || rawStep <= 0) return 1;
       const exponent = Math.floor(Math.log10(rawStep));
       const base = Math.pow(10, exponent);
@@ -68,7 +70,7 @@
       return picked * base;
     }
 
-    function nextAxisStep(step, direction) {
+export function nextAxisStep(step, direction) {
       if (!Number.isFinite(step) || step <= 0) return 1;
       const exponent = Math.floor(Math.log10(step));
       const base = Math.pow(10, exponent);
@@ -84,7 +86,7 @@
       return AXIS_TICK_MULTIPLIERS[AXIS_TICK_MULTIPLIERS.length - 2] * base / 10;
     }
 
-    function normalizeAxisSpace(min, max, logScale) {
+export function normalizeAxisSpace(min, max, logScale) {
       const [d0, d1] = normalizeAxisDomain(min, max, logScale);
       const s0 = axisSpaceValue(d0, logScale);
       const s1 = axisSpaceValue(d1, logScale);
@@ -94,7 +96,7 @@
       return { d0, d1, low, high, span };
     }
 
-    function axisTickOptions(pixelSpan, options = {}) {
+export function axisTickOptions(pixelSpan, options = {}) {
       const gridPixelGap = Math.max(options.gridPixelGap || 58, 12);
       const labelPixelGap = Math.max(options.labelPixelGap || 92, gridPixelGap);
       const maxTicks = clamp(options.maxTicks || 90, 4, 240);
@@ -104,7 +106,7 @@
       return { gridPixelGap, labelPixelGap, maxTicks, minTicks, targetGridCount, labelBudget };
     }
 
-    function axisTickIndexRange(spaceMin, spaceMax, step) {
+export function axisTickIndexRange(spaceMin, spaceMax, step) {
       const low = Math.min(spaceMin, spaceMax);
       const high = Math.max(spaceMin, spaceMax);
       const span = Math.max(high - low, 0);
@@ -114,13 +116,13 @@
       return { startIndex, endIndex, epsilon, low, high };
     }
 
-    function estimatedAxisTickCount(spaceMin, spaceMax, step) {
+export function estimatedAxisTickCount(spaceMin, spaceMax, step) {
       if (!Number.isFinite(spaceMin) || !Number.isFinite(spaceMax) || !Number.isFinite(step) || step <= 0) return 0;
       const { startIndex, endIndex } = axisTickIndexRange(spaceMin, spaceMax, step);
       return Math.max(0, endIndex - startIndex + 1);
     }
 
-    function chooseAxisTickStep(spaceMin, spaceMax, targetCount, minTicks, maxTicks) {
+export function chooseAxisTickStep(spaceMin, spaceMax, targetCount, minTicks, maxTicks) {
       const span = Math.max(Math.abs(spaceMax - spaceMin), 1e-15);
       const minUsefulStep = span / Math.max(maxTicks - 1, 1);
       let step = niceAxisStep(span / Math.max(targetCount - 1, 1), "ceil");
@@ -139,7 +141,7 @@
       return step;
     }
 
-    function generateAxisSpaceTicks(spaceMin, spaceMax, step, logScale) {
+export function generateAxisSpaceTicks(spaceMin, spaceMax, step, logScale) {
       if (!Number.isFinite(spaceMin) || !Number.isFinite(spaceMax) || !Number.isFinite(step) || step <= 0) return [];
       const { startIndex, endIndex, epsilon, low, high } = axisTickIndexRange(spaceMin, spaceMax, step);
       const count = Math.max(0, endIndex - startIndex + 1);
@@ -154,7 +156,7 @@
       return ticks;
     }
 
-    function interpolatedAxisTicks(min, max, logScale, count) {
+export function interpolatedAxisTicks(min, max, logScale, count) {
       const { low, high } = normalizeAxisSpace(min, max, logScale);
       const safeCount = clamp(Math.floor(count), 2, 160);
       return Array.from({ length: safeCount }, (_, index) => {
@@ -163,7 +165,7 @@
       });
     }
 
-    function uniqueSortedAxisTicks(values, logScale) {
+export function uniqueSortedAxisTicks(values, logScale) {
       const sorted = values
         .filter(value => Number.isFinite(value) && (!logScale || value > 0))
         .sort((a, b) => axisSpaceValue(a, logScale) - axisSpaceValue(b, logScale));
@@ -176,7 +178,7 @@
       return result;
     }
 
-    function downsampleTicksWithCoverage(ticks, maxTicks) {
+export function downsampleTicksWithCoverage(ticks, maxTicks) {
       if (!Array.isArray(ticks) || ticks.length <= maxTicks) return ticks;
       if (maxTicks <= 2) return [ticks[0], ticks[ticks.length - 1]];
       const result = [ticks[0]];
@@ -190,7 +192,7 @@
       return result;
     }
 
-    function labelAxisTicks(ticks, axisSpace, pixelSpan, labelPixelGap, labelBudget) {
+export function labelAxisTicks(ticks, axisSpace, pixelSpan, labelPixelGap, labelBudget) {
       const labelStride = Math.max(1, Math.ceil(ticks.length / labelBudget));
       let lastLabelPixel = -Infinity;
       return ticks.map((value, index) => {
@@ -211,7 +213,7 @@
       });
     }
 
-    function buildAxisTickPlan(min, max, pixelSpan, logScale, options = {}) {
+export function buildAxisTickPlan(min, max, pixelSpan, logScale, options = {}) {
       const axisSpace = { ...normalizeAxisSpace(min, max, logScale), logScale };
       const tickOptions = axisTickOptions(pixelSpan, options);
       const step = chooseAxisTickStep(axisSpace.low, axisSpace.high, tickOptions.targetGridCount, tickOptions.minTicks, tickOptions.maxTicks);
@@ -224,7 +226,7 @@
       return labelAxisTicks(ticks, axisSpace, pixelSpan, tickOptions.labelPixelGap, tickOptions.labelBudget);
     }
 
-    function linearTicks(min, max, count = 6) {
+export function linearTicks(min, max, count = 6) {
       return buildAxisTickPlan(min, max, Math.max(count - 1, 1) * 60, false, {
         gridPixelGap: 60,
         labelPixelGap: 60,
@@ -232,4 +234,5 @@
         minTicks: Math.min(count, 4),
       }).map(item => item.value);
     }
+
 

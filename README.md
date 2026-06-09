@@ -1,6 +1,6 @@
 # Terra Invicta Engine Charts
 
-Standalone builder and GitHub Pages site for Terra Invicta engine comparison charts.
+GitHub Pages builder and site for Terra Invicta engine comparison charts.
 
 The generated Pages site lives in `docs/index.html`. The page includes a
 language selector for Korean and English instead of generating one chart per
@@ -58,5 +58,6 @@ The deploy script only stages these generated files:
 - `data/ship_catalog.json`
 - `docs/ship_catalog.md`
 - `docs/index.html`
+- `docs/assets/js`
 
 Other local changes are left untouched.

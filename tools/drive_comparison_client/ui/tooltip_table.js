@@ -1,14 +1,20 @@
-    function paintStyle(property, fallback, preferred) {
+import { chartMassOptions, chartSummaryMassOptions, clamp, isImpracticalOption, massOptions, rowCategoryLabel, rowFamilyLabel, rowProjectLabel, rowUnlockResearchValue } from "../calc/filtering.js";
+import { currentChartRows, currentDiagnostics } from "../chart/context.js";
+import { dedupeTooltipRefs, defaultTooltipOption, isBandMetric, isPinnedTooltipKey, mergePinnedTooltipRefs, optionAdditionalResearchValue, optionMetricValue, optionPowerResearchDelta, pinnedTooltipRefs, pointKey, powerResearchFocusSignature, redrawPowerResearchFocusIfChanged, resolveTooltipRow, setHoverPoints, syncPinnedTooltipOrder, tooltipRef, updateHoverStyles } from "../chart/rendering.js";
+import { localLabel } from "../presets/library.js";
+import { UI_LANG, metricDefs, state, tooltip } from "../state/core.js";
+
+export function paintStyle(property, fallback, preferred) {
       const base = fallback || "#64748b";
       const paint = preferred || base;
       return `${property}:${base};${property}:${paint};`;
     }
 
-    function backgroundStyle(fallback, preferred) {
+export function backgroundStyle(fallback, preferred) {
       return paintStyle("background", fallback, preferred);
     }
 
-    function tooltipPanelHtml(items) {
+export function tooltipPanelHtml(items) {
       const pinnedText = UI_LANG === "en" ? "Pinned" : "고정됨";
       const pinnedCardText = UI_LANG === "en" ? "pinned cards" : "고정 카드";
       const countText = UI_LANG === "en" ? `${items.length} selected` : `선택 항목 ${items.length}개`;
@@ -27,7 +33,7 @@
       `;
     }
 
-    function pinTooltipItems(items) {
+export function pinTooltipItems(items) {
       const refs = dedupeTooltipRefs(items);
       if (!refs.length) {
         clearTooltip();
@@ -42,14 +48,14 @@
       refreshTooltip(currentChartRows);
     }
 
-    function unpinTooltip() {
+export function unpinTooltip() {
       state.tooltipPinned = false;
       state.hoverHitSignature = "";
       state.dismissedTooltipKeys.clear();
       refreshTooltip(currentChartRows);
     }
 
-    function tooltipHtml(row, option = null, key = "", index = 0, itemCount = 1) {
+export function tooltipHtml(row, option = null, key = "", index = 0, itemCount = 1) {
       const metrics = tooltipMetricsHtml(row, option);
       const selected = option ? tooltipBreakdownHtml(row, option) : "";
       const powerSteps = isBandMetric() ? tooltipPowerStepsHtml(row, option) : "";
@@ -75,7 +81,7 @@
       `;
     }
 
-    function tooltipMetricsHtml(row, option = null) {
+export function tooltipMetricsHtml(row, option = null) {
       const powerResearch = Math.max(
         0,
         option ? optionPowerResearchDelta(row, option) : (row.powerResearchCost || 0),
@@ -137,7 +143,7 @@
       `;
     }
 
-    function tooltipBreakdownHtml(row, option) {
+export function tooltipBreakdownHtml(row, option) {
       const totalLabel = UI_LANG === "en" ? "Total mass" : "총질량";
       const components = [
         [UI_LANG === "en" ? "Hull" : "선체", option.baseDryTons, "stack-hull"],
@@ -175,7 +181,7 @@
       `;
     }
 
-    function tooltipPowerStepsHtml(row, selectedOption = null) {
+export function tooltipPowerStepsHtml(row, selectedOption = null) {
       const options = chartMassOptions(row);
       if (!options.length) return "";
       const baseCombined = optionAdditionalResearchValue(row, options[0]);
@@ -216,7 +222,7 @@
       `;
     }
 
-    function resolveTooltipItems(rows) {
+export function resolveTooltipItems(rows) {
       const rowById = new Map(rows.map(row => [row.id, row]));
       const resolved = [];
       const seen = new Set();
@@ -236,7 +242,7 @@
       return resolved;
     }
 
-    function refreshTooltip(rows = currentChartRows) {
+export function refreshTooltip(rows = currentChartRows) {
       const previousSignature = powerResearchFocusSignature();
       if (!state.lastTooltipItems.length) {
         renderEmptyTooltip();
@@ -267,7 +273,7 @@
       }
     }
 
-    function moveTooltipItemByOffset(key, offset) {
+export function moveTooltipItemByOffset(key, offset) {
       if (!key || !offset) return;
       const refs = dedupeTooltipRefs(state.lastTooltipItems);
       const index = refs.findIndex(item => item.key === key);
@@ -285,7 +291,7 @@
       refreshTooltip(currentChartRows);
     }
 
-    function toggleTooltipItemPin(key) {
+export function toggleTooltipItemPin(key) {
       if (!key) return;
       const refs = dedupeTooltipRefs(state.lastTooltipItems);
       const ref = refs.find(item => item.key === key);
@@ -300,7 +306,7 @@
       refreshTooltip(currentChartRows);
     }
 
-    function removeTooltipItem(key) {
+export function removeTooltipItem(key) {
       if (!key) return;
       const previousSignature = powerResearchFocusSignature();
       state.dismissedTooltipKeys.add(key);
@@ -317,7 +323,7 @@
       }
     }
 
-    function renderEmptyTooltip() {
+export function renderEmptyTooltip() {
       const family = currentDiagnostics && currentDiagnostics.zeroFamilies.length
         ? currentDiagnostics.zeroFamilies[0]
         : null;
@@ -333,7 +339,7 @@
       tooltip.classList.add("tooltip-empty");
     }
 
-    function clearTooltip(options = {}) {
+export function clearTooltip(options = {}) {
       const previousSignature = powerResearchFocusSignature();
       const keepPinned = !!options.keepPinned;
       const pinnedRefs = keepPinned ? pinnedTooltipRefs() : [];
@@ -353,7 +359,7 @@
       }
     }
 
-    function usagePanelHtml() {
+export function usagePanelHtml() {
       if (UI_LANG === "en") {
         return `
           <div class="usage-panel">
@@ -380,7 +386,7 @@
       `;
     }
 
-    function scenarioPanelHtml(family, zeroFamilyCount) {
+export function scenarioPanelHtml(family, zeroFamilyCount) {
       const title = UI_LANG === "en" ? "Why are some drives hidden?" : "왜 일부 드라이브가 숨겨졌나요?";
       const body = scenarioExplanationText(family);
       const suggestions = scenarioSuggestions();
@@ -404,7 +410,7 @@
       `;
     }
 
-    function scenarioExplanationText(family) {
+export function scenarioExplanationText(family) {
       const familyName = localLabel(family);
       const dryMass = formatNumber(state.dryMassTons, " t");
       const targetDv = formatNumber(state.targetDvKps, UI_LANG === "en" ? " km/s" : " km/s");
@@ -439,7 +445,7 @@
         : `${familyName} 드라이브는 존재하지만 현재 축, 시나리오, 필터 설정에서는 표시되는 후보가 없습니다.`;
     }
 
-    function scenarioSuggestions() {
+export function scenarioSuggestions() {
       const suggestions = UI_LANG === "en"
         ? ["Lower target dV", "Lower or disable the minimum TWR filter", "Use a lower-dV scenario for this drive family"]
         : ["목표 dV 낮추기", "최소 TWR 필터 낮추기 또는 해제하기", "이 드라이브 계열에 맞는 낮은 dV 시나리오 사용하기"];
@@ -447,7 +453,7 @@
       return suggestions;
     }
 
-    function renderTable(rows) {
+export function renderTable(rows) {
       const tbody = document.getElementById("tableBody");
       tbody.innerHTML = "";
       const maxResearch = Math.max(...rows.map(rowUnlockResearchValue).filter(Number.isFinite), 1);
@@ -470,7 +476,7 @@
       });
     }
 
-    function sortRows(rows) {
+export function sortRows(rows) {
       const direction = state.sortDirection === "asc" ? 1 : -1;
       return rows.slice().sort((a, b) => {
         const aValue = sortValue(a, state.sortKey);
@@ -488,7 +494,7 @@
       });
     }
 
-    function sortValue(row, key) {
+export function sortValue(row, key) {
       if (key === "drive") return row.displayName;
       if (key === "family") return `${rowCategoryLabel(row)} / ${rowFamilyLabel(row)}`;
       if (key === "research") return rowUnlockResearchValue(row);
@@ -500,7 +506,7 @@
       return rowUnlockResearchValue(row);
     }
 
-    function researchCell(row, maxResearch) {
+export function researchCell(row, maxResearch) {
       const research = rowUnlockResearchValue(row);
       const width = clamp(research / maxResearch * 100, 0, 100);
       return `
@@ -511,7 +517,7 @@
       `;
     }
 
-    function tableMetricDomain(rows) {
+export function tableMetricDomain(rows) {
       const values = rows.flatMap(row => {
         if (isBandMetric()) {
           return optionRange(row).values;
@@ -526,7 +532,7 @@
       return { min, max, log };
     }
 
-    function shouldUseSparkLog(values) {
+export function shouldUseSparkLog(values) {
       const positive = values.filter(value => Number.isFinite(value) && value > 0);
       if (!positive.length) return false;
       const min = Math.min(...positive);
@@ -535,7 +541,7 @@
       return min > 0 && max / min >= 50;
     }
 
-    function metricCell(row, domain) {
+export function metricCell(row, domain) {
       if (isBandMetric()) {
         return rangeMetricCell(row, domain);
       }
@@ -550,14 +556,14 @@
       `;
     }
 
-    function optionRange(row) {
+export function optionRange(row) {
       const options = isBandMetric() ? chartSummaryMassOptions(row) : massOptions(row);
       const values = options.map(option => optionMetricValue(option)).filter(Number.isFinite);
       if (!values.length) return { values: [], min: NaN, max: NaN };
       return { values, min: Math.min(...values), max: Math.max(...values) };
     }
 
-    function rangeMetricCell(row, domain) {
+export function rangeMetricCell(row, domain) {
       const range = optionRange(row);
       if (!range.values.length) return "-";
       const left = sparkPosition(range.min, domain);
@@ -572,7 +578,7 @@
       `;
     }
 
-    function sparkPosition(value, domain) {
+export function sparkPosition(value, domain) {
       if (!Number.isFinite(value)) return 0;
       if (domain.log) {
         const min = Math.max(domain.min, 1e-9);
@@ -584,11 +590,11 @@
       return clamp((value - domain.min) / span * 100, 0, 100);
     }
 
-    function reactorBandLabel(options) {
+export function reactorBandLabel(options) {
       return escapeHtml(reactorBandText(options));
     }
 
-    function reactorBandText(options) {
+export function reactorBandText(options) {
       if (!options.length) return "";
       const first = String(options[0].displayName || "");
       if (options.length === 1) return first;
@@ -601,13 +607,13 @@
       return `${first} → ${last}`;
     }
 
-    function splitRomanSuffix(value) {
+export function splitRomanSuffix(value) {
       const match = String(value).match(/^(.*\S)\s+([IVXLCDM]+)$/);
       if (!match) return null;
       return { base: match[1], roman: match[2] };
     }
 
-    function escapeHtml(value) {
+export function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, char => ({
         "&": "&amp;",
         "<": "&lt;",
@@ -617,12 +623,12 @@
       }[char]));
     }
 
-    function formatResearch(value) {
+export function formatResearch(value) {
       if (!Number.isFinite(value)) return "-";
       return formatCompact(value, 1_000);
     }
 
-    function tickMinGap(ticks) {
+export function tickMinGap(ticks) {
       if (!Array.isArray(ticks) || ticks.length < 2) return NaN;
       let gap = Infinity;
       for (let index = 1; index < ticks.length; index++) {
@@ -632,14 +638,14 @@
       return gap === Infinity ? NaN : gap;
     }
 
-    function fractionDigitsForStep(step) {
+export function fractionDigitsForStep(step) {
       if (!Number.isFinite(step) || step <= 0) return 1;
       if (step >= 10) return 0;
       if (step >= 1) return 1;
       return clamp(Math.ceil(-Math.log10(step)) + 1, 0, 8);
     }
 
-    function formatAxisTick(value, ticks, options = {}) {
+export function formatAxisTick(value, ticks, options = {}) {
       if (!Number.isFinite(value)) return "-";
       const compact = options.compact !== false;
       const abs = Math.abs(value);
@@ -665,18 +671,18 @@
       return `${text}${suffix}`;
     }
 
-    function formatTick(value) {
+export function formatTick(value) {
       if (!Number.isFinite(value)) return "-";
       if (Math.abs(value) < 1 && value !== 0) return value.toPrecision(2);
       return formatCompact(value, 1_000);
     }
 
-    function formatNumber(value, suffix = "") {
+export function formatNumber(value, suffix = "") {
       if (!Number.isFinite(value)) return "-";
       return `${formatCompact(value, 1_000_000)}${suffix}`;
     }
 
-    function formatTwr(value, suffix = "") {
+export function formatTwr(value, suffix = "") {
       if (!Number.isFinite(value)) return "-";
       const abs = Math.abs(value);
       const text = abs > 0 && abs < 0.001
@@ -685,7 +691,7 @@
       return `${text}${suffix}`;
     }
 
-    function formatTwrDynamicUnit(value) {
+export function formatTwrDynamicUnit(value) {
       if (!Number.isFinite(value)) return "-";
       const abs = Math.abs(value);
       if (abs === 0) return "0g";
@@ -709,7 +715,7 @@
       return `${text}${selected[0]}`;
     }
 
-    function formatCompact(value, threshold = 1_000) {
+export function formatCompact(value, threshold = 1_000) {
       if (!Number.isFinite(value)) return "-";
       const abs = Math.abs(value);
       if (abs < threshold) return trim(value);
@@ -724,14 +730,15 @@
       return `${trim(scaled)}${suffixes[tier]}`;
     }
 
-    function trim(value) {
+export function trim(value) {
       if (!Number.isFinite(value)) return "-";
       const abs = Math.abs(value);
       const digits = abs >= 100 ? 0 : abs >= 10 ? 1 : abs >= 1 ? 2 : 3;
       return Number(value).toLocaleString("en-US", { maximumFractionDigits: digits });
     }
 
-    function formatPercent(value) {
+export function formatPercent(value) {
       return Number.isFinite(value) ? `${trim(value * 100)}%` : "-";
     }
+
 

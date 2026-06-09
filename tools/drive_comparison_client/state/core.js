@@ -1,17 +1,38 @@
-    const DATA = JSON.parse(document.getElementById("ti-data").textContent);
-    const STATIC_TRANSLATIONS = __STATIC_TRANSLATIONS__;
-    const NOTE_HTML = __NOTE_HTML__;
-    const STANDARD_GRAVITY_MPS2 = 9.80665;
-    let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
-    const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
+export const DATA = JSON.parse(document.getElementById("ti-data").textContent);
+export const STATIC_TRANSLATIONS = JSON.parse(document.getElementById("ti-static-translations").textContent);
+export const NOTE_HTML = JSON.parse(document.getElementById("ti-note-html").textContent);
+export const runtimeHooks = {
+  applyHelp: () => {},
+  chartMassOptions: () => [],
+  enhanceSearchableSelect: () => {},
+  formatNumber: value => String(value ?? ""),
+  formatTwr: value => String(value ?? ""),
+  formatTwrDynamicUnit: value => String(value ?? ""),
+  helpText: () => "",
+  isBandMetric: () => false,
+  localCategoryHelp: () => "",
+  localLabel: item => item?.label || item?.labelEn || item?.key || "",
+  refreshSourceNote: () => {},
+  render: () => {},
+  renderDryMassCalcModal: () => {},
+  resetDryMassCalcState: () => {},
+  setPresetUiText: () => {},
+};
+
+export function registerCoreHooks(hooks) {
+  Object.assign(runtimeHooks, hooks || {});
+}
+export const STANDARD_GRAVITY_MPS2 = 9.80665;
+export let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
+export const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
     if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
-    const POWER_RESEARCH_VIEWS = ["focus", "all", "best"];
-    const POWER_RESEARCH_VIEW_LABELS = {
+export const POWER_RESEARCH_VIEWS = ["focus", "all", "best"];
+export const POWER_RESEARCH_VIEW_LABELS = {
       focus: { ko: "기본", en: "Base" },
       all: { ko: "전체 사다리", en: "All ladders" },
       best: { ko: "최적 가용", en: "Best Available" },
     };
-    const state = {
+export const state = {
       metric: "totalMassTons",
       thrusters: DATA.defaults.thrusterCount,
       fuelEfficiencyUnit: "kps",
@@ -44,7 +65,7 @@
       families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, true])),
     };
 
-    function chartDefaultState() {
+export function chartDefaultState() {
       return {
         metric: "totalMassTons",
         thrusters: DATA.defaults.thrusterCount,
@@ -69,7 +90,7 @@
       };
     }
 
-    function resetChartStateToDefaults() {
+export function resetChartStateToDefaults() {
       Object.assign(state, chartDefaultState(), {
         lastTooltipItems: [],
         hoverPoints: [],
@@ -82,10 +103,10 @@
         preserveViewportOnce: false,
         pan: null,
       });
-      resetDryMassCalcState();
+      runtimeHooks.resetDryMassCalcState();
     }
 
-    function translateText(value, lang = UI_LANG) {
+export function translateText(value, lang = UI_LANG) {
       let result = String(value ?? "");
       const pairs = lang === "en"
         ? STATIC_TRANSLATIONS
@@ -98,31 +119,35 @@
       return result;
     }
 
-    function localText(ko, en) {
+export function localText(ko, en) {
       return UI_LANG === "en" ? en : ko;
     }
 
-    function normalizePowerResearchView(value) {
+export function normalizePowerResearchView(value) {
       return POWER_RESEARCH_VIEWS.includes(value) ? value : "focus";
     }
 
-    function powerResearchViewLabel(value = state.powerResearchView) {
+export function powerResearchViewLabel(value = state.powerResearchView) {
       const label = POWER_RESEARCH_VIEW_LABELS[normalizePowerResearchView(value)] || POWER_RESEARCH_VIEW_LABELS.focus;
       return localText(label.ko, label.en);
     }
 
-    function powerResearchActive() {
-      return isBandMetric() && POWER_RESEARCH_VIEWS.includes(state.powerResearchView);
+export function powerResearchActive() {
+      return runtimeHooks.isBandMetric() && POWER_RESEARCH_VIEWS.includes(state.powerResearchView);
     }
 
-    const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
-    const LEFT_PANEL_DEFAULT_ORDER = ["display", "simulation", "filter", "driveFilter"];
-    const CHART_PRESET_STORAGE_KEY = "tiEngineChartNamedPresets";
-    const CHART_PRESET_STARTUP_STORAGE_KEY = "tiEngineChartStartupPresetId";
-    const DRY_MASS_PRESET_STORAGE_KEY = "tiEngineChartDryMassPresets";
-    let leftPanelLayout = loadLeftPanelLayout();
+export const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
+export const LEFT_PANEL_DEFAULT_ORDER = ["display", "simulation", "filter", "driveFilter"];
+export const CHART_PRESET_STORAGE_KEY = "tiEngineChartNamedPresets";
+export const CHART_PRESET_STARTUP_STORAGE_KEY = "tiEngineChartStartupPresetId";
+export const DRY_MASS_PRESET_STORAGE_KEY = "tiEngineChartDryMassPresets";
+export let leftPanelLayout = loadLeftPanelLayout();
 
-    function normalizeLeftPanelOrder(order) {
+export function setLeftPanelLayout(value) {
+      leftPanelLayout = value;
+}
+
+export function normalizeLeftPanelOrder(order) {
       const seen = new Set();
       const normalized = [];
       if (Array.isArray(order)) {
@@ -139,7 +164,7 @@
       return normalized;
     }
 
-    function loadLeftPanelLayout() {
+export function loadLeftPanelLayout() {
       try {
         const raw = localStorage.getItem(LEFT_PANEL_LAYOUT_STORAGE_KEY);
         const parsed = raw ? JSON.parse(raw) : {};
@@ -152,7 +177,7 @@
       }
     }
 
-    function saveLeftPanelLayout() {
+export function saveLeftPanelLayout() {
       try {
         localStorage.setItem(LEFT_PANEL_LAYOUT_STORAGE_KEY, JSON.stringify(leftPanelLayout));
       } catch {
@@ -160,26 +185,26 @@
       }
     }
 
-    function metricSelectLabel() {
+export function metricSelectLabel() {
       const metric = document.getElementById("metric");
       return metric?.selectedOptions?.[0]?.textContent?.trim() || metricLabel(state.metric);
     }
 
-    function leftPanelCardSummary(key) {
+export function leftPanelCardSummary(key) {
       if (key === "display") {
         return metricSelectLabel();
       }
       if (key === "simulation") {
         const radiator = DATA.radiators.find(item => item.id === state.radiatorId);
-        return `${formatNumber(state.dryMassTons, " t")} · ${formatNumber(state.targetDvKps, " km/s")} · ${radiator ? radiatorDisplayName(radiator) : state.radiatorId}`;
+        return `${runtimeHooks.formatNumber(state.dryMassTons, " t")} · ${runtimeHooks.formatNumber(state.targetDvKps, " km/s")} · ${radiator ? radiatorDisplayName(radiator) : state.radiatorId}`;
       }
       if (key === "filter") {
         const parts = [];
         if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
-          parts.push(`TWR ≥ ${formatTwrDynamicUnit(state.minTwr)}`);
+          parts.push(`TWR ≥ ${runtimeHooks.formatTwrDynamicUnit(state.minTwr)}`);
         }
         if (state.metric === "twr") {
-          parts.push(`dV ≥ ${formatNumber(state.minDvKps, " km/s")}`);
+          parts.push(`dV ≥ ${runtimeHooks.formatNumber(state.minDvKps, " km/s")}`);
         }
         if (state.paretoHighlight) parts.push(localText("파레토 ON", "Pareto ON"));
         if (state.showImpracticalCandidates) parts.push(localText("비현실 후보 ON", "Impractical ON"));
@@ -200,7 +225,7 @@
       return "";
     }
 
-    function updateLeftPanelCardSummaries() {
+export function updateLeftPanelCardSummaries() {
       document.querySelectorAll(".control-card[data-control-card]").forEach(card => {
         const key = card.dataset.controlCard;
         const summary = card.querySelector("[data-card-summary]");
@@ -216,7 +241,7 @@
       });
     }
 
-    function applyLeftPanelOrder() {
+export function applyLeftPanelOrder() {
       const root = document.querySelector(".controls");
       if (!root) return;
       const cards = Object.fromEntries(Array.from(root.querySelectorAll(".control-card[data-control-card]")).map(card => [card.dataset.controlCard, card]));
@@ -231,7 +256,7 @@
       updateLeftPanelCardSummaries();
     }
 
-    function updateLeftPanelMoveButtons() {
+export function updateLeftPanelMoveButtons() {
       const order = normalizeLeftPanelOrder(leftPanelLayout.order);
       document.querySelectorAll(".control-card[data-control-card]").forEach(card => {
         const index = order.indexOf(card.dataset.controlCard);
@@ -242,7 +267,7 @@
       });
     }
 
-    function moveLeftPanelCard(key, delta) {
+export function moveLeftPanelCard(key, delta) {
       const order = normalizeLeftPanelOrder(leftPanelLayout.order);
       const index = order.indexOf(key);
       const next = index + delta;
@@ -253,7 +278,7 @@
       applyLeftPanelOrder();
     }
 
-    function setupLeftPanelCards() {
+export function setupLeftPanelCards() {
       const root = document.querySelector(".controls");
       if (!root) return;
       root.querySelectorAll(".control-card[data-control-card]").forEach(card => {
@@ -296,7 +321,7 @@
     }
 
 
-    const RADIATOR_KO_SHORT_NAMES = {
+export const RADIATOR_KO_SHORT_NAMES = {
       ExoticSpike: "엑조틱 스파이크",
       DustyPlasma: "먼지 플라즈마",
       LithiumSpray: "리튬 스프레이",
@@ -310,12 +335,12 @@
       AluminumFin: "알루미늄 핀",
     };
 
-    function cleanRadiatorDisplayName(name) {
+export function cleanRadiatorDisplayName(name) {
       const text = String(name || "").trim();
       return UI_LANG === "ko" ? text.replace(/\s*라디에이터\s*$/u, "") : text;
     }
 
-    function radiatorDisplayName(item) {
+export function radiatorDisplayName(item) {
       if (!item) return "";
       const display = item.displayName;
       const projectDisplay = item.requiredProjectDisplay;
@@ -341,11 +366,11 @@
       return cleanRadiatorDisplayName(name || display || item.id || "");
     }
 
-    function radiatorOptionLabel(item) {
-      return `${radiatorDisplayName(item)} (${formatNumber(item.specificPowerKWPerKg, " kW/kg")})`;
+export function radiatorOptionLabel(item) {
+      return `${radiatorDisplayName(item)} (${runtimeHooks.formatNumber(item.specificPowerKWPerKg, " kW/kg")})`;
     }
 
-    function renderRadiatorOptions(select) {
+export function renderRadiatorOptions(select) {
       if (!select) return;
       const selectedId = state.radiatorId || select.value || (DATA.radiators[0] && DATA.radiators[0].id) || "";
       select.innerHTML = "";
@@ -361,7 +386,7 @@
       }
     }
 
-    function syncMetricGroupLabels() {
+export function syncMetricGroupLabels() {
       const metric = document.getElementById("metric");
       if (!metric) return;
       const selectedValue = metric.value;
@@ -372,7 +397,7 @@
       metric.value = selectedValue;
     }
 
-    function applyStaticLanguage() {
+export function applyStaticLanguage() {
       document.documentElement.lang = UI_LANG;
       const languageSelect = document.getElementById("uiLanguageSelect");
       if (languageSelect) languageSelect.value = UI_LANG;
@@ -400,53 +425,53 @@
       if (note) note.innerHTML = NOTE_HTML[UI_LANG] || NOTE_HTML.ko;
     }
 
-    function setLanguage(lang, { rerender = true } = {}) {
+export function setLanguage(lang, { rerender = true } = {}) {
       UI_LANG = lang === "en" ? "en" : "ko";
       localStorage.setItem("tiEngineChartLanguage", UI_LANG);
       applyStaticLanguage();
       refreshLocalizedControls();
-      refreshSourceNote();
+      runtimeHooks.refreshSourceNote();
       updateLeftPanelCardSummaries();
-      if (rerender) render();
+      if (rerender) runtimeHooks.render();
     }
 
-    function refreshLocalizedControls() {
+export function refreshLocalizedControls() {
       document.querySelectorAll(".category-row").forEach(row => {
         const category = DATA.categories.find(item => item.key === row.dataset.categoryKey);
         const text = row.querySelector(".category-name");
-        if (category && text) text.textContent = localLabel(category);
-        if (category) applyHelp(row, localCategoryHelp(category));
+        if (category && text) text.textContent = runtimeHooks.localLabel(category);
+        if (category) runtimeHooks.applyHelp(row, runtimeHooks.localCategoryHelp(category));
       });
       document.querySelectorAll(".family-row").forEach(row => {
         const family = DATA.subfamilies.find(item => item.key === row.dataset.familyKey);
         const text = row.querySelector(".family-name");
-        if (family && text) text.textContent = localLabel(family);
+        if (family && text) text.textContent = runtimeHooks.localLabel(family);
       });
       syncMetricGroupLabels();
-      enhanceSearchableSelect(document.getElementById("metric"));
+      runtimeHooks.enhanceSearchableSelect(document.getElementById("metric"));
       const showTwrInfo = document.getElementById("showTwrInfo");
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
       const nameSearch = document.getElementById("nameSearch");
-      if (showTwrInfo) applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
-      if (showMassInfo) applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));
-      if (paretoHighlight) applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
-      if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
-      applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
-      applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
+      if (showTwrInfo) runtimeHooks.applyHelp(showTwrInfo.closest(".check-row"), runtimeHooks.helpText("showTwrInfo"));
+      if (showMassInfo) runtimeHooks.applyHelp(showMassInfo.closest(".check-row"), runtimeHooks.helpText("showMassInfo"));
+      if (paretoHighlight) runtimeHooks.applyHelp(paretoHighlight.closest(".check-row"), runtimeHooks.helpText("paretoHighlight"));
+      if (showImpracticalCandidates) runtimeHooks.applyHelp(showImpracticalCandidates.closest(".check-row"), runtimeHooks.helpText("showImpracticalCandidates"));
+      runtimeHooks.applyHelp(document.querySelector("#minTwrControl .label"), runtimeHooks.helpText("minTwr"));
+      runtimeHooks.applyHelp(document.querySelector("#minDvControl .label"), runtimeHooks.helpText("minDv"));
       renderRadiatorOptions(document.getElementById("radiator"));
-      enhanceSearchableSelect(document.getElementById("radiator"));
-      setPresetUiText();
-      renderDryMassCalcModal();
+      runtimeHooks.enhanceSearchableSelect(document.getElementById("radiator"));
+      runtimeHooks.setPresetUiText();
+      runtimeHooks.renderDryMassCalcModal();
     }
 
-    const metricDefs = {
+export const metricDefs = {
       thrustMN: {
         label: "추력 (MN)",
         hint: "템플릿 thrust_N을 MN으로 환산",
         value: row => row.thrustN / 1e6,
-        format: value => formatNumber(value, " MN"),
+        format: value => runtimeHooks.formatNumber(value, " MN"),
       },
       fuelEfficiency: {
         get label() {
@@ -458,61 +483,61 @@
             : "템플릿 EV_kps";
         },
         value: row => state.fuelEfficiencyUnit === "seconds" ? row.specificImpulseSeconds : row.exhaustVelocityKps,
-        format: value => formatNumber(value, state.fuelEfficiencyUnit === "seconds" ? " s" : " km/s"),
+        format: value => runtimeHooks.formatNumber(value, state.fuelEfficiencyUnit === "seconds" ? " s" : " km/s"),
       },
       powerRequirementGW: {
         label: "출력 요구량 (GW)",
         hint: "thrust_N * EV_kps * 0.5 / 1,000,000 / efficiency",
         value: row => row.powerRequirementGW,
-        format: value => formatNumber(value, " GW"),
+        format: value => runtimeHooks.formatNumber(value, " GW"),
       },
       totalMassTons: {
         label: "목표 dV 총질량 (t)",
         hint: "총질량 = 기준 건조질량 + 드라이브 + 전원 + 라디에이터 + 추진체",
         value: row => {
-          const values = chartMassOptions(row);
+          const values = runtimeHooks.chartMassOptions(row);
           return values.length ? values[0].totalMassTons : NaN;
         },
-        format: value => formatNumber(value, " t"),
+        format: value => runtimeHooks.formatNumber(value, " t"),
       },
       fuelMassTons: {
         label: "목표 dV 연료질량 (t)",
         hint: "연료질량 = (기준 건조질량 + 드라이브 + 전원 + 라디에이터) * (질량비 - 1)",
         value: row => {
-          const values = chartMassOptions(row);
+          const values = runtimeHooks.chartMassOptions(row);
           return values.length ? values[0].propellantTons : NaN;
         },
-        format: value => formatNumber(value, " t"),
+        format: value => runtimeHooks.formatNumber(value, " t"),
       },
       twr: {
         label: "TWR",
         hint: "추력 / (목표 dV 총질량 * g)",
         value: row => {
-          const values = chartMassOptions(row);
+          const values = runtimeHooks.chartMassOptions(row);
           return values.length ? values[0].twr : NaN;
         },
-        format: value => formatTwr(value, ""),
+        format: value => runtimeHooks.formatTwr(value, ""),
       },
     };
 
-    function metricLabel(key) {
+export function metricLabel(key) {
       return translateText(metricDefs[key].label);
     }
 
-    function metricHint(key) {
+export function metricHint(key) {
       return translateText(metricDefs[key].hint);
     }
 
-    const chart = document.getElementById("chart");
-    const tooltip = document.getElementById("tooltip");
-    const categoryRoot = document.getElementById("categories");
-    const familyRoot = document.getElementById("families");
-    const CHART_HIT_RADIUS_PX = 16;
-    const CHART_LADDER_HIT_RADIUS_PX = 14;
-    const CHART_CLICK_TOLERANCE_PX = 5;
-    const EXTREME_MASS_RATIO = 1_000_000;
-    const MASS_RATIO_OVERFLOW_EXPONENT = 709;
-    const HIDDEN_REASON_PRIORITY = [
+export const chart = document.getElementById("chart");
+export const tooltip = document.getElementById("tooltip");
+export const categoryRoot = document.getElementById("categories");
+export const familyRoot = document.getElementById("families");
+export const CHART_HIT_RADIUS_PX = 16;
+export const CHART_LADDER_HIT_RADIUS_PX = 14;
+export const CHART_CLICK_TOLERANCE_PX = 5;
+export const EXTREME_MASS_RATIO = 1_000_000;
+export const MASS_RATIO_OVERFLOW_EXPONENT = 709;
+export const HIDDEN_REASON_PRIORITY = [
       "minTwr",
       "minDv",
       "targetDvOrMassRatio",
@@ -523,7 +548,7 @@
       "other",
       "familyFilter",
     ];
-    const HELP_TEXT = {
+export const HELP_TEXT = {
       showTwrInfo: {
         ko: "목표 dV 총질량/연료질량 그래프에서 각 점의 밝기를 TWR로 인코딩합니다. 같은 질량대라도 실제로 가속이 가능한 후보인지 빠르게 구분할 때 유용합니다.",
         en: "On the target-dV total-mass/fuel-mass charts, point brightness encodes TWR. This helps separate candidates that can actually accelerate from sluggish designs at similar mass.",
@@ -549,18 +574,13 @@
         en: "On the TWR chart, hides candidates whose maximum practical dV (using the extreme mass-ratio bound) is below this threshold.",
       },
     };
-    let chartViewport = null;
-    let chartHitTargets = [];
-    let chartLadderHitTargets = [];
-    let currentChartRows = [];
-    let currentDiagnostics = null;
-    const allDriveRowsById = new Map(DATA.drives.map(row => [row.id, row]));
-    const SHIP_CATALOG = DATA.shipCatalog || {};
-    const ALL_SHIP_HULLS = Array.isArray(SHIP_CATALOG.hulls) ? SHIP_CATALOG.hulls : [];
-    const HUMAN_BUILDABLE_HULLS = ALL_SHIP_HULLS.filter(item => !item.alien && !item.noShipyardBuild && !item.simpleHull);
-    const SHIP_CLASS_OPTIONS = HUMAN_BUILDABLE_HULLS.length ? HUMAN_BUILDABLE_HULLS : ALL_SHIP_HULLS;
-    const ALL_UTILITY_MODULES = Array.isArray(SHIP_CATALOG.utilityModules) ? SHIP_CATALOG.utilityModules : [];
-    const EMPTY_UTILITY_MODULE = ALL_UTILITY_MODULES.find(item => item.dataName === "Empty") || {
+export const allDriveRowsById = new Map(DATA.drives.map(row => [row.id, row]));
+export const SHIP_CATALOG = DATA.shipCatalog || {};
+export const ALL_SHIP_HULLS = Array.isArray(SHIP_CATALOG.hulls) ? SHIP_CATALOG.hulls : [];
+export const HUMAN_BUILDABLE_HULLS = ALL_SHIP_HULLS.filter(item => !item.alien && !item.noShipyardBuild && !item.simpleHull);
+export const SHIP_CLASS_OPTIONS = HUMAN_BUILDABLE_HULLS.length ? HUMAN_BUILDABLE_HULLS : ALL_SHIP_HULLS;
+export const ALL_UTILITY_MODULES = Array.isArray(SHIP_CATALOG.utilityModules) ? SHIP_CATALOG.utilityModules : [];
+export const EMPTY_UTILITY_MODULE = ALL_UTILITY_MODULES.find(item => item.dataName === "Empty") || {
       dataName: "Empty",
       friendlyName: "Empty",
       displayName: { kor: "비움", en: "Empty" },
@@ -570,8 +590,8 @@
       minConstructionTier: 0,
       alien: false,
     };
-    const ALL_WEAPON_MODULES = Array.isArray(SHIP_CATALOG.weaponModules) ? SHIP_CATALOG.weaponModules : [];
-    const EMPTY_WEAPON_MODULE = {
+export const ALL_WEAPON_MODULES = Array.isArray(SHIP_CATALOG.weaponModules) ? SHIP_CATALOG.weaponModules : [];
+export const EMPTY_WEAPON_MODULE = {
       dataName: "EmptyWeapon",
       friendlyName: "Empty",
       displayName: { kor: "비움", en: "Empty" },
@@ -582,11 +602,11 @@
       slotSize: 0,
       alien: false,
     };
-    const ALL_ARMORS = Array.isArray(SHIP_CATALOG.armors) ? SHIP_CATALOG.armors : [];
-    const HUMAN_ARMORS = ALL_ARMORS.filter(item => item && !item.alien);
-    const ARMOR_OPTIONS = HUMAN_ARMORS.length ? HUMAN_ARMORS : ALL_ARMORS;
-    const DEFAULT_ARMOR_ID = (ARMOR_OPTIONS.find(item => item.dataName === "SteelArmor") || ARMOR_OPTIONS[0] || {}).dataName || "";
-    const dryMassCalcState = {
+export const ALL_ARMORS = Array.isArray(SHIP_CATALOG.armors) ? SHIP_CATALOG.armors : [];
+export const HUMAN_ARMORS = ALL_ARMORS.filter(item => item && !item.alien);
+export const ARMOR_OPTIONS = HUMAN_ARMORS.length ? HUMAN_ARMORS : ALL_ARMORS;
+export const DEFAULT_ARMOR_ID = (ARMOR_OPTIONS.find(item => item.dataName === "SteelArmor") || ARMOR_OPTIONS[0] || {}).dataName || "";
+export const dryMassCalcState = {
       classId: SHIP_CLASS_OPTIONS[0] ? SHIP_CLASS_OPTIONS[0].dataName : "",
       slotModules: [],
       weaponModules: {
@@ -604,9 +624,4 @@
         radiatorId: DATA.defaults.radiatorId,
       },
     };
-    let chartPresetLibrary = loadChartPresetLibrary();
-    let dryMassPresetLibrary = loadDryMassPresetLibrary();
-    const builtInChartPresetLibrary = loadBuiltInChartPresetLibrary();
-    const builtInDryMassPresetLibrary = loadBuiltInDryMassPresetLibrary();
-    let startupChartPresetId = loadStartupChartPresetId();
 

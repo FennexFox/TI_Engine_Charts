@@ -1,6 +1,15 @@
-    function render() {
+import { chartSummaryMassOptions, clamp, computeDriveDiagnostics, filteredRows } from "../calc/filtering.js";
+import { localLabel } from "../presets/library.js";
+import { CHART_CLICK_TOLERANCE_PX, CHART_HIT_RADIUS_PX, CHART_LADDER_HIT_RADIUS_PX, DATA, UI_LANG, chart, localText, metricDefs, metricHint, metricLabel, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state, updateLeftPanelCardSummaries } from "../state/core.js";
+import { updateChartControls } from "../ui/controls.js";
+import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip } from "../ui/tooltip_table.js";
+import { axisSpaceValue, buildAxisTickPlan, makeScale, normalizeAxisDomain, valueFromAxisSpace } from "./axis.js";
+import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows, setChartHitTargets, setChartLadderHitTargets, setChartViewport, setCurrentChartRows, setCurrentDiagnostics } from "./context.js";
+import { chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawTotalMassBands, isBandMetric, mergePinnedTooltipRefs, optionMetricValue, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
+
+export function render() {
       const diagnostics = computeDriveDiagnostics();
-      currentDiagnostics = diagnostics;
+      setCurrentDiagnostics(diagnostics);
       const rows = diagnostics.visibleRows;
       const metric = metricDefs[state.metric];
       document.getElementById("visibleCount").textContent = rows.length;
@@ -17,16 +26,16 @@
       refreshTooltip(rows);
     }
 
-    function redrawChartOnly() {
+export function redrawChartOnly() {
       const diagnostics = computeDriveDiagnostics();
-      currentDiagnostics = diagnostics;
+      setCurrentDiagnostics(diagnostics);
       const rows = diagnostics.visibleRows;
       renderChart(rows);
       updateZoomButton();
       refreshTooltip(rows);
     }
 
-    function currentZoomContext() {
+export function currentZoomContext() {
       const categoryState = DATA.categories.map(category => `${category.key}:${state.categories[category.key] ? 1 : 0}`).join("|");
       const familyState = DATA.subfamilies.map(family => `${family.key}:${state.families[family.key] ? 1 : 0}`).join("|");
       return [
@@ -46,12 +55,12 @@
       ].join(";");
     }
 
-    function updateZoomButton() {
+export function updateZoomButton() {
       const resetZoom = document.getElementById("resetZoom");
       if (resetZoom) resetZoom.disabled = !state.zoom;
     }
 
-    function updateSortHeaders() {
+export function updateSortHeaders() {
       document.querySelectorAll("[data-sort]").forEach(button => {
         const active = button.dataset.sort === state.sortKey;
         button.dataset.active = active ? "true" : "false";
@@ -60,7 +69,7 @@
       });
     }
 
-    function renderFamilyDiagnostics(diagnostics) {
+export function renderFamilyDiagnostics(diagnostics) {
       const byKey = new Map(diagnostics.families.map(family => [family.key, family]));
       document.querySelectorAll(".family-row").forEach(row => {
         const stats = byKey.get(row.dataset.familyKey);
@@ -81,7 +90,7 @@
       });
     }
 
-    function renderChartDiagnostic(diagnostics) {
+export function renderChartDiagnostic(diagnostics) {
       const banner = document.getElementById("chartDiagnostic");
       if (!banner) return;
       if (!diagnostics.zeroFamilies.length) {
@@ -96,7 +105,7 @@
         : `선택된 드라이브 계열 ${count}개는 현재 시나리오에서 표시 후보가 없습니다.`;
     }
 
-    function familyWarningText(family) {
+export function familyWarningText(family) {
       const label = localLabel(family);
       const phrase = hiddenReasonPhrase(family.dominantReason, family.hiddenReasons);
       return UI_LANG === "en"
@@ -104,7 +113,7 @@
         : `${label}: ${family.hidden}개 드라이브가 ${phrase} 때문에 숨겨졌습니다.`;
     }
 
-    function hiddenReasonPhrase(reason, hiddenReasons = {}) {
+export function hiddenReasonPhrase(reason, hiddenReasons = {}) {
       const reasonKey = reason || "other";
       if (reasonKey === "minTwr" && hiddenReasons.targetDvOrMassRatio) {
         return UI_LANG === "en" ? "current dV / minimum TWR settings" : "현재 dV / 최소 TWR 설정";
@@ -123,7 +132,7 @@
       return phrases[reasonKey] || phrases.other;
     }
 
-    function renderLegend(rows) {
+export function renderLegend(rows) {
       const used = new Set(rows.map(row => row.familyKey));
       const legend = document.getElementById("legend");
       legend.innerHTML = "";
@@ -184,7 +193,7 @@
       }
     }
 
-    function valueDomain(rows) {
+export function valueDomain(rows) {
       if (isBandMetric()) {
         const values = rows.flatMap(row => chartSummaryMassOptions(row).map(option => optionMetricValue(option)));
         return paddedDomain(values, state.logY);
@@ -193,7 +202,7 @@
       return paddedDomain(values, state.logY);
     }
 
-    function paddedDomain(values, logScale) {
+export function paddedDomain(values, logScale) {
       if (!values.length) return [1, 10];
       let min = Math.min(...values);
       let max = Math.max(...values);
@@ -208,15 +217,15 @@
       return [min, max];
     }
 
-    function renderChart(rows) {
+export function renderChart(rows) {
       const width = 1120;
       const height = 660;
       const margin = { top: 34, right: 32, bottom: 72, left: 86 };
       const innerW = width - margin.left - margin.right;
       const innerH = height - margin.top - margin.bottom;
-      currentChartRows = rows;
-      chartHitTargets = [];
-      chartLadderHitTargets = [];
+      setCurrentChartRows(rows);
+      setChartHitTargets([]);
+      setChartLadderHitTargets([]);
       state.hoverPoints = state.tooltipPinned
         ? dedupeTooltipRefs(state.lastTooltipItems)
         : (powerResearchActive() ? mergePinnedTooltipRefs(state.hoverPoints) : pinnedTooltipRefs());
@@ -240,7 +249,7 @@
       state.preserveViewportOnce = false;
       const x = makeScale(xDomain, [margin.left, margin.left + innerW], state.logX);
       const y = makeScale(yDomain, [margin.top + innerH, margin.top], state.logY);
-      chartViewport = { width, height, margin, innerW, innerH, xDomain, yDomain, baseXDomain, baseYDomain };
+      setChartViewport({ width, height, margin, innerW, innerH, xDomain, yDomain, baseXDomain, baseYDomain });
 
       drawGridAndAxes({ width, height, margin, innerW, innerH, x, y, xDomain, yDomain });
       const clipId = "plotClip";
@@ -260,7 +269,7 @@
       updateZoomButton();
     }
 
-    function handleChartWheel(event) {
+export function handleChartWheel(event) {
       if (!chartViewport) return;
       const point = svgPointFromEvent(event);
       const axisMode = resolveWheelZoomAxisMode(point, event);
@@ -282,7 +291,7 @@
       );
     }
 
-    function handleChartPointerDown(event) {
+export function handleChartPointerDown(event) {
       if (!chartViewport || event.button !== 0) return;
       const point = svgPointFromEvent(event);
       if (!pointInPlot(point)) return;
@@ -304,7 +313,7 @@
       event.preventDefault();
     }
 
-    function handleChartPointerMove(event) {
+export function handleChartPointerMove(event) {
       if (!state.pan) {
         updateHoverFromPointer(event);
         return;
@@ -325,7 +334,7 @@
       event.preventDefault();
     }
 
-    function handleChartPointerLeave() {
+export function handleChartPointerLeave() {
       if (state.tooltipPinned) return;
       state.hoverHitSignature = "";
       state.dismissedTooltipKeys.clear();
@@ -341,7 +350,7 @@
       }
     }
 
-    function endChartPan(event) {
+export function endChartPan(event) {
       if (!state.pan || event.pointerId !== state.pan.pointerId) return;
       const movementPx = Math.hypot(event.clientX - state.pan.startClientX, event.clientY - state.pan.startClientY);
       const shouldPinClick = !state.pan.hasMoved && movementPx <= CHART_CLICK_TOLERANCE_PX;
@@ -355,7 +364,7 @@
       }
     }
 
-    function setZoomDomains(xDomain, yDomain) {
+export function setZoomDomains(xDomain, yDomain) {
       if (!chartViewport) return;
       const nextX = constrainDomain(xDomain, chartViewport.baseXDomain, state.logX);
       const nextY = constrainDomain(yDomain, chartViewport.baseYDomain, state.logY);
@@ -367,7 +376,7 @@
       refreshTooltip(rows);
     }
 
-    function svgPointFromEvent(event) {
+export function svgPointFromEvent(event) {
       const transform = svgViewportTransform();
       return {
         x: (event.clientX - transform.rect.left - transform.offsetX) / transform.scale,
@@ -375,7 +384,7 @@
       };
     }
 
-    function svgViewportTransform() {
+export function svgViewportTransform() {
       const rect = chart.getBoundingClientRect();
       const viewWidth = Math.max(chartViewport.width, 1);
       const viewHeight = Math.max(chartViewport.height, 1);
@@ -391,7 +400,7 @@
       };
     }
 
-    function pointInPlot(point) {
+export function pointInPlot(point) {
       const { margin, innerW, innerH } = chartViewport;
       return point.x >= margin.left
         && point.x <= margin.left + innerW
@@ -399,7 +408,7 @@
         && point.y <= margin.top + innerH;
     }
 
-    function pointInXAxisZone(point) {
+export function pointInXAxisZone(point) {
       const { margin, innerW, innerH, height } = chartViewport;
       return point.x >= margin.left
         && point.x <= margin.left + innerW
@@ -407,7 +416,7 @@
         && point.y <= Math.min(height, margin.top + innerH + Math.max(24, margin.bottom));
     }
 
-    function pointInYAxisZone(point) {
+export function pointInYAxisZone(point) {
       const { margin, innerH } = chartViewport;
       return point.x >= Math.max(0, margin.left - Math.max(24, margin.left))
         && point.x <= margin.left + 12
@@ -415,7 +424,7 @@
         && point.y <= margin.top + innerH;
     }
 
-    function resolveWheelZoomAxisMode(point, event) {
+export function resolveWheelZoomAxisMode(point, event) {
       if (pointInPlot(point)) {
         if (event.shiftKey && !event.altKey) return "y";
         if (event.altKey && !event.shiftKey) return "x";
@@ -426,7 +435,7 @@
       return "";
     }
 
-    function clampPointToPlot(point) {
+export function clampPointToPlot(point) {
       const { margin, innerW, innerH } = chartViewport;
       return {
         x: clamp(point.x, margin.left, margin.left + innerW),
@@ -434,7 +443,7 @@
       };
     }
 
-    function updateHoverFromPointer(event) {
+export function updateHoverFromPointer(event) {
       if (state.tooltipPinned) return;
       if (!chartViewport || !chartHitTargets.length) return;
       const point = svgPointFromEvent(event);
@@ -498,7 +507,7 @@
       }
     }
 
-    function handleChartClick(point) {
+export function handleChartClick(point) {
       if (!chartViewport || !pointInPlot(point)) {
         clearTooltip({ keepPinned: true });
         return;
@@ -514,7 +523,7 @@
       pinTooltipItems(visibleHits);
     }
 
-    function handleChartKeyDown(event) {
+export function handleChartKeyDown(event) {
       if (isEditableTarget(event.target)) return;
       if (event.key === "Escape" && (state.tooltipPinned || state.lastTooltipItems.length)) {
         clearTooltip({ keepPinned: true });
@@ -532,13 +541,13 @@
       }
     }
 
-    function isEditableTarget(target) {
+export function isEditableTarget(target) {
       if (!target) return false;
       const tagName = target.tagName ? target.tagName.toLowerCase() : "";
       return target.isContentEditable || ["input", "select", "textarea", "button"].includes(tagName);
     }
 
-    function hitTargetsAt(point) {
+export function hitTargetsAt(point) {
       const transform = svgViewportTransform();
       return chartHitTargets
         .map(target => ({
@@ -549,7 +558,7 @@
         .sort((a, b) => a.distance - b.distance || a.order - b.order);
     }
 
-    function ladderHitTargetsAt(point) {
+export function ladderHitTargetsAt(point) {
       if (!powerResearchActive() || !chartLadderHitTargets.length) return [];
       const transform = svgViewportTransform();
       return chartLadderHitTargets
@@ -561,7 +570,7 @@
         .sort((a, b) => a.distance - b.distance || a.order - b.order);
     }
 
-    function resolveLadderHoverRefs(ladderHits) {
+export function resolveLadderHoverRefs(ladderHits) {
       const recentRefs = dedupeTooltipRefs([...state.hoverPoints, ...state.lastTooltipItems]);
       return dedupeTooltipRefs(ladderHits.map(hit => {
         const recentSameDrive = recentRefs.find(item => item.rowId === hit.rowId);
@@ -569,7 +578,7 @@
       }));
     }
 
-    function distanceToSegment(point, segment) {
+export function distanceToSegment(point, segment) {
       const dx = segment.x2 - segment.x1;
       const dy = segment.y2 - segment.y1;
       const lengthSq = dx * dx + dy * dy;
@@ -580,7 +589,7 @@
       return Math.hypot(point.x - projectedX, point.y - projectedY);
     }
 
-    function invertScale(pixel, domain, range, logScale) {
+export function invertScale(pixel, domain, range, logScale) {
       const ratio = (pixel - range[0]) / (range[1] - range[0]);
       const [d0, d1] = normalizeAxisDomain(domain[0], domain[1], logScale);
       if (logScale) {
@@ -591,7 +600,7 @@
       return d0 + ratio * (d1 - d0);
     }
 
-    function zoomDomainAround(domain, focalValue, factor, logScale) {
+export function zoomDomainAround(domain, focalValue, factor, logScale) {
       if (!Number.isFinite(focalValue) || factor <= 0) return domain;
       if (logScale) {
         const d0 = Math.log10(Math.max(domain[0], 1e-9));
@@ -608,13 +617,13 @@
       ];
     }
 
-    function panDomainByPixels(domain, pixelDelta, range, logScale) {
+export function panDomainByPixels(domain, pixelDelta, range, logScale) {
       const first = invertScale(range[0] - pixelDelta, domain, range, logScale);
       const second = invertScale(range[1] - pixelDelta, domain, range, logScale);
       return [Math.min(first, second), Math.max(first, second)];
     }
 
-    function constrainDomain(domain, baseDomain, logScale) {
+export function constrainDomain(domain, baseDomain, logScale) {
       if (!domain || !baseDomain) return baseDomain;
       const toSpace = value => logScale ? Math.log10(Math.max(value, 1e-9)) : value;
       const fromSpace = value => logScale ? Math.pow(10, value) : value;
@@ -639,7 +648,7 @@
       return [fromSpace(start), fromSpace(end)];
     }
 
-    function sameDomain(a, b, logScale) {
+export function sameDomain(a, b, logScale) {
       if (!a || !b) return false;
       const toSpace = value => logScale ? Math.log10(Math.max(value, 1e-9)) : value;
       const b0 = toSpace(b[0]);
@@ -648,7 +657,7 @@
       return Math.abs(toSpace(a[0]) - b0) <= tolerance && Math.abs(toSpace(a[1]) - b1) <= tolerance;
     }
 
-    function axisDebugTickSummary(domain, pixelSpan, logScale, options) {
+export function axisDebugTickSummary(domain, pixelSpan, logScale, options) {
       const ticks = buildAxisTickPlan(domain[0], domain[1], pixelSpan, logScale, options);
       const labeled = ticks.filter(item => item.label);
       return {
@@ -664,7 +673,7 @@
       };
     }
 
-    function axisSnapshot() {
+export function axisSnapshot() {
       if (!chartViewport) return null;
       const x = axisDebugTickSummary(chartViewport.xDomain, chartViewport.innerW, state.logX, {
         gridPixelGap: state.logX ? 72 : 78,
@@ -687,8 +696,3 @@
         y,
       };
     }
-
-    window.TI_ENGINE_CHART_DEBUG = {
-      axisSnapshot,
-      tickPlan: (min, max, pixelSpan, logScale, options = {}) => buildAxisTickPlan(min, max, pixelSpan, logScale, options),
-    };
