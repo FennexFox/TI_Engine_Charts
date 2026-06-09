@@ -1,9 +1,10 @@
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const toolsDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(toolsDir, "..");
 const clientDir = resolve(toolsDir, "drive_comparison_client");
 
 function moduleFiles(dir) {
@@ -20,14 +21,15 @@ const files = moduleFiles(clientDir);
 const failures = [];
 
 for (const file of files) {
-  const result = spawnSync(process.execPath, ["--check", file], {
-    cwd: resolve(toolsDir, ".."),
+  const result = spawnSync(process.execPath, ["--input-type=module", "--check"], {
+    cwd: repoRoot,
     encoding: "utf8",
+    input: readFileSync(file, "utf8"),
   });
   if (result.status !== 0) {
     failures.push([
-      relative(resolve(toolsDir, ".."), file).replace(/\\/g, "/"),
-      result.stderr || result.stdout || `node --check exited with ${result.status}`,
+      relative(repoRoot, file).replace(/\\/g, "/"),
+      result.stderr || result.stdout || `node --input-type=module --check exited with ${result.status}`,
     ].join("\n"));
   }
 }
