@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import re
+import shutil
 import sys
 from pathlib import Path
 from typing import Any, Iterable
@@ -790,19 +791,8 @@ def build_data(
 DRIVE_COMPARISON_TEMPLATE_PATH = Path(__file__).resolve().parent / "drive_comparison_template.html"
 DRIVE_COMPARISON_STYLES_PATH = Path(__file__).resolve().parent / "drive_comparison_styles.css"
 DRIVE_COMPARISON_CLIENT_DIR = Path(__file__).resolve().parent / "drive_comparison_client"
-CLIENT_SOURCE_FILES = (
-    "00_bootstrap_state_i18n.js",
-    "10_left_panel_controls.js",
-    "20_dry_mass_calculator.js",
-    "30_searchable_select.js",
-    "40_preset_library.js",
-    "50_filtering_diagnostics.js",
-    "60_axis_scale_ticks.js",
-    "70_chart_interaction.js",
-    "80_chart_rendering.js",
-    "90_tooltip_table_formatting.js",
-    "99_startup.js",
-)
+CLIENT_ASSET_SUBDIR = Path("assets") / "js"
+CLIENT_ENTRY_SCRIPT = "./assets/js/main.js"
 
 
 def load_template_source(path: Path) -> str:
@@ -816,13 +806,6 @@ def replace_placeholder(text: str, placeholder: str, value: str) -> str:
     if placeholder not in text:
         raise SystemExit(f"Template placeholder not found: {placeholder}")
     return text.replace(placeholder, value)
-
-
-def load_client_script() -> str:
-    return "\n\n".join(
-        load_template_source(DRIVE_COMPARISON_CLIENT_DIR / filename).rstrip("\n")
-        for filename in CLIENT_SOURCE_FILES
-    )
 
 
 # Static translation and portable-output helpers live in drive_comparison_i18n.py.
@@ -862,7 +845,7 @@ def build_html(data: dict[str, Any], portable: bool = False) -> str:
         data = portable_data(data)
     html = apply_static_english_html(load_template_source(DRIVE_COMPARISON_TEMPLATE_PATH))
     html = replace_placeholder(html, "__STYLES__", load_template_source(DRIVE_COMPARISON_STYLES_PATH).rstrip("\n"))
-    html = replace_placeholder(html, "__CLIENT_SCRIPT__", load_client_script())
+    html = replace_placeholder(html, "__CLIENT_ENTRY_SCRIPT__", CLIENT_ENTRY_SCRIPT)
 
     data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     html = replace_placeholder(html, "__DATA_JSON__", data_json.replace("</script", "<\\/script"))
@@ -871,6 +854,18 @@ def build_html(data: dict[str, Any], portable: bool = False) -> str:
     html = replace_placeholder(html, "__STATIC_TRANSLATIONS__", translation_json.replace("</script", "<\\/script"))
     html = replace_placeholder(html, "__NOTE_HTML__", note_json.replace("</script", "<\\/script"))
     return html
+
+
+def copy_client_modules(output_html: Path) -> Path:
+    target_dir = output_html.parent / CLIENT_ASSET_SUBDIR
+    source_dir = DRIVE_COMPARISON_CLIENT_DIR.resolve()
+    resolved_target = target_dir.resolve()
+    if resolved_target == source_dir or source_dir in resolved_target.parents:
+        raise SystemExit(f"Refusing to copy client modules into their source directory: {resolved_target}")
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
+    shutil.copytree(DRIVE_COMPARISON_CLIENT_DIR, target_dir)
+    return target_dir
 
 
 def parse_args() -> argparse.Namespace:
@@ -944,7 +939,9 @@ def main() -> None:
     apply_preset_library(data, preset_library)
     html = build_html(data, args.portable)
     output.write_text(html, encoding="utf-8")
+    client_asset_dir = copy_client_modules(output)
     print(f"Wrote {output}")
+    print(f"Client modules: {client_asset_dir}")
     print(f"Drive variants: {len(data['drives'])}")
     print(f"Categories: {len(data['categories'])}")
     print(f"Subfamilies: {len(data['subfamilies'])}")

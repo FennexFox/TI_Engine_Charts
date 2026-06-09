@@ -1,6 +1,6 @@
-import { pathToFileURL } from "node:url";
 import { isAbsolute, relative, resolve } from "node:path";
 import { chromium } from "playwright";
+import { startStaticHttpServer } from "./static_http_server.mjs";
 
 const htmlFile = process.argv[2] || "docs/index.html";
 const failures = [];
@@ -9,17 +9,13 @@ function expect(condition, message) {
   if (!condition) failures.push(message);
 }
 
-function htmlFileUrl(htmlFile) {
+function htmlFileUrl(htmlFile, baseUrl) {
   const absolutePath = resolve(htmlFile);
-  if (!process.env.PLAYWRIGHT_BASE_URL) return pathToFileURL(absolutePath).href;
-
-  const baseUrl = process.env.PLAYWRIGHT_BASE_URL.endsWith("/")
-    ? process.env.PLAYWRIGHT_BASE_URL
-    : `${process.env.PLAYWRIGHT_BASE_URL}/`;
+  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const pagePath = (isAbsolute(htmlFile) ? relative(process.cwd(), absolutePath) : htmlFile)
     .replace(/\\/g, "/")
     .replace(/^\.\//, "");
-  return new URL(pagePath, baseUrl).href;
+  return new URL(pagePath, normalizedBaseUrl).href;
 }
 
 function axisSpace(value, logScale) {
@@ -78,11 +74,13 @@ if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
   launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 }
 
+const staticServer = process.env.PLAYWRIGHT_BASE_URL ? null : await startStaticHttpServer(process.cwd());
+const baseUrl = process.env.PLAYWRIGHT_BASE_URL || staticServer.baseUrl;
 const browser = await chromium.launch(launchOptions);
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204, body: "" }));
-  const targetUrl = htmlFileUrl(htmlFile);
+  const targetUrl = htmlFileUrl(htmlFile, baseUrl);
   await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#chart .data-point", { timeout: 15000 });
 
@@ -114,6 +112,7 @@ try {
   await page.close();
 } finally {
   await browser.close();
+  if (staticServer) await staticServer.close();
 }
 
 if (failures.length) {

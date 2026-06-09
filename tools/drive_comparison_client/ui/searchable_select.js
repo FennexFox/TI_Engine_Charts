@@ -1,12 +1,11 @@
-      }).join("");
-    }
+import { localText } from "../state/core.js";
 
-    function searchableSelectLabel(select) {
+export function searchableSelectLabel(select) {
       const selected = select && select.selectedOptions && select.selectedOptions[0];
       return selected ? selected.textContent.trim() : "";
     }
 
-    function searchableSelectOptions(select) {
+export function searchableSelectOptions(select) {
       const rows = [];
       Array.from(select.children || []).forEach(child => {
         if (child.tagName === "OPTGROUP") {
@@ -36,20 +35,20 @@
       return rows;
     }
 
-    function closeSearchableSelect(wrapper) {
+export function closeSearchableSelect(wrapper) {
       const menu = wrapper && wrapper.querySelector(".searchable-select-menu");
       const trigger = wrapper && wrapper.querySelector(".searchable-select-trigger");
       if (menu) menu.hidden = true;
       if (trigger) trigger.setAttribute("aria-expanded", "false");
     }
 
-    function closeOtherSearchableSelects(activeWrapper = null) {
+export function closeOtherSearchableSelects(activeWrapper = null) {
       document.querySelectorAll(".searchable-select").forEach(wrapper => {
         if (wrapper !== activeWrapper) closeSearchableSelect(wrapper);
       });
     }
 
-    function renderSearchableSelectOptions(select, wrapper, query = "") {
+export function renderSearchableSelectOptions(select, wrapper, query = "") {
       const list = wrapper.querySelector(".searchable-select-options");
       if (!list) return;
       const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
@@ -98,7 +97,7 @@
       }
     }
 
-    function enhanceSearchableSelect(select) {
+export function enhanceSearchableSelect(select) {
       if (!select || select.dataset.searchableEnhanced === "true") {
         const existingWrapper = select && select.nextElementSibling && select.nextElementSibling.classList.contains("searchable-select")
           ? select.nextElementSibling
@@ -183,7 +182,7 @@
       });
     }
 
-    function enhanceSearchableSelects(root = document) {
+export function enhanceSearchableSelects(root = document) {
       root.querySelectorAll("select[data-searchable-select]").forEach(select => enhanceSearchableSelect(select));
       if (!document.body.dataset.searchableSelectGlobalHandlers) {
         document.body.dataset.searchableSelectGlobalHandlers = "true";
@@ -192,4 +191,5 @@
         });
       }
     }
+
 

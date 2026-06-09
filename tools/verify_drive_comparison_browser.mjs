@@ -1,6 +1,6 @@
-import { pathToFileURL } from "node:url";
 import { isAbsolute, relative, resolve } from "node:path";
 import { chromium } from "playwright";
+import { startStaticHttpServer } from "./static_http_server.mjs";
 
 const htmlFiles = process.argv.slice(2).length
   ? process.argv.slice(2)
@@ -12,17 +12,13 @@ function expect(condition, message) {
   if (!condition) failures.push(message);
 }
 
-function htmlFileUrl(htmlFile) {
+function htmlFileUrl(htmlFile, baseUrl) {
   const absolutePath = resolve(htmlFile);
-  if (!process.env.PLAYWRIGHT_BASE_URL) return pathToFileURL(absolutePath).href;
-
-  const baseUrl = process.env.PLAYWRIGHT_BASE_URL.endsWith("/")
-    ? process.env.PLAYWRIGHT_BASE_URL
-    : `${process.env.PLAYWRIGHT_BASE_URL}/`;
+  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const pagePath = (isAbsolute(htmlFile) ? relative(process.cwd(), absolutePath) : htmlFile)
     .replace(/\\/g, "/")
     .replace(/^\.\//, "");
-  return new URL(pagePath, baseUrl).href;
+  return new URL(pagePath, normalizedBaseUrl).href;
 }
 
 async function setLanguage(page, value) {
@@ -30,8 +26,8 @@ async function setLanguage(page, value) {
   await page.waitForTimeout(100);
 }
 
-async function verifyHtmlFile(browser, htmlFile) {
-  const targetUrl = htmlFileUrl(htmlFile);
+async function verifyHtmlFile(browser, htmlFile, baseUrl) {
+  const targetUrl = htmlFileUrl(htmlFile, baseUrl);
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const consoleErrors = [];
   const pageErrors = [];
@@ -42,6 +38,7 @@ async function verifyHtmlFile(browser, htmlFile) {
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204, body: "" }));
 
   await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+  expect(await page.locator('script[type="module"][src$="assets/js/main.js"]').count() === 1, `${htmlFile}: module entry script missing`);
   await page.waitForSelector("#chart .data-point", { timeout: 15000 });
 
   const title = await page.locator("h1").innerText();
@@ -709,13 +706,16 @@ if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
   launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 }
 
+const staticServer = process.env.PLAYWRIGHT_BASE_URL ? null : await startStaticHttpServer(process.cwd());
+const baseUrl = process.env.PLAYWRIGHT_BASE_URL || staticServer.baseUrl;
 const browser = await chromium.launch(launchOptions);
 try {
   for (const htmlFile of htmlFiles) {
-    await verifyHtmlFile(browser, htmlFile);
+    await verifyHtmlFile(browser, htmlFile, baseUrl);
   }
 } finally {
   await browser.close();
+  if (staticServer) await staticServer.close();
 }
 
 if (failures.length) {

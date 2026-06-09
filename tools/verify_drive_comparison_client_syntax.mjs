@@ -1,27 +1,40 @@
-import { readFileSync } from "node:fs";
-import { Script } from "node:vm";
-import { dirname, resolve } from "node:path";
+import { readdirSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const toolsDir = dirname(fileURLToPath(import.meta.url));
 const clientDir = resolve(toolsDir, "drive_comparison_client");
-const clientSourceFiles = [
-  "00_bootstrap_state_i18n.js",
-  "10_left_panel_controls.js",
-  "20_dry_mass_calculator.js",
-  "30_searchable_select.js",
-  "40_preset_library.js",
-  "50_filtering_diagnostics.js",
-  "60_axis_scale_ticks.js",
-  "70_chart_interaction.js",
-  "80_chart_rendering.js",
-  "90_tooltip_table_formatting.js",
-  "99_startup.js",
-];
 
-const source = clientSourceFiles
-  .map(filename => readFileSync(resolve(clientDir, filename), "utf8").replace(/\n*$/, ""))
-  .join("\n\n");
+function moduleFiles(dir) {
+  return readdirSync(dir, { withFileTypes: true })
+    .flatMap(entry => {
+      const path = resolve(dir, entry.name);
+      if (entry.isDirectory()) return moduleFiles(path);
+      return entry.isFile() && entry.name.endsWith(".js") ? [path] : [];
+    })
+    .sort();
+}
 
-new Script(source, { filename: "drive_comparison_client_combined.js" });
-console.log(`Client syntax verification passed for ${clientSourceFiles.length} snippets`);
+const files = moduleFiles(clientDir);
+const failures = [];
+
+for (const file of files) {
+  const result = spawnSync(process.execPath, ["--check", file], {
+    cwd: resolve(toolsDir, ".."),
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    failures.push([
+      relative(resolve(toolsDir, ".."), file).replace(/\\/g, "/"),
+      result.stderr || result.stdout || `node --check exited with ${result.status}`,
+    ].join("\n"));
+  }
+}
+
+if (failures.length) {
+  console.error(failures.join("\n\n"));
+  process.exit(1);
+}
+
+console.log(`Client module syntax verification passed for ${files.length} files`);

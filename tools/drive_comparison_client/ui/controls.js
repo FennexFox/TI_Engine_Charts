@@ -1,4 +1,14 @@
-    function setupControls() {
+import { setupDryMassCalculator } from "../calc/dry_mass.js";
+import { clamp, filteredRows, syncFilterInputs } from "../calc/filtering.js";
+import { chartViewport } from "../chart/context.js";
+import { endChartPan, handleChartKeyDown, handleChartPointerDown, handleChartPointerLeave, handleChartPointerMove, handleChartWheel, redrawChartOnly, render, updateSortHeaders } from "../chart/interaction.js";
+import { isBandMetric } from "../chart/rendering.js";
+import { applyHelp, applyStartupChartPreset, exportedPreset, handleImportedPresetObject, helpText, localCategoryHelp, localLabel, openSerializedObjectExport, parsePresetPayload, readFromClipboard, setupPresetLibraryControls, showPresetStatus } from "../presets/library.js";
+import { DATA, UI_LANG, applyStaticLanguage, categoryRoot, chart, familyRoot, localText, normalizePowerResearchView, refreshLocalizedControls, renderRadiatorOptions, setLanguage, setupLeftPanelCards, state, tooltip } from "../state/core.js";
+import { enhanceSearchableSelect } from "./searchable_select.js";
+import { backgroundStyle, clearTooltip, formatNumber, formatTwrDynamicUnit, moveTooltipItemByOffset, removeTooltipItem, renderTable, toggleTooltipItemPin } from "./tooltip_table.js";
+
+export function setupControls() {
       const metric = document.getElementById("metric");
       const thrusters = document.getElementById("thrusters");
       const thrustersNumber = document.getElementById("thrustersNumber");
@@ -314,7 +324,7 @@
       updateSortHeaders();
     }
 
-    function refreshSourceNote() {
+export function refreshSourceNote() {
       const gameVersionParts = [
         `${localText("게임 버전", "Game version")}: ${DATA.source.gameVersion || "unknown"}`,
       ];
@@ -322,7 +332,7 @@
       document.getElementById("sourceNote").textContent = `${localText("소스", "Source")}: ${DATA.source.driveTemplate}; ${DATA.source.radiatorTemplate}; ${DATA.source.shipCatalog}; ${gameVersionParts.join("; ")}`;
     }
 
-    function setupChartInteraction() {
+export function setupChartInteraction() {
       const resetZoom = document.getElementById("resetZoom");
       resetZoom.addEventListener("click", () => {
         state.zoom = null;
@@ -342,7 +352,7 @@
       document.addEventListener("keydown", handleChartKeyDown);
     }
 
-    function updateChartControls() {
+export function updateChartControls() {
       const fuelUnitBlock = document.getElementById("chartFuelUnit");
       const bandAnalysisControls = document.getElementById("bandAnalysisControls");
       const showTwrInfoRow = document.getElementById("showTwrInfoRow");
@@ -367,7 +377,7 @@
       syncMinDvInputs();
     }
 
-    function syncMinTwrInputs() {
+export function syncMinTwrInputs() {
       const slider = document.getElementById("minTwrExp");
       const number = document.getElementById("minTwrNumber");
       const readout = document.getElementById("minTwrReadout");
@@ -379,7 +389,7 @@
       readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: TWR >= ${formatTwrDynamicUnit(state.minTwr)}`;
     }
 
-    function syncMinDvInputs() {
+export function syncMinDvInputs() {
       const slider = document.getElementById("minDv");
       const number = document.getElementById("minDvNumber");
       const readout = document.getElementById("minDvReadout");
@@ -389,4 +399,5 @@
       number.value = String(Math.round(state.minDvKps));
       readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: dV >= ${formatNumber(state.minDvKps, " km/s")}`;
     }
+
 

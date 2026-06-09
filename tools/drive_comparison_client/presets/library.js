@@ -1,284 +1,51 @@
-    function renderDryMassCalcModal() {
-      const classSelect = document.getElementById("dryMassCalcClass");
-      const info = document.getElementById("dryMassCalcInfo");
-      const slots = document.getElementById("dryMassCalcSlots");
-      const weapons = document.getElementById("dryMassCalcWeapons");
-      const armor = document.getElementById("dryMassCalcArmor");
-      const total = document.getElementById("dryMassCalcTotal");
-      const breakdown = document.getElementById("dryMassCalcBreakdown");
-      const title = document.getElementById("dryMassCalcTitle");
-      const close = document.getElementById("dryMassCalcClose");
-      const apply = document.getElementById("dryMassCalcApply");
-      const applyWithDefaults = document.getElementById("dryMassCalcApplyWithDefaults");
-      const reset = document.getElementById("dryMassCalcReset");
-      const classLabel = document.getElementById("dryMassCalcClassLabel");
-      const slotsLabel = document.getElementById("dryMassCalcSlotsLabel");
-      const weaponsLabel = document.getElementById("dryMassCalcWeaponsLabel");
-      const armorLabel = document.getElementById("dryMassCalcArmorLabel");
-      const notesLabel = document.getElementById("dryMassCalcNotesLabel");
-      const notes = document.getElementById("dryMassCalcNotes");
-      const simulationDefaultsLabel = document.getElementById("shipPresetSimulationDefaultsLabel");
-      const targetDvLabel = document.getElementById("shipPresetTargetDvLabel");
-      const targetDvInput = document.getElementById("shipPresetTargetDv");
-      const radiatorLabel = document.getElementById("shipPresetRadiatorLabel");
-      const radiatorSelect = document.getElementById("shipPresetRadiator");
-      const button = document.getElementById("dryMassCalcButton");
+import { applyDryMassCalculatorPreset, exportedDryMassCalculatorPreset, renderDryMassCalcModal } from "../calc/dry_mass.js";
+import { clamp, syncFilterInputs } from "../calc/filtering.js";
+import { render } from "../chart/interaction.js";
+import { CHART_PRESET_STARTUP_STORAGE_KEY, CHART_PRESET_STORAGE_KEY, DATA, DRY_MASS_PRESET_STORAGE_KEY, HELP_TEXT, UI_LANG, localText, metricDefs, normalizePowerResearchView, setLanguage, state } from "../state/core.js";
+import { syncMinDvInputs, syncMinTwrInputs, updateChartControls } from "../ui/controls.js";
+import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 
-      if (button) {
-        button.setAttribute("aria-label", localText("건조질량 계산기", "Dry-mass calculator"));
-        button.title = localText("건조질량 계산기", "Dry-mass calculator");
-      }
-      if (title) title.textContent = localText("건조질량 계산기", "Dry-mass calculator");
-      if (close) close.textContent = localText("닫기", "Close");
-      if (apply) apply.textContent = localText("건조질량만 적용", "Apply dry mass only");
-      setTextById("dryMassCalcApplyWithDefaults", "건조질량 + 조건 적용", "Apply dry mass + defaults");
-      if (reset) reset.textContent = localText("초기화", "Reset");
-      if (classLabel) classLabel.textContent = localText("함급", "Hull Class");
-      if (slotsLabel) slotsLabel.textContent = localText("내부 유틸리티 모듈", "Internal utility modules");
-      if (weaponsLabel) weaponsLabel.textContent = localText("무장 하드포인트", "Weapon hardpoints");
-      if (armorLabel) armorLabel.textContent = localText("장갑", "Armor");
-      if (notesLabel) notesLabel.textContent = localText("메모", "Notes");
-      if (simulationDefaultsLabel) simulationDefaultsLabel.textContent = localText("시뮬레이션 기본 조건", "Simulation defaults");
-      if (targetDvLabel) targetDvLabel.textContent = localText("목표 dV (km/s)", "Target dV (km/s)");
-      if (radiatorLabel) radiatorLabel.textContent = localText("라디에이터", "Radiator");
-      const simulationDefaults = normalizeShipDesignSimulationDefaults();
-      if (targetDvInput) targetDvInput.value = String(Math.round(simulationDefaults.targetDvKps));
-      if (radiatorSelect) {
-        renderRadiatorOptions(radiatorSelect);
-        radiatorSelect.value = simulationDefaults.radiatorId;
-      }
-      if (notes) {
-        notes.placeholder = localText("선박 설계 가정 메모", "Ship design assumption notes");
-        if (notes.value !== String(dryMassCalcState.notes || "")) notes.value = String(dryMassCalcState.notes || "");
-      }
-      setPresetUiText();
-      renderDryMassPresetControls();
-
-      if (!classSelect || !info || !slots || !weapons || !armor || !total) return;
-
-      classSelect.innerHTML = groupedShipClassOptionsHtml();
-      if (!SHIP_CLASS_OPTIONS.length) {
-        info.innerHTML = `<span>${escapeHtml(localText("함급 카탈로그 없음", "No hull catalog"))}</span><strong>-</strong>`;
-        slots.innerHTML = "";
-        weapons.innerHTML = "";
-        armor.innerHTML = "";
-        total.textContent = `${localText("예상 건조질량", "Estimated dry mass")}: -`;
-        if (breakdown) breakdown.innerHTML = "";
-        return;
-      }
-      if (!SHIP_CLASS_OPTIONS.some(item => item.dataName === dryMassCalcState.classId)) {
-        dryMassCalcState.classId = SHIP_CLASS_OPTIONS[0].dataName;
-      }
-      classSelect.value = dryMassCalcState.classId;
-
-      const shipClass = selectedShipClass();
-      normalizeDryMassCalcSlots();
-      const moduleOptions = utilityModulesForShipClass(shipClass);
-      const moduleTotals = dryMassCalcModuleTotals();
-      const armorTotals = dryMassCalcArmorTotals(shipClass);
-      const hullMass = Number(shipClass.massTons) || 0;
-      info.innerHTML = [
-        [localText("선체 기본 질량", "Hull mass"), formatNumber(hullMass, " t")],
-        shipyardBuildTimeRow(shipClass),
-        [localText("Structural Integrity", "Structural Integrity"), formatCompact(Number(shipClass.structuralIntegrity) || 0, 1_000)],
-        [localText("함수 하드포인트", "Nose hardpoints"), formatHardpointSize(hardpointCapacity(shipClass, "nose"))],
-        [localText("함체 하드포인트", "Hull hardpoints"), formatHardpointSize(hardpointCapacity(shipClass, "hull"))],
-        [localText("유틸리티 슬롯", "Utility slots"), String(dryMassCalcState.slotModules.length)],
-        [localText("승무원", "Crew"), formatCompact(Number(shipClass.crew) || 0, 1_000)],
-        [localText("최대 장교 수", "Max officers"), String(Number(shipClass.maxOfficers) || 0)],
-        [localText("요구 프로젝트", "Required project"), shipClass.requiredProject || "-"],
-      ].map(([label, value]) => `<span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>`).join("");
-
-      weapons.innerHTML = [
-        renderWeaponSection("nose", shipClass),
-        renderWeaponSection("hull", shipClass),
-      ].join("");
-
-      armor.innerHTML = renderArmorRows(shipClass);
-
-      if (!dryMassCalcState.slotModules.length) {
-        slots.innerHTML = `<div class="calc-empty">${escapeHtml(localText("선택 가능한 내부 슬롯 없음", "No internal slots"))}</div>`;
-      } else {
-        slots.innerHTML = dryMassCalcState.slotModules.map((selectedId, index) => {
-          const selectedModule = selectedModuleById(selectedId);
-          const options = moduleOptions
-            .map(item => {
-              const label = `${catalogDisplayName(item)} (${formatNumber(Number(item.massTons) || 0, " t")})`;
-              return `<option value="${escapeHtml(item.dataName)}"${item.dataName === selectedId ? " selected" : ""}>${escapeHtml(label)}</option>`;
-            })
-            .join("");
-          return `
-            <div class="calc-slot-row">
-              <span>${escapeHtml(localText("슬롯", "Slot"))} ${index + 1}</span>
-              <select id="dryMassCalcSlot${index}" data-slot-index="${index}" data-searchable-select="true">${options}</select>
-              <span class="calc-slot-mass">${escapeHtml(formatNumber(Number(selectedModule.massTons) || 0, " t"))}</span>
-            </div>
-          `;
-        }).join("");
-      }
-      total.textContent = `${localText("예상 건조질량", "Estimated dry mass")}: ${formatNumber(dryMassCalcTotalTons(), " t")}`;
-      if (breakdown) {
-        breakdown.innerHTML = [
-          `${localText("선체", "Hull")} ${formatNumber(hullMass, " t")}`,
-          `${localText("장갑", "Armor")} ${formatNumber(armorTotals.massTons, " t")}`,
-          `${localText("무장", "Weapons")} ${formatNumber(moduleTotals.weaponMassTons, " t")}`,
-          `${localText("유틸리티", "Utility")} ${formatNumber(moduleTotals.utilityMassTons, " t")}`,
-          `${localText("추가 승무원", "Extra crew")} ${formatCompact(moduleTotals.crew, 1_000)}`,
-          `${localText("모듈 전력", "Module power")} ${formatNumber(moduleTotals.powerMW, " MW")}`,
-        ].map(item => `<span>${escapeHtml(item)}</span>`).join("");
-      }
-      enhanceSearchableSelects(document.getElementById("dryMassCalcModal"));
-    }
-
-    function setupDryMassCalculator() {
-      const modal = document.getElementById("dryMassCalcModal");
-      const button = document.getElementById("dryMassCalcButton");
-      const classSelect = document.getElementById("dryMassCalcClass");
-      const slots = document.getElementById("dryMassCalcSlots");
-      const weapons = document.getElementById("dryMassCalcWeapons");
-      const armor = document.getElementById("dryMassCalcArmor");
-      const close = document.getElementById("dryMassCalcClose");
-      const apply = document.getElementById("dryMassCalcApply");
-      const applyWithDefaults = document.getElementById("dryMassCalcApplyWithDefaults");
-      const reset = document.getElementById("dryMassCalcReset");
-      const dryMass = document.getElementById("dryMass");
-      const dryMassNumber = document.getElementById("dryMassNumber");
-      const notes = document.getElementById("dryMassCalcNotes");
-      const presetTargetDv = document.getElementById("shipPresetTargetDv");
-      const presetRadiator = document.getElementById("shipPresetRadiator");
-      if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !applyWithDefaults || !reset || !dryMass || !dryMassNumber || !notes || !presetTargetDv || !presetRadiator) return;
-
-      const openModal = () => {
-        renderDryMassCalcModal();
-        modal.classList.add("is-open");
-        const firstSearchableTrigger = modal.querySelector(".searchable-select-trigger");
-        (firstSearchableTrigger || classSelect).focus();
-      };
-      const closeModal = () => {
-        modal.classList.remove("is-open");
-      };
-
-      button.addEventListener("click", openModal);
-      close.addEventListener("click", closeModal);
-      reset.addEventListener("click", () => {
-        resetDryMassCalcState();
-        renderDryMassCalcModal();
-      });
-      notes.addEventListener("input", () => {
-        dryMassCalcState.notes = notes.value.slice(0, 2000);
-      });
-      presetTargetDv.addEventListener("input", () => {
-        normalizeShipDesignSimulationDefaults().targetDvKps = clamp(Number(presetTargetDv.value) || 0, 0, 100000);
-      });
-      presetRadiator.addEventListener("change", () => {
-        const defaults = normalizeShipDesignSimulationDefaults();
-        if (DATA.radiators.some(item => item.id === presetRadiator.value)) {
-          defaults.radiatorId = presetRadiator.value;
-        }
-      });
-      modal.addEventListener("click", event => {
-        if (event.target === modal) closeModal();
-      });
-      modal.addEventListener("keydown", event => {
-        if (event.key === "Escape") closeModal();
-      });
-      classSelect.addEventListener("change", () => {
-        dryMassCalcState.classId = classSelect.value;
-        normalizeDryMassCalcSlots();
-        renderDryMassCalcModal();
-      });
-      slots.addEventListener("change", event => {
-        const select = event.target.closest("select[data-slot-index]");
-        if (!select) return;
-        const index = Number(select.dataset.slotIndex);
-        if (!Number.isFinite(index) || index < 0) return;
-        dryMassCalcState.slotModules[index] = select.value;
-        renderDryMassCalcModal();
-      });
-      weapons.addEventListener("change", event => {
-        const select = event.target.closest("select[data-weapon-section]");
-        if (!select) return;
-        const section = select.dataset.weaponSection;
-        if (section !== "nose" && section !== "hull") return;
-        const value = select.value;
-        const selections = weaponSelections(section);
-        if (select.dataset.weaponIndex === "new") {
-          if (value !== EMPTY_WEAPON_MODULE.dataName) selections.push(value);
-        } else {
-          const index = Number(select.dataset.weaponIndex);
-          if (!Number.isFinite(index) || index < 0) return;
-          if (value === EMPTY_WEAPON_MODULE.dataName) {
-            selections.splice(index, 1);
-          } else {
-            selections[index] = value;
-          }
-        }
-        normalizeDryMassCalcWeapons();
-        renderDryMassCalcModal();
-      });
-      armor.addEventListener("change", event => {
-        const control = event.target.closest("[data-armor-section]");
-        if (!control) return;
-        const section = control.dataset.armorSection;
-        if (!["tail", "hull", "nose"].includes(section)) return;
-        const selection = armorSelection(section);
-        if (control.dataset.armorField === "type") {
-          selection.armorId = control.value;
-        } else if (control.dataset.armorField === "points") {
-          selection.points = Math.round(Number(control.value) || 0);
-        }
-        normalizeDryMassCalcArmor();
-        renderDryMassCalcModal();
-      });
-      apply.addEventListener("click", () => {
-        const value = clamp(dryMassCalcTotalTons(), 0, 1000000);
-        state.dryMassTons = value;
-        dryMass.value = String(clamp(value, Number(dryMass.min), Number(dryMass.max)));
-        dryMassNumber.value = String(Math.round(value));
-        closeModal();
-        render();
-      });
-      applyWithDefaults.addEventListener("click", () => {
-        const value = clamp(dryMassCalcTotalTons(), 0, 1000000);
-        state.dryMassTons = value;
-        applyShipDesignSimulationDefaultsToState();
-        syncUiFromState();
-        closeModal();
-        render();
-      });
-
-      normalizeDryMassCalcSlots();
-      setupDryMassPresetControls();
-      renderDryMassCalcModal();
-    }
-
-    function localLabel(item) {
+export function localLabel(item) {
       if (UI_LANG === "en") return item.labelEn || item.label || item.key;
       return item.label || item.labelEn || item.key;
     }
 
-    function localCategoryHelp(category) {
+export let chartPresetLibrary = loadChartPresetLibrary();
+export let dryMassPresetLibrary = loadDryMassPresetLibrary();
+export const builtInChartPresetLibrary = loadBuiltInChartPresetLibrary();
+export const builtInDryMassPresetLibrary = loadBuiltInDryMassPresetLibrary();
+export let startupChartPresetId = loadStartupChartPresetId();
+
+export function setChartPresetLibrary(value) {
+      chartPresetLibrary = Array.isArray(value) ? value : [];
+}
+
+export function setDryMassPresetLibrary(value) {
+      dryMassPresetLibrary = Array.isArray(value) ? value : [];
+}
+
+export function localCategoryHelp(category) {
       if (UI_LANG === "en") return category.helpEn || category.help || "";
       return category.help || category.helpEn || "";
     }
 
-    function helpText(key) {
+export function helpText(key) {
       const item = HELP_TEXT[key] || {};
       return UI_LANG === "en" ? (item.en || item.ko || "") : (item.ko || item.en || "");
     }
 
-    function applyHelp(element, text) {
+export function applyHelp(element, text) {
       if (!element || !text) return;
       element.dataset.help = text;
       element.title = text;
     }
 
-    function cloneJson(value) {
+export function cloneJson(value) {
       const text = JSON.stringify(value);
       return text ? JSON.parse(text) : null;
     }
 
-    function storageReadJson(key) {
+export function storageReadJson(key) {
       try {
         const raw = localStorage.getItem(key);
         return raw ? JSON.parse(raw) : null;
@@ -287,7 +54,7 @@
       }
     }
 
-    function storageWriteJson(key, value) {
+export function storageWriteJson(key, value) {
       try {
         localStorage.setItem(key, JSON.stringify(value));
         return true;
@@ -296,19 +63,19 @@
       }
     }
 
-    function uniquePresetId(prefix) {
+export function uniquePresetId(prefix) {
       if (window.crypto && typeof window.crypto.randomUUID === "function") {
         return `${prefix}-${window.crypto.randomUUID()}`;
       }
       return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     }
 
-    function sanitizePresetName(value, fallback = "Preset") {
+export function sanitizePresetName(value, fallback = "Preset") {
       const name = String(value || "").trim();
       return name || fallback;
     }
 
-    function uniquePresetName(baseName, library, ignoreId = "") {
+export function uniquePresetName(baseName, library, ignoreId = "") {
       const base = sanitizePresetName(baseName, "Preset");
       let candidate = base;
       let suffix = 2;
@@ -319,11 +86,11 @@
       return candidate;
     }
 
-    function presetTimestamp() {
+export function presetTimestamp() {
       return new Date().toISOString();
     }
 
-    function normalizeChartPresetEntry(rawEntry, fallbackName = "Chart preset") {
+export function normalizeChartPresetEntry(rawEntry, fallbackName = "Chart preset") {
       if (!rawEntry || typeof rawEntry !== "object") return null;
       const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
       const settings = source.settings && typeof source.settings === "object" ? source.settings : source;
@@ -338,7 +105,7 @@
       };
     }
 
-    function normalizeDryMassPresetEntry(rawEntry, fallbackName = "Design preset") {
+export function normalizeDryMassPresetEntry(rawEntry, fallbackName = "Design preset") {
       if (!rawEntry || typeof rawEntry !== "object") return null;
       const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
       const dryMassDesign = source.dryMassDesign && typeof source.dryMassDesign === "object"
@@ -372,7 +139,7 @@
       };
     }
 
-    function dedupePresetEntries(entries) {
+export function dedupePresetEntries(entries) {
       const seen = new Set();
       return entries.filter(entry => {
         if (!entry || seen.has(entry.id)) return false;
@@ -381,12 +148,12 @@
       });
     }
 
-    function presetLibraryData() {
+export function presetLibraryData() {
       const library = DATA.presetLibrary;
       return library && typeof library === "object" ? library : {};
     }
 
-    function builtInPresetId(prefix, rawEntry, index) {
+export function builtInPresetId(prefix, rawEntry, index) {
       const source = rawEntry && rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
       const rawId = source && typeof source.id === "string" && source.id.trim()
         ? source.id.trim()
@@ -394,7 +161,7 @@
       return `${prefix}:${rawId}`;
     }
 
-    function normalizeBuiltInChartPresetEntry(rawEntry, index) {
+export function normalizeBuiltInChartPresetEntry(rawEntry, index) {
       if (!rawEntry || typeof rawEntry !== "object") return null;
       const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
       const entry = normalizeChartPresetEntry(
@@ -405,7 +172,7 @@
       return entry;
     }
 
-    function normalizeBuiltInDryMassPresetEntry(rawEntry, index) {
+export function normalizeBuiltInDryMassPresetEntry(rawEntry, index) {
       if (!rawEntry || typeof rawEntry !== "object") return null;
       const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
       const entry = normalizeDryMassPresetEntry(
@@ -416,41 +183,41 @@
       return entry;
     }
 
-    function loadBuiltInChartPresetLibrary() {
+export function loadBuiltInChartPresetLibrary() {
       const presets = presetLibraryData().chartPresets;
       return dedupePresetEntries((Array.isArray(presets) ? presets : [])
         .map(normalizeBuiltInChartPresetEntry)
         .filter(Boolean));
     }
 
-    function loadBuiltInDryMassPresetLibrary() {
+export function loadBuiltInDryMassPresetLibrary() {
       const presets = presetLibraryData().dryMassPresets;
       return dedupePresetEntries((Array.isArray(presets) ? presets : [])
         .map(normalizeBuiltInDryMassPresetEntry)
         .filter(Boolean));
     }
 
-    function allChartPresetEntries() {
+export function allChartPresetEntries() {
       return [...builtInChartPresetLibrary, ...chartPresetLibrary];
     }
 
-    function allDryMassPresetEntries() {
+export function allDryMassPresetEntries() {
       return [...builtInDryMassPresetLibrary, ...dryMassPresetLibrary];
     }
 
-    function loadChartPresetLibrary() {
+export function loadChartPresetLibrary() {
       const raw = storageReadJson(CHART_PRESET_STORAGE_KEY);
       const presets = Array.isArray(raw) ? raw : (Array.isArray(raw?.presets) ? raw.presets : []);
       return dedupePresetEntries(presets.map(item => normalizeChartPresetEntry(item)).filter(Boolean));
     }
 
-    function loadDryMassPresetLibrary() {
+export function loadDryMassPresetLibrary() {
       const raw = storageReadJson(DRY_MASS_PRESET_STORAGE_KEY);
       const presets = Array.isArray(raw) ? raw : (Array.isArray(raw?.presets) ? raw.presets : []);
       return dedupePresetEntries(presets.map(item => normalizeDryMassPresetEntry(item)).filter(Boolean));
     }
 
-    function loadStartupChartPresetId() {
+export function loadStartupChartPresetId() {
       try {
         return localStorage.getItem(CHART_PRESET_STARTUP_STORAGE_KEY) || "";
       } catch {
@@ -458,21 +225,21 @@
       }
     }
 
-    function saveChartPresetLibrary() {
+export function saveChartPresetLibrary() {
       return storageWriteJson(CHART_PRESET_STORAGE_KEY, {
         format: "ti-engine-chart-preset-library/v1",
         presets: chartPresetLibrary,
       });
     }
 
-    function saveDryMassPresetLibrary() {
+export function saveDryMassPresetLibrary() {
       return storageWriteJson(DRY_MASS_PRESET_STORAGE_KEY, {
         format: "ti-engine-chart-design-preset-library/v1",
         presets: dryMassPresetLibrary,
       });
     }
 
-    function chartPresetExportObject(entry) {
+export function chartPresetExportObject(entry) {
       return {
         format: "ti-engine-chart-named-preset/v1",
         id: entry.id,
@@ -483,7 +250,7 @@
       };
     }
 
-    function chartPresetLibraryExportObject() {
+export function chartPresetLibraryExportObject() {
       return {
         format: "ti-engine-chart-preset-library/v1",
         presets: chartPresetLibrary.map(chartPresetExportObject),
@@ -491,7 +258,7 @@
       };
     }
 
-    function dryMassPresetExportObject(entry) {
+export function dryMassPresetExportObject(entry) {
       const calculator = cloneJson(entry.calculator);
       const simulationDefaults = calculator && calculator.simulationDefaults && typeof calculator.simulationDefaults === "object"
         ? cloneJson(calculator.simulationDefaults)
@@ -509,14 +276,14 @@
       };
     }
 
-    function dryMassPresetLibraryExportObject() {
+export function dryMassPresetLibraryExportObject() {
       return {
         format: "ti-engine-chart-design-preset-library/v1",
         presets: dryMassPresetLibrary.map(dryMassPresetExportObject),
       };
     }
 
-    function setStartupChartPreset(id) {
+export function setStartupChartPreset(id) {
       startupChartPresetId = id || "";
       try {
         if (startupChartPresetId) {
@@ -530,25 +297,25 @@
       }
     }
 
-    function selectedChartPresetEntry() {
+export function selectedChartPresetEntry() {
       const select = document.getElementById("chartPresetSelect");
       return allChartPresetEntries().find(item => item.id === (select && select.value)) || null;
     }
 
-    function selectedDryMassPresetEntry() {
+export function selectedDryMassPresetEntry() {
       const select = document.getElementById("dryMassPresetSelect");
       return allDryMassPresetEntries().find(item => item.id === (select && select.value)) || null;
     }
 
-    function firstChartPresetEntry() {
+export function firstChartPresetEntry() {
       return allChartPresetEntries()[0] || null;
     }
 
-    function firstDryMassPresetEntry() {
+export function firstDryMassPresetEntry() {
       return allDryMassPresetEntries()[0] || null;
     }
 
-    function applyChartPresetEntry(entry, { showStatus = true } = {}) {
+export function applyChartPresetEntry(entry, { showStatus = true } = {}) {
       if (!entry) return false;
       if (!applyPresetToState(entry.settings)) {
         if (showStatus) showPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
@@ -560,11 +327,11 @@
       return true;
     }
 
-    function applySelectedChartPreset(options = {}) {
+export function applySelectedChartPreset(options = {}) {
       return applyChartPresetEntry(selectedChartPresetEntry(), options);
     }
 
-    function applyDryMassPresetEntry(entry, { showStatus = true } = {}) {
+export function applyDryMassPresetEntry(entry, { showStatus = true } = {}) {
       if (!entry) return false;
       if (!applyDryMassCalculatorPreset(entry.calculator)) {
         if (showStatus) showDryMassPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
@@ -575,11 +342,11 @@
       return true;
     }
 
-    function applySelectedDryMassPreset(options = {}) {
+export function applySelectedDryMassPreset(options = {}) {
       return applyDryMassPresetEntry(selectedDryMassPresetEntry(), options);
     }
 
-    function applyStartupChartPreset() {
+export function applyStartupChartPreset() {
       let entry = startupChartPresetId
         ? allChartPresetEntries().find(item => item.id === startupChartPresetId)
         : null;
@@ -588,12 +355,12 @@
       return !!entry && applyPresetToState(entry.settings);
     }
 
-    function setDisabled(id, disabled) {
+export function setDisabled(id, disabled) {
       const button = document.getElementById(id);
       if (button) button.disabled = !!disabled;
     }
 
-    function appendPresetOptionGroup(select, label, entries, startupId = "") {
+export function appendPresetOptionGroup(select, label, entries, startupId = "") {
       if (!entries.length) return;
       const group = document.createElement("optgroup");
       group.label = label;
@@ -608,7 +375,7 @@
       select.appendChild(group);
     }
 
-    function renderChartPresetControls(preferredId = "") {
+export function renderChartPresetControls(preferredId = "") {
       const select = document.getElementById("chartPresetSelect");
       if (!select) return;
       const allEntries = allChartPresetEntries();
@@ -640,7 +407,7 @@
       setDisabled("chartPresetClearStartup", !startupChartPresetId);
     }
 
-    function renderDryMassPresetControls(preferredId = "") {
+export function renderDryMassPresetControls(preferredId = "") {
       const select = document.getElementById("dryMassPresetSelect");
       if (!select) return;
       const allEntries = allDryMassPresetEntries();
@@ -665,12 +432,12 @@
       ["dryMassPresetRename", "dryMassPresetDelete"].forEach(id => setDisabled(id, !entry || !!entry.builtIn));
     }
 
-    function renderPresetLibraryControls() {
+export function renderPresetLibraryControls() {
       renderChartPresetControls();
       renderDryMassPresetControls();
     }
 
-    function promptPresetName(message, defaultName, statusFn) {
+export function promptPresetName(message, defaultName, statusFn) {
       const name = window.prompt(message, defaultName || "");
       if (name === null) return null;
       const clean = sanitizePresetName(name, "");
@@ -681,7 +448,7 @@
       return clean;
     }
 
-    function saveChartPresetFromSettings(name, settings, existingId = "") {
+export function saveChartPresetFromSettings(name, settings, existingId = "") {
       const now = presetTimestamp();
       const existing = chartPresetLibrary.find(item => item.id === existingId);
       const entry = {
@@ -701,7 +468,7 @@
       return entry;
     }
 
-    function saveDryMassPresetFromCalculator(name, calculator, existingId = "") {
+export function saveDryMassPresetFromCalculator(name, calculator, existingId = "") {
       const now = presetTimestamp();
       const existing = dryMassPresetLibrary.find(item => item.id === existingId);
       const entry = {
@@ -721,7 +488,7 @@
       return entry;
     }
 
-    function mergeChartPresetEntries(entries) {
+export function mergeChartPresetEntries(entries) {
       let changed = 0;
       entries.map((entry, index) => normalizeChartPresetEntry(entry, `Imported chart preset ${index + 1}`))
         .filter(Boolean)
@@ -739,7 +506,7 @@
       return changed;
     }
 
-    function mergeDryMassPresetEntries(entries) {
+export function mergeDryMassPresetEntries(entries) {
       let changed = 0;
       entries.map((entry, index) => normalizeDryMassPresetEntry(entry, `Imported design preset ${index + 1}`))
         .filter(Boolean)
@@ -757,7 +524,7 @@
       return changed;
     }
 
-    function extractChartSettingsFromImport(raw) {
+export function extractChartSettingsFromImport(raw) {
       if (!raw || typeof raw !== "object") return null;
       if (raw.format === "ti-engine-chart-named-preset/v1" && raw.settings && typeof raw.settings === "object") {
         return raw.settings;
@@ -779,7 +546,7 @@
       return hasChartField ? raw : null;
     }
 
-    function extractDryMassCalculatorFromImport(raw) {
+export function extractDryMassCalculatorFromImport(raw) {
       if (!raw || typeof raw !== "object") return null;
       if ((raw.format === "ti-engine-chart-dry-mass-preset/v1" || raw.format === "ti-engine-chart-design-preset/v1") && raw.calculator && typeof raw.calculator === "object") {
         return raw.calculator;
@@ -796,7 +563,7 @@
       return hasCalculatorField ? raw : null;
     }
 
-    async function handleImportedPresetObject(raw, { preferredKind = "chart", promptToSaveCurrent = true } = {}) {
+export async function handleImportedPresetObject(raw, { preferredKind = "chart", promptToSaveCurrent = true } = {}) {
       if (!raw || typeof raw !== "object") {
         return { ok: false, message: localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format.") };
       }
@@ -878,9 +645,9 @@
       return { ok: false, message: localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format.") };
     }
 
-    let presetExportModalState = null;
+export let presetExportModalState = null;
 
-    async function serializePayloadObject(object) {
+export async function serializePayloadObject(object) {
       const jsonText = JSON.stringify(object);
       const sourceBytes = new TextEncoder().encode(jsonText);
       const gzipped = await gzipBytes(sourceBytes);
@@ -888,17 +655,17 @@
       return `tijp1:${bytesToBase64(sourceBytes)}`;
     }
 
-    async function formatExportPayloadObject(object, format) {
+export async function formatExportPayloadObject(object, format) {
       if (format === "json") return JSON.stringify(object, null, 2);
       return serializePayloadObject(object);
     }
 
-    function selectedExportFormat() {
+export function selectedExportFormat() {
       const selected = document.querySelector('input[name="presetExportFormat"]:checked');
       return selected && selected.value === "json" ? "json" : "compressed";
     }
 
-    async function refreshPresetExportOutput() {
+export async function refreshPresetExportOutput() {
       const output = document.getElementById("presetExportOutput");
       const status = document.getElementById("presetExportStatus");
       if (!output || !presetExportModalState) return;
@@ -917,7 +684,7 @@
       }
     }
 
-    function openPresetExportModal({ object, title, description, successText, failureText, statusFn = showPresetStatus }) {
+export function openPresetExportModal({ object, title, description, successText, failureText, statusFn = showPresetStatus }) {
       const modal = document.getElementById("presetExportModal");
       const titleElement = document.getElementById("presetExportTitle");
       const descriptionElement = document.getElementById("presetExportDescription");
@@ -932,13 +699,13 @@
       document.getElementById("presetExportCopy")?.focus();
     }
 
-    function closePresetExportModal() {
+export function closePresetExportModal() {
       const modal = document.getElementById("presetExportModal");
       if (modal) modal.classList.remove("is-open");
       presetExportModalState = null;
     }
 
-    async function copyPresetExportOutput() {
+export async function copyPresetExportOutput() {
       const output = document.getElementById("presetExportOutput");
       const status = document.getElementById("presetExportStatus");
       if (!output || !presetExportModalState) return;
@@ -960,11 +727,11 @@
       }
     }
 
-    function openSerializedObjectExport(object, successText, failureText, statusFn = showPresetStatus, title = "", description = "") {
+export function openSerializedObjectExport(object, successText, failureText, statusFn = showPresetStatus, title = "", description = "") {
       openPresetExportModal({ object, title, description, successText, failureText, statusFn });
     }
 
-    function setupPresetExportModal() {
+export function setupPresetExportModal() {
       const modal = document.getElementById("presetExportModal");
       document.getElementById("presetExportClose")?.addEventListener("click", closePresetExportModal);
       document.getElementById("presetExportCopy")?.addEventListener("click", copyPresetExportOutput);
@@ -979,7 +746,7 @@
       });
     }
 
-    function setupPresetLibraryControls() {
+export function setupPresetLibraryControls() {
       setupPresetExportModal();
       renderChartPresetControls();
       document.getElementById("chartPresetSelect")?.addEventListener("change", event => {
@@ -1060,7 +827,7 @@
       });
     }
 
-    function setupDryMassPresetControls() {
+export function setupDryMassPresetControls() {
       renderDryMassPresetControls();
       applySelectedDryMassPreset({ showStatus: false });
       document.getElementById("dryMassPresetSelect")?.addEventListener("change", event => {
@@ -1144,12 +911,12 @@
       });
     }
 
-    function setTextById(id, ko, en) {
+export function setTextById(id, ko, en) {
       const element = document.getElementById(id);
       if (element) element.textContent = localText(ko, en);
     }
 
-    function setPresetUiText() {
+export function setPresetUiText() {
       const exportButton = document.getElementById("presetExport");
       const importButton = document.getElementById("presetImport");
       if (exportButton) exportButton.textContent = localText("현재 설정 Export", "Export current settings");
@@ -1180,14 +947,14 @@
       renderPresetLibraryControls();
     }
 
-    function showPresetStatus(message, isError = false) {
+export function showPresetStatus(message, isError = false) {
       const status = document.getElementById("presetStatus");
       if (!status) return;
       status.textContent = message || "";
       status.classList.toggle("error", !!isError);
     }
 
-    function showDryMassPresetStatus(message, isError = false) {
+export function showDryMassPresetStatus(message, isError = false) {
       const status = document.getElementById("dryMassPresetStatus");
       if (!status) return;
       status.textContent = message || "";
@@ -1195,11 +962,11 @@
     }
 
 
-    function chartPresetDesignLibrarySnapshot() {
+export function chartPresetDesignLibrarySnapshot() {
       return dryMassPresetLibrary.map(dryMassPresetExportObject);
     }
 
-    function restoreDesignPresetLibrarySnapshot(rawEntries) {
+export function restoreDesignPresetLibrarySnapshot(rawEntries) {
       if (!Array.isArray(rawEntries)) return false;
       const entries = rawEntries
         .map((entry, index) => normalizeDryMassPresetEntry(entry, `Restored design preset ${index + 1}`))
@@ -1210,7 +977,7 @@
       return true;
     }
 
-    function exportedPreset() {
+export function exportedPreset() {
       return {
         format: "ti-engine-chart-preset/v1",
         lang: UI_LANG,
@@ -1239,7 +1006,7 @@
       };
     }
 
-    async function copyToClipboard(text) {
+export async function copyToClipboard(text) {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
         return true;
@@ -1260,7 +1027,7 @@
       return copied;
     }
 
-    async function readFromClipboard() {
+export async function readFromClipboard() {
       if (!(navigator.clipboard && window.isSecureContext)) return "";
       try {
         return (await navigator.clipboard.readText()) || "";
@@ -1269,7 +1036,7 @@
       }
     }
 
-    function bytesToBase64(bytes) {
+export function bytesToBase64(bytes) {
       let binary = "";
       const chunkSize = 0x8000;
       for (let index = 0; index < bytes.length; index += chunkSize) {
@@ -1279,30 +1046,30 @@
       return btoa(binary);
     }
 
-    function base64ToBytes(text) {
+export function base64ToBytes(text) {
       const binary = atob(text);
       const bytes = new Uint8Array(binary.length);
       for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
       return bytes;
     }
 
-    async function gzipBytes(bytes) {
+export async function gzipBytes(bytes) {
       if (typeof CompressionStream !== "function") return null;
       const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
       return new Uint8Array(await new Response(stream).arrayBuffer());
     }
 
-    async function gunzipBytes(bytes) {
+export async function gunzipBytes(bytes) {
       if (typeof DecompressionStream !== "function") return null;
       const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
       return new Uint8Array(await new Response(stream).arrayBuffer());
     }
 
-    async function serializePresetPayload() {
+export async function serializePresetPayload() {
       return serializePayloadObject(exportedPreset());
     }
 
-    async function parsePresetPayload(payloadText) {
+export async function parsePresetPayload(payloadText) {
       const payload = String(payloadText || "").trim();
       if (!payload) throw new Error("empty");
 
@@ -1321,7 +1088,7 @@
       return JSON.parse(payload);
     }
 
-    function applyPresetToState(rawPreset) {
+export function applyPresetToState(rawPreset) {
       const preset = rawPreset && rawPreset.settings ? rawPreset.settings : rawPreset;
       if (!preset || typeof preset !== "object") return false;
 
@@ -1392,7 +1159,7 @@
       return true;
     }
 
-    function syncUiFromState() {
+export function syncUiFromState() {
       const metric = document.getElementById("metric");
       const thrusters = document.getElementById("thrusters");
       const thrustersNumber = document.getElementById("thrustersNumber");
@@ -1407,6 +1174,7 @@
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
+      const nameSearch = document.getElementById("nameSearch");
 
       if (metric) metric.value = state.metric;
       if (thrusters) thrusters.value = String(state.thrusters);
@@ -1438,4 +1206,5 @@
       renderDryMassCalcModal();
       render();
     }
+
 

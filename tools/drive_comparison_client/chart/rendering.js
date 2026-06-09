@@ -1,4 +1,11 @@
-    function drawGridAndAxes(ctx) {
+import { chartMassOptions, chartSummaryMassOptions, clamp, isImpracticalOption, massOptions, rowUnlockResearchValue } from "../calc/filtering.js";
+import { allDriveRowsById, chart, localText, metricDefs, metricLabel, powerResearchActive, state } from "../state/core.js";
+import { formatAxisTick, paintStyle } from "../ui/tooltip_table.js";
+import { buildAxisTickPlan } from "./axis.js";
+import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows } from "./context.js";
+import { redrawChartOnly } from "./interaction.js";
+
+export function drawGridAndAxes(ctx) {
       const { width, height, margin, innerW, innerH, x, y, xDomain, yDomain } = ctx;
       const xTickPlan = buildAxisTickPlan(xDomain[0], xDomain[1], innerW, state.logX, {
         gridPixelGap: state.logX ? 72 : 78,
@@ -89,7 +96,7 @@
       chart.appendChild(axis);
     }
 
-    function groupedRows(rows) {
+export function groupedRows(rows) {
       const groups = new Map();
       rows.forEach(row => {
         if (!groups.has(row.familyKey)) groups.set(row.familyKey, []);
@@ -99,7 +106,7 @@
       return groups;
     }
 
-    function pointAttrs(row, powerOptionId, fill, stroke = "none", strokeWidth = 0, extraClass = "") {
+export function pointAttrs(row, powerOptionId, fill, stroke = "none", strokeWidth = 0, extraClass = "") {
       const hovered = isHoveredPoint(row, powerOptionId);
       return {
         class: `data-point${extraClass ? ` ${extraClass}` : ""}`,
@@ -113,11 +120,11 @@
       };
     }
 
-    function pointKey(rowId, powerOptionId = null) {
+export function pointKey(rowId, powerOptionId = null) {
       return `${rowId}::${powerOptionId || ""}`;
     }
 
-    function tooltipRef(rowOrId, powerOptionId = null) {
+export function tooltipRef(rowOrId, powerOptionId = null) {
       const rowId = typeof rowOrId === "object" ? (rowOrId.rowId || rowOrId.id) : rowOrId;
       const optionId = typeof rowOrId === "object" && rowOrId.powerOptionId !== undefined && powerOptionId === null
         ? rowOrId.powerOptionId
@@ -126,7 +133,7 @@
       return { rowId, powerOptionId: normalizedOptionId, key: pointKey(rowId, normalizedOptionId) };
     }
 
-    function dedupeTooltipRefs(items) {
+export function dedupeTooltipRefs(items) {
       const refs = [];
       const seen = new Set();
       (items || []).forEach(item => {
@@ -138,7 +145,7 @@
       return refs;
     }
 
-    function resolveTooltipRow(ref, rowById, rows) {
+export function resolveTooltipRow(ref, rowById, rows) {
       const direct = rowById.get(ref.rowId);
       if (direct) return direct;
       const original = allDriveRowsById.get(ref.rowId);
@@ -150,36 +157,36 @@
         || null;
     }
 
-    function isPinnedTooltipKey(key) {
+export function isPinnedTooltipKey(key) {
       return state.pinnedTooltipItems.some(item => item.key === key);
     }
 
-    function pinnedTooltipRefs() {
+export function pinnedTooltipRefs() {
       const lastPinned = dedupeTooltipRefs(state.lastTooltipItems).filter(item => isPinnedTooltipKey(item.key));
       const included = new Set(lastPinned.map(item => item.key));
       const missingPinned = dedupeTooltipRefs(state.pinnedTooltipItems).filter(item => !included.has(item.key));
       return [...lastPinned, ...missingPinned];
     }
 
-    function mergePinnedTooltipRefs(items) {
+export function mergePinnedTooltipRefs(items) {
       const pinned = pinnedTooltipRefs();
       const pinnedKeys = new Set(pinned.map(item => item.key));
       const transient = dedupeTooltipRefs(items).filter(item => !pinnedKeys.has(item.key));
       return [...pinned, ...transient];
     }
 
-    function syncPinnedTooltipOrder() {
+export function syncPinnedTooltipOrder() {
       const pinnedKeys = new Set(state.pinnedTooltipItems.map(item => item.key));
       state.pinnedTooltipItems = dedupeTooltipRefs(state.lastTooltipItems).filter(item => pinnedKeys.has(item.key));
     }
 
-    function sameTooltipRefs(left, right) {
+export function sameTooltipRefs(left, right) {
       const a = dedupeTooltipRefs(left);
       const b = dedupeTooltipRefs(right);
       return a.length === b.length && a.every((item, index) => item.key === b[index].key);
     }
 
-    function powerResearchFocusedDriveIds() {
+export function powerResearchFocusedDriveIds() {
       const refs = [
         ...dedupeTooltipRefs(state.hoverPoints),
         ...dedupeTooltipRefs(state.pinnedTooltipItems),
@@ -188,23 +195,23 @@
       return new Set(refs.map(item => item.rowId).filter(Boolean));
     }
 
-    function powerResearchFocusSignature() {
+export function powerResearchFocusSignature() {
       return Array.from(powerResearchFocusedDriveIds()).sort().join("|");
     }
 
-    function redrawPowerResearchFocusIfChanged(previousSignature) {
+export function redrawPowerResearchFocusIfChanged(previousSignature) {
       if (!powerResearchActive() || !currentChartRows.length) return false;
       if (previousSignature === powerResearchFocusSignature()) return false;
       redrawChartOnly();
       return true;
     }
 
-    function isHoveredPoint(row, powerOptionId = null) {
+export function isHoveredPoint(row, powerOptionId = null) {
       const key = pointKey(row.id, powerOptionId);
       return state.hoverPoints.some(item => item.key === key);
     }
 
-    function setHoverPoints(items) {
+export function setHoverPoints(items) {
       const previousSignature = powerResearchFocusSignature();
       state.hoverPoints = dedupeTooltipRefs(items);
       if (!redrawPowerResearchFocusIfChanged(previousSignature)) {
@@ -212,7 +219,7 @@
       }
     }
 
-    function registerHitTarget(row, powerOptionId, xCoord, yCoord, radius = 5) {
+export function registerHitTarget(row, powerOptionId, xCoord, yCoord, radius = 5) {
       if (!Number.isFinite(xCoord) || !Number.isFinite(yCoord) || !pointVisibleInPlot(xCoord, yCoord)) return;
       chartHitTargets.push({
         ...tooltipRef(row, powerOptionId),
@@ -223,7 +230,7 @@
       });
     }
 
-    function registerLadderHitTargets(row, optionPoints) {
+export function registerLadderHitTargets(row, optionPoints) {
       if (!Array.isArray(optionPoints) || optionPoints.length < 2) return;
       const baseOptionId = optionPoints[0].option ? optionPoints[0].option.id : null;
       for (let index = 0; index < optionPoints.length - 1; index += 1) {
@@ -243,7 +250,7 @@
       }
     }
 
-    function segmentMayIntersectPlot(start, end) {
+export function segmentMayIntersectPlot(start, end) {
       if (!chartViewport) return false;
       if (pointVisibleInPlot(start.xCoord, start.yCoord) || pointVisibleInPlot(end.xCoord, end.yCoord)) return true;
       const { margin, innerW, innerH } = chartViewport;
@@ -257,7 +264,7 @@
         && minY <= margin.top + innerH;
     }
 
-    function pointVisibleInPlot(xCoord, yCoord) {
+export function pointVisibleInPlot(xCoord, yCoord) {
       if (!chartViewport) return false;
       const { margin, innerW, innerH } = chartViewport;
       return xCoord >= margin.left
@@ -266,7 +273,7 @@
         && yCoord <= margin.top + innerH;
     }
 
-    function updateHoverStyles() {
+export function updateHoverStyles() {
       const hoveredKeys = new Set(state.hoverPoints.map(item => item.key));
       chart.querySelectorAll(".data-point").forEach(point => {
         const hovered = hoveredKeys.has(pointKey(point.getAttribute("data-row-id"), point.getAttribute("data-power-option-id")));
@@ -275,7 +282,7 @@
       });
     }
 
-    function drawMetricLines(rows, x, y, plot) {
+export function drawMetricLines(rows, x, y, plot) {
       const groups = groupedRows(rows);
       groups.forEach(group => {
         const color = group[0].familyColor;
@@ -295,7 +302,7 @@
       });
     }
 
-    function chartResearchValues(rows) {
+export function chartResearchValues(rows) {
       const values = isBandMetric()
         ? rows.flatMap(row => {
           const base = rowUnlockResearchValue(row);
@@ -309,7 +316,7 @@
       return values.filter(value => Number.isFinite(value) && value > 0);
     }
 
-    function optionAdditionalResearchValue(row, option = null) {
+export function optionAdditionalResearchValue(row, option = null) {
       if (!option) return rowUnlockResearchValue(row);
       const combined = Number(option.combinedCumulativeResearch);
       if (Number.isFinite(combined) && combined > 0) return combined;
@@ -317,7 +324,7 @@
       return Math.max(rowUnlockResearchValue(row), Number.isFinite(plantResearch) ? plantResearch : 0);
     }
 
-    function optionPowerResearchDelta(row, option = null) {
+export function optionPowerResearchDelta(row, option = null) {
       if (!option || option.selfContained) return 0;
       const base = Number(row.cumulativeResearch) || 0;
       const combined = Number(option.combinedCumulativeResearch);
@@ -326,18 +333,18 @@
       return Math.max(0, (Number.isFinite(plantResearch) ? plantResearch : base) - base);
     }
 
-    function optionResearchValue(row, option = null) {
+export function optionResearchValue(row, option = null) {
       if (powerResearchActive() && option) {
         return optionAdditionalResearchValue(row, option);
       }
       return rowUnlockResearchValue(row);
     }
 
-    function optionX(row, option, x) {
+export function optionX(row, option, x) {
       return x(optionResearchValue(row, option));
     }
 
-    function drawTotalMassBands(rows, x, y, plot) {
+export function drawTotalMassBands(rows, x, y, plot) {
       const pointData = bandPointData(rows);
       const secondaryDomain = secondaryEncodingDomain(pointData);
       const paretoKeys = state.paretoHighlight ? paretoPointKeys(pointData) : new Set();
@@ -379,11 +386,11 @@
       });
     }
 
-    function powerResearchComparisonMode() {
+export function powerResearchComparisonMode() {
       return state.powerResearchView === "best";
     }
 
-    function drawPowerBestAvailableComparison(rows, x, y, plot, secondaryDomain, paretoKeys, focusedDriveIds) {
+export function drawPowerBestAvailableComparison(rows, x, y, plot, secondaryDomain, paretoKeys, focusedDriveIds) {
       const groups = groupedRows(rows);
       groups.forEach(group => {
         const color = group[0].familyBandColor || group[0].familyColor;
@@ -412,7 +419,7 @@
       });
     }
 
-    function firstCompatiblePowerPoint(row, x, y) {
+export function firstCompatiblePowerPoint(row, x, y) {
       const option = sortedChartPowerOptions(row)[0];
       if (!option) return null;
       const xCoord = x(optionAdditionalResearchValue(row, option));
@@ -420,7 +427,7 @@
       return Number.isFinite(xCoord) && Number.isFinite(yCoord) ? { row, option, xCoord, yCoord } : null;
     }
 
-    function drawFirstCompatiblePowerPoint(row, option, xCoord, yCoord, plot, color, fillStyle, secondaryDomain, paretoKeys) {
+export function drawFirstCompatiblePowerPoint(row, option, xCoord, yCoord, plot, color, fillStyle, secondaryDomain, paretoKeys) {
       const key = pointKey(row.id, option.id);
       const visual = bandPointVisual(option, secondaryDomain, paretoKeys.has(key));
       const impractical = isImpracticalOption(option);
@@ -444,7 +451,7 @@
       }));
     }
 
-    function drawBestAvailablePowerPath(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds) {
+export function drawBestAvailablePowerPath(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds) {
       const steps = bestAvailablePowerSteps(row);
       if (!steps.length) return;
       const focused = focusedDriveIds.has(row.id);
@@ -496,7 +503,7 @@
       });
     }
 
-    function sortedChartPowerOptions(row, metric = state.metric, availabilityPredicate = () => true) {
+export function sortedChartPowerOptions(row, metric = state.metric, availabilityPredicate = () => true) {
       // TODO(save-aware): Issue #7 should pass save-derived project availability here so Best Available can exclude power plants unavailable in the loaded campaign.
       return chartMassOptions(row, metric)
         .filter(option => availabilityPredicate(row, option))
@@ -510,7 +517,7 @@
           || String(left.id || "").localeCompare(String(right.id || "")));
     }
 
-    function bestAvailablePowerSteps(row, metric = state.metric, availabilityPredicate = () => true) {
+export function bestAvailablePowerSteps(row, metric = state.metric, availabilityPredicate = () => true) {
       const options = sortedChartPowerOptions(row, metric, availabilityPredicate);
       if (!options.length) return [];
       const steps = [];
@@ -539,14 +546,14 @@
       return steps;
     }
 
-    function betterPowerMetricValue(candidate, current, metric = state.metric) {
+export function betterPowerMetricValue(candidate, current, metric = state.metric) {
       if (!Number.isFinite(candidate)) return false;
       if (!Number.isFinite(current)) return true;
       if (metric === "twr") return candidate > current * (1 + 1e-9);
       return candidate < current * (1 - 1e-9);
     }
 
-    function drawPowerLadder(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds, options = {}) {
+export function drawPowerLadder(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds, options = {}) {
       const powerOptions = chartMassOptions(row);
       if (!powerOptions.length) return;
       const focused = focusedDriveIds.has(row.id);
@@ -611,13 +618,13 @@
       });
     }
 
-    function shouldShowExtraPowerOptions(row, focused) {
+export function shouldShowExtraPowerOptions(row, focused) {
       if (!powerResearchActive()) return false;
       if (state.powerResearchView === "all") return true;
       return focused;
     }
 
-    function bandPointData(rows) {
+export function bandPointData(rows) {
       return rows.flatMap(row => chartSummaryMassOptions(row).map(option => ({
         row,
         option,
@@ -632,19 +639,19 @@
         && item.twr > 0);
     }
 
-    function secondaryEncodingEnabled() {
+export function secondaryEncodingEnabled() {
       return ((state.metric === "totalMassTons" || state.metric === "fuelMassTons") && state.showTwrInfo)
         || (state.metric === "twr" && state.showMassInfo);
     }
 
-    function secondaryEncodingDomain(points) {
+export function secondaryEncodingDomain(points) {
       if (!secondaryEncodingEnabled()) return null;
       const scores = points.map(item => secondaryScore(item.option)).filter(Number.isFinite);
       if (!scores.length) return null;
       return { min: Math.min(...scores), max: Math.max(...scores) };
     }
 
-    function secondaryScore(option) {
+export function secondaryScore(option) {
       if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
         return Math.log10(Math.max(option.twr, 1e-12));
       }
@@ -654,7 +661,7 @@
       return NaN;
     }
 
-    function bandPointVisual(option, secondaryDomain, pareto) {
+export function bandPointVisual(option, secondaryDomain, pareto) {
       let normalized = 0.72;
       if (secondaryDomain) {
         const span = Math.max(secondaryDomain.max - secondaryDomain.min, 1e-9);
@@ -669,7 +676,7 @@
       };
     }
 
-    function paretoPointKeys(points) {
+export function paretoPointKeys(points) {
       const result = new Set();
       points.forEach(candidate => {
         const dominated = points.some(other => other.key !== candidate.key
@@ -684,30 +691,31 @@
       return result;
     }
 
-    function isBandMetric(metric = state.metric) {
+export function isBandMetric(metric = state.metric) {
       return metric === "totalMassTons" || metric === "fuelMassTons" || metric === "twr";
     }
 
-    function optionMetricValue(option, metric = state.metric) {
+export function optionMetricValue(option, metric = state.metric) {
       if (metric === "twr") return option.twr;
       if (metric === "fuelMassTons") return option.propellantTons;
       return option.totalMassTons;
     }
 
-    function defaultTooltipOption(row) {
+export function defaultTooltipOption(row) {
       const options = chartMassOptions(row, state.metric);
       return options[0] || massOptions(row)[0] || null;
     }
 
-    function linePath(points) {
+export function linePath(points) {
       return points.map((point, index) => `${index === 0 ? "M" : "L"}${point[0].toFixed(2)},${point[1].toFixed(2)}`).join(" ");
     }
 
-    function svgEl(name, attrs) {
+export function svgEl(name, attrs) {
       const el = document.createElementNS("http://www.w3.org/2000/svg", name);
       Object.entries(attrs || {}).forEach(([key, value]) => {
         if (value !== undefined && value !== null) el.setAttribute(key, String(value));
       });
       return el;
     }
+
 

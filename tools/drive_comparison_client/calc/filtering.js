@@ -1,18 +1,21 @@
-    function rowCategoryLabel(row) {
+import { isBandMetric, optionMetricValue } from "../chart/rendering.js";
+import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, UI_LANG, metricDefs, powerResearchActive, state } from "../state/core.js";
+
+export function rowCategoryLabel(row) {
       return UI_LANG === "en" ? (row.categoryLabelEn || row.categoryLabel) : (row.categoryLabel || row.categoryLabelEn);
     }
 
-    function rowFamilyLabel(row) {
+export function rowFamilyLabel(row) {
       return UI_LANG === "en" ? (row.familyLabelEn || row.familyLabel) : (row.familyLabel || row.familyLabelEn);
     }
 
-    function rowProjectLabel(row) {
+export function rowProjectLabel(row) {
       return UI_LANG === "en"
         ? (row.requiredProjectDisplay.en || row.requiredProjectDisplay.ko || row.requiredProject)
         : (row.requiredProjectDisplay.ko || row.requiredProjectDisplay.en || row.requiredProject);
     }
 
-    function syncFilterInputs() {
+export function syncFilterInputs() {
       document.querySelectorAll(".category-row").forEach(row => {
         const input = row.querySelector("input");
         input.checked = !!state.categories[row.dataset.categoryKey];
@@ -26,15 +29,15 @@
       });
     }
 
-    function clamp(value, min, max) {
+export function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
     }
 
-    function filteredRows() {
+export function filteredRows() {
       return computeDriveDiagnostics().visibleRows;
     }
 
-    function computeDriveDiagnostics() {
+export function computeDriveDiagnostics() {
       const familyStats = new Map(DATA.subfamilies.map(family => [family.key, {
         ...family,
         total: 0,
@@ -75,7 +78,7 @@
       };
     }
 
-    function evaluateDriveVisibility(row) {
+export function evaluateDriveVisibility(row) {
       const reasons = [];
       if (row.thrusterCount !== state.thrusters || !rowMatchesSearch(row) || !rowFamilySelected(row)) {
         reasons.push("familyFilter");
@@ -95,15 +98,15 @@
       };
     }
 
-    function rowFamilySelected(row) {
+export function rowFamilySelected(row) {
       return !!state.categories[row.categoryKey] && !!state.families[row.familyKey];
     }
 
-    function rowInFamilyDiagnosticScope(row) {
+export function rowInFamilyDiagnosticScope(row) {
       return row.thrusterCount === state.thrusters && rowMatchesSearch(row);
     }
 
-    function rowMatchesSearch(row) {
+export function rowMatchesSearch(row) {
       if (!state.searchTerm) return true;
       const haystack = [
         row.displayName,
@@ -116,7 +119,7 @@
       return haystack.includes(state.searchTerm);
     }
 
-    function bandMetricHiddenReasons(row) {
+export function bandMetricHiddenReasons(row) {
       const configuredOptions = row.powerOptions || row.reactorOptions || [];
       if (!configuredOptions.length) return ["invalidPowerPlant"];
       const massInfo = massRatioDiagnostics(row);
@@ -146,7 +149,7 @@
       return reasons;
     }
 
-    function massRatioDiagnostics(row) {
+export function massRatioDiagnostics(row) {
       const targetDv = Number(state.targetDvKps);
       const exhaustVelocity = Number(row.exhaustVelocityKps);
       if (!Number.isFinite(targetDv) || !Number.isFinite(exhaustVelocity) || exhaustVelocity <= 0) {
@@ -168,31 +171,31 @@
       };
     }
 
-    function isExtremeMassRatioOption(option) {
+export function isExtremeMassRatioOption(option) {
       return Number.isFinite(option.massRatio) && option.massRatio >= EXTREME_MASS_RATIO;
     }
 
-    function isImpracticalOption(option) {
+export function isImpracticalOption(option) {
       if (!state.showImpracticalCandidates) return false;
       return ((state.metric === "totalMassTons" || state.metric === "fuelMassTons") && state.minTwr > 0 && Number.isFinite(option.twr) && option.twr < state.minTwr)
         || isExtremeMassRatioOption(option);
     }
 
-    function dominantHiddenReason(hiddenReasons) {
+export function dominantHiddenReason(hiddenReasons) {
       return HIDDEN_REASON_PRIORITY.find(reason => (hiddenReasons && hiddenReasons[reason] > 0)) || "other";
     }
 
-    function rowUnlockResearchValue(row) {
+export function rowUnlockResearchValue(row) {
       const value = Number(row.unlockCumulativeResearch);
       if (Number.isFinite(value) && value > 0) return value;
       return Number(row.cumulativeResearch);
     }
 
-    function selectedRadiator() {
+export function selectedRadiator() {
       return DATA.radiators.find(item => item.id === state.radiatorId) || DATA.radiators[0] || null;
     }
 
-    function massOptions(row) {
+export function massOptions(row) {
       const baseDryTons = state.dryMassTons;
       const targetDv = state.targetDvKps;
       const radiator = selectedRadiator();
@@ -233,7 +236,7 @@
       return actualPowerFrontier(row, computed);
     }
 
-    function chartMassOptions(row, metric = state.metric) {
+export function chartMassOptions(row, metric = state.metric) {
       const options = massOptions(row);
       if ((metric === "totalMassTons" || metric === "fuelMassTons") && state.minTwr > 0 && !state.showImpracticalCandidates) {
         return options.filter(option => Number.isFinite(option.twr) && option.twr >= state.minTwr);
@@ -244,12 +247,12 @@
       return options;
     }
 
-    function chartSummaryMassOptions(row) {
+export function chartSummaryMassOptions(row) {
       const options = chartMassOptions(row);
       return powerResearchActive() ? options : options.slice(0, 1);
     }
 
-    function actualPowerFrontier(row, options) {
+export function actualPowerFrontier(row, options) {
       if (row.requiredPowerPlantClass !== "Any_General" || row.powerRequirementGW <= 0 || options.length <= 1) {
         return options;
       }
@@ -263,4 +266,5 @@
       });
       return frontier;
     }
+
 
