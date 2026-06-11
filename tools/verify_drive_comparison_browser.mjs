@@ -425,7 +425,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(dryMassPresetMenuClosedByOutsideClick, `${htmlFile}: dry-mass preset management menu did not close after an outside click`);
   await page.locator("#dryMassPresetActionsMenu > summary").click();
   await page.locator("#dryMassCalcClassLabel").click();
-  await page.waitForTimeout(100);
+  await page.waitForFunction(() => {
+    const menu = document.querySelector("#dryMassPresetActionsMenu");
+    const modal = document.querySelector("#dryMassCalcModal");
+    return Boolean(menu && modal?.classList.contains("is-open") && !menu.open);
+  }, null, { timeout: 5000 });
   const dryMassPresetMenuOnlyClosed = await page.evaluate(() => ({
     menuClosed: !document.querySelector("#dryMassPresetActionsMenu")?.open,
     dryMassModalOpen: !!document.querySelector("#dryMassCalcModal.is-open"),
