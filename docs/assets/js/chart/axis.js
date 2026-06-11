@@ -1,4 +1,4 @@
-import { clamp } from "../calc/filtering.js";
+import { clamp } from "../shared/math.js";
 
 export function normalizeAxisDomain(min, max, logScale) {
       let d0 = Number(min);

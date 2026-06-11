@@ -1,12 +1,15 @@
 import { setupDryMassCalculator } from "../calc/dry_mass.js";
-import { clamp, filteredRows, syncFilterInputs } from "../calc/filtering.js";
+import { filteredRows, syncFilterInputs } from "../calc/filtering.js";
+import { isBandMetric } from "../calc/metrics.js";
+import { clamp } from "../shared/math.js";
 import { chartViewport } from "../chart/context.js";
 import { endChartPan, handleChartKeyDown, handleChartPointerDown, handleChartPointerLeave, handleChartPointerMove, handleChartWheel, redrawChartOnly, render, updateSortHeaders } from "../chart/interaction.js";
-import { isBandMetric } from "../chart/rendering.js";
 import { applyHelp, applyStartupChartPreset, exportedPreset, handleImportedPresetObject, helpText, localCategoryHelp, localLabel, openSerializedObjectExport, parsePresetPayload, readFromClipboard, setupPresetLibraryControls, showPresetStatus } from "../presets/library.js";
-import { DATA, UI_LANG, applyStaticLanguage, categoryRoot, chart, familyRoot, localText, normalizePowerResearchView, refreshLocalizedControls, renderRadiatorOptions, setLanguage, setupLeftPanelCards, state, tooltip } from "../state/core.js";
+import { DATA, applyStaticLanguage, categoryRoot, chart, familyRoot, localText, normalizePowerResearchView, refreshLocalizedControls, renderRadiatorOptions, setLanguage, setupLeftPanelCards, state, tooltip } from "../state/core.js";
 import { enhanceSearchableSelect } from "./searchable_select.js";
-import { backgroundStyle, clearTooltip, formatNumber, formatTwrDynamicUnit, moveTooltipItemByOffset, removeTooltipItem, renderTable, toggleTooltipItemPin } from "./tooltip_table.js";
+import { backgroundStyle } from "./formatting.js";
+import { updateChartControls, syncMinTwrInputs, syncMinDvInputs } from "./control_state.js";
+import { clearTooltip, moveTooltipItemByOffset, removeTooltipItem, renderTable, toggleTooltipItemPin } from "./tooltip_table.js";
 
 export function setupControls() {
       const metric = document.getElementById("metric");
@@ -351,53 +354,3 @@ export function setupChartInteraction() {
       });
       document.addEventListener("keydown", handleChartKeyDown);
     }
-
-export function updateChartControls() {
-      const fuelUnitBlock = document.getElementById("chartFuelUnit");
-      const bandAnalysisControls = document.getElementById("bandAnalysisControls");
-      const showTwrInfoRow = document.getElementById("showTwrInfoRow");
-      const showMassInfoRow = document.getElementById("showMassInfoRow");
-      const minTwrControl = document.getElementById("minTwrControl");
-      const minDvControl = document.getElementById("minDvControl");
-      const powerResearchViewControl = document.getElementById("powerResearchViewControl");
-      fuelUnitBlock.style.display = state.metric === "fuelEfficiency" ? "" : "none";
-      bandAnalysisControls.style.display = isBandMetric() ? "" : "none";
-      showTwrInfoRow.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
-      showMassInfoRow.style.display = state.metric === "twr" ? "" : "none";
-      minTwrControl.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
-      minDvControl.style.display = state.metric === "twr" ? "" : "none";
-      powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
-      const powerResearchViewSelect = document.getElementById("powerResearchView");
-      if (powerResearchViewSelect) {
-        powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
-      }
-      const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
-      if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
-      syncMinTwrInputs();
-      syncMinDvInputs();
-    }
-
-export function syncMinTwrInputs() {
-      const slider = document.getElementById("minTwrExp");
-      const number = document.getElementById("minTwrNumber");
-      const readout = document.getElementById("minTwrReadout");
-      if (!slider || !number || !readout) return;
-      state.minTwr = clamp(state.minTwr || 0.0001, 0.0001, 10);
-      const exponent = clamp(Math.log10(state.minTwr), Number(slider.min), Number(slider.max));
-      slider.value = String(exponent);
-      number.value = String(Number(state.minTwr.toPrecision(4)));
-      readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: TWR >= ${formatTwrDynamicUnit(state.minTwr)}`;
-    }
-
-export function syncMinDvInputs() {
-      const slider = document.getElementById("minDv");
-      const number = document.getElementById("minDvNumber");
-      const readout = document.getElementById("minDvReadout");
-      if (!slider || !number || !readout) return;
-      state.minDvKps = clamp(state.minDvKps || 0, 0, 100000);
-      slider.value = String(clamp(state.minDvKps, Number(slider.min), Number(slider.max)));
-      number.value = String(Math.round(state.minDvKps));
-      readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: dV >= ${formatNumber(state.minDvKps, " km/s")}`;
-    }
-
-

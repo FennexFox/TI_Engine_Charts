@@ -1,9 +1,21 @@
-import { applyDryMassCalculatorPreset, exportedDryMassCalculatorPreset, renderDryMassCalcModal } from "../calc/dry_mass.js";
-import { clamp, syncFilterInputs } from "../calc/filtering.js";
-import { render } from "../chart/interaction.js";
+import { syncFilterInputs } from "../calc/filtering.js";
+import { clamp } from "../shared/math.js";
 import { CHART_PRESET_STARTUP_STORAGE_KEY, CHART_PRESET_STORAGE_KEY, DATA, DRY_MASS_PRESET_STORAGE_KEY, HELP_TEXT, UI_LANG, localText, metricDefs, normalizePowerResearchView, setLanguage, state } from "../state/core.js";
-import { syncMinDvInputs, syncMinTwrInputs, updateChartControls } from "../ui/controls.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
+
+const presetRuntimeApi = {
+      applyDryMassCalculatorPreset: () => false,
+      exportedDryMassCalculatorPreset: () => ({}),
+      renderDryMassCalcModal: () => {},
+      render: () => {},
+      syncMinDvInputs: () => {},
+      syncMinTwrInputs: () => {},
+      updateChartControls: () => {},
+    };
+
+export function registerPresetRuntimeApi(api = {}) {
+      Object.assign(presetRuntimeApi, api);
+    }
 
 export function localLabel(item) {
       if (UI_LANG === "en") return item.labelEn || item.label || item.key;
@@ -342,11 +354,11 @@ export function applySelectedChartPreset(options = {}) {
 
 export function applyDryMassPresetEntry(entry, { showStatus = true } = {}) {
       if (!entry) return false;
-      if (!applyDryMassCalculatorPreset(entry.calculator)) {
+      if (!presetRuntimeApi.applyDryMassCalculatorPreset(entry.calculator)) {
         if (showStatus) showDryMassPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
         return false;
       }
-      renderDryMassCalcModal();
+      presetRuntimeApi.renderDryMassCalcModal();
       if (showStatus) showDryMassPresetStatus(localText(`“${entry.name}” 설계 프리셋을 적용했습니다. 적용 버튼으로 차트에 반영하세요.`, `Applied design preset “${entry.name}”. Use an apply button to update the chart.`));
       return true;
     }
@@ -684,15 +696,15 @@ export async function handleImportedPresetObject(raw, { preferredKind = "chart",
 
       if (preferredKind === "dryMass") {
         const calculator = extractDryMassCalculatorFromImport(raw);
-        if (calculator && applyDryMassCalculatorPreset(calculator)) {
-          renderDryMassCalcModal();
+        if (calculator && presetRuntimeApi.applyDryMassCalculatorPreset(calculator)) {
+          presetRuntimeApi.renderDryMassCalcModal();
           if (promptToSaveCurrent && window.confirm(localText("가져온 계산기 설정을 이름 있는 프리셋으로 저장할까요?", "Save imported calculator settings as a named preset?"))) {
             const name = promptPresetName(
               localText("설계 프리셋 이름", "Design preset name"),
               raw.name || localText("가져온 설계 프리셋", "Imported design preset"),
               showDryMassPresetStatus,
             );
-            if (name) saveDryMassPresetFromCalculator(name, exportedDryMassCalculatorPreset());
+            if (name) saveDryMassPresetFromCalculator(name, presetRuntimeApi.exportedDryMassCalculatorPreset());
           }
           return { ok: true, message: localText("설계 설정을 불러왔습니다.", "Design settings imported.") };
         }
@@ -713,8 +725,8 @@ export async function handleImportedPresetObject(raw, { preferredKind = "chart",
       }
 
       const calculator = extractDryMassCalculatorFromImport(raw);
-      if (calculator && applyDryMassCalculatorPreset(calculator)) {
-        renderDryMassCalcModal();
+      if (calculator && presetRuntimeApi.applyDryMassCalculatorPreset(calculator)) {
+        presetRuntimeApi.renderDryMassCalcModal();
         return { ok: true, message: localText("설계 설정을 불러왔습니다.", "Design settings imported.") };
       }
 
@@ -919,7 +931,7 @@ export function saveCurrentDryMassPresetAsNew(defaultName = "") {
         showDryMassPresetStatus,
       );
       if (!name) return null;
-      const saved = saveDryMassPresetFromCalculator(name, exportedDryMassCalculatorPreset());
+      const saved = saveDryMassPresetFromCalculator(name, presetRuntimeApi.exportedDryMassCalculatorPreset());
       showDryMassPresetStatus(saved
         ? localText("설계 프리셋을 새 이름으로 저장했습니다.", "Design preset saved as new.")
         : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
@@ -931,7 +943,7 @@ export function saveCurrentDryMassPreset() {
       if (!entry || entry.builtIn) {
         return saveCurrentDryMassPresetAsNew(entry ? `${dryMassPresetDisplayName(entry)} copy` : "");
       }
-      const saved = saveDryMassPresetFromCalculator(entry.name, exportedDryMassCalculatorPreset(), entry.id);
+      const saved = saveDryMassPresetFromCalculator(entry.name, presetRuntimeApi.exportedDryMassCalculatorPreset(), entry.id);
       showDryMassPresetStatus(saved
         ? localText("설계 프리셋을 저장했습니다.", "Design preset saved.")
         : localText("프리셋 저장에 실패했습니다.", "Failed to save preset."), !saved);
@@ -980,7 +992,7 @@ export function setupDryMassPresetControls() {
           dryMassPresetExportObject({
             id: uniquePresetId("design-export"),
             name: localText("현재 설계", "Current design"),
-            calculator: exportedDryMassCalculatorPreset(),
+            calculator: presetRuntimeApi.exportedDryMassCalculatorPreset(),
             createdAt: presetTimestamp(),
             updatedAt: presetTimestamp(),
           }),
@@ -1105,7 +1117,7 @@ export function exportedPreset() {
         searchTerm: state.searchTerm,
         categories: Object.fromEntries(DATA.categories.map(category => [category.key, !!state.categories[category.key]])),
         families: Object.fromEntries(DATA.subfamilies.map(family => [family.key, !!state.families[family.key]])),
-        dryMassCalculator: exportedDryMassCalculatorPreset(),
+        dryMassCalculator: presetRuntimeApi.exportedDryMassCalculatorPreset(),
         designPresetLibrary: chartPresetDesignLibrarySnapshot(),
         dryMassPresetLibrary: chartPresetDesignLibrarySnapshot(),
         selectedDesignPresetId: document.getElementById("dryMassPresetSelect")?.value || "",
@@ -1255,10 +1267,10 @@ export function applyPresetToState(rawPreset) {
       const selectedDesignPresetId = typeof preset.selectedDesignPresetId === "string" ? preset.selectedDesignPresetId : "";
       const calculatorPreset = preset.dryMassCalculator || preset.dryMassCalc;
       if (calculatorPreset && typeof calculatorPreset === "object") {
-        applyDryMassCalculatorPreset(calculatorPreset);
+        presetRuntimeApi.applyDryMassCalculatorPreset(calculatorPreset);
       } else if (selectedDesignPresetId) {
         const selectedDesign = allDryMassPresetEntries().find(item => item.id === selectedDesignPresetId);
-        if (selectedDesign) applyDryMassCalculatorPreset(selectedDesign.calculator);
+        if (selectedDesign) presetRuntimeApi.applyDryMassCalculatorPreset(selectedDesign.calculator);
       }
       renderDryMassPresetControls(selectedDesignPresetId);
 
@@ -1306,11 +1318,11 @@ export function syncUiFromState() {
 
       state.zoom = null;
       syncFilterInputs();
-      syncMinTwrInputs();
-      syncMinDvInputs();
-      updateChartControls();
-      renderDryMassCalcModal();
-      render();
+      presetRuntimeApi.syncMinTwrInputs();
+      presetRuntimeApi.syncMinDvInputs();
+      presetRuntimeApi.updateChartControls();
+      presetRuntimeApi.renderDryMassCalcModal();
+      presetRuntimeApi.render();
     }
 
 

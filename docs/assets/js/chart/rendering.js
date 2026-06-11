@@ -1,9 +1,19 @@
-import { chartMassOptions, chartSummaryMassOptions, clamp, isImpracticalOption, massOptions, rowUnlockResearchValue } from "../calc/filtering.js";
+import { chartMassOptions, chartSummaryMassOptions, isImpracticalOption, massOptions, rowUnlockResearchValue } from "../calc/filtering.js";
+import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
+import { clamp } from "../shared/math.js";
 import { allDriveRowsById, chart, localText, metricDefs, metricLabel, powerResearchActive, state } from "../state/core.js";
-import { formatAxisTick, paintStyle } from "../ui/tooltip_table.js";
+import { formatAxisTick, paintStyle } from "../ui/formatting.js";
 import { buildAxisTickPlan } from "./axis.js";
 import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows } from "./context.js";
-import { redrawChartOnly } from "./interaction.js";
+
+
+const renderingCallbacks = {
+      redrawChartOnly: () => {},
+    };
+
+export function registerRenderingCallbacks(callbacks = {}) {
+      Object.assign(renderingCallbacks, callbacks);
+    }
 
 export function drawGridAndAxes(ctx) {
       const { width, height, margin, innerW, innerH, x, y, xDomain, yDomain } = ctx;
@@ -202,7 +212,7 @@ export function powerResearchFocusSignature() {
 export function redrawPowerResearchFocusIfChanged(previousSignature) {
       if (!powerResearchActive() || !currentChartRows.length) return false;
       if (previousSignature === powerResearchFocusSignature()) return false;
-      redrawChartOnly();
+      renderingCallbacks.redrawChartOnly();
       return true;
     }
 
@@ -691,15 +701,6 @@ export function paretoPointKeys(points) {
       return result;
     }
 
-export function isBandMetric(metric = state.metric) {
-      return metric === "totalMassTons" || metric === "fuelMassTons" || metric === "twr";
-    }
-
-export function optionMetricValue(option, metric = state.metric) {
-      if (metric === "twr") return option.twr;
-      if (metric === "fuelMassTons") return option.propellantTons;
-      return option.totalMassTons;
-    }
 
 export function defaultTooltipOption(row) {
       const options = chartMassOptions(row, state.metric);
