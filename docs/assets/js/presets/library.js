@@ -1,6 +1,6 @@
 import { syncFilterInputs } from "../calc/filtering.js";
 import { clamp } from "../shared/math.js";
-import { CHART_PRESET_STARTUP_STORAGE_KEY, CHART_PRESET_STORAGE_KEY, DATA, DRY_MASS_PRESET_STORAGE_KEY, HELP_TEXT, UI_LANG, localText, metricDefs, normalizePowerResearchView, setLanguage, state } from "../state/core.js";
+import { CHART_PRESET_STARTUP_STORAGE_KEY, CHART_PRESET_STORAGE_KEY, DATA, DRY_MASS_PRESET_STORAGE_KEY, HELP_TEXT, UI_LANG, localText, metricDefs, normalizePowerResearchView, state } from "../state/core.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 
 const presetRuntimeApi = {
@@ -8,6 +8,7 @@ const presetRuntimeApi = {
       exportedDryMassCalculatorPreset: () => ({}),
       renderDryMassCalcModal: () => {},
       render: () => {},
+      setLanguage: () => {},
       syncMinDvInputs: () => {},
       syncMinTwrInputs: () => {},
       updateChartControls: () => {},
@@ -1211,7 +1212,7 @@ export function applyPresetToState(rawPreset) {
       if (!preset || typeof preset !== "object") return false;
 
       if (preset.lang === "ko" || preset.lang === "en") {
-        setLanguage(preset.lang, { rerender: false });
+        presetRuntimeApi.setLanguage(preset.lang, { rerender: false });
       }
 
       const metricKeys = Object.keys(metricDefs);

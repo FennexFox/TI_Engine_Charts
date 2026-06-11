@@ -5,13 +5,13 @@ import { clamp } from "../shared/math.js";
 import { chartViewport } from "../chart/context.js";
 import { endChartPan, handleChartKeyDown, handleChartPointerDown, handleChartPointerLeave, handleChartPointerMove, handleChartWheel, redrawChartOnly, render, updateSortHeaders } from "../chart/interaction.js";
 import { applyHelp, applyStartupChartPreset, exportedPreset, handleImportedPresetObject, helpText, localCategoryHelp, localLabel, openSerializedObjectExport, parsePresetPayload, readFromClipboard, setupPresetLibraryControls, showPresetStatus } from "../presets/library.js";
-import { DATA, applyStaticLanguage, categoryRoot, chart, familyRoot, localText, normalizePowerResearchView, refreshLocalizedControls, renderRadiatorOptions, setLanguage, setupLeftPanelCards, state, tooltip } from "../state/core.js";
+import { DATA, applyStaticLanguage, categoryRoot, chart, familyRoot, localText, normalizePowerResearchView, renderRadiatorOptions, setupLeftPanelCards, state, tooltip } from "../state/core.js";
 import { enhanceSearchableSelect } from "./searchable_select.js";
 import { backgroundStyle } from "./formatting.js";
 import { updateChartControls, syncMinTwrInputs, syncMinDvInputs } from "./control_state.js";
 import { clearTooltip, moveTooltipItemByOffset, removeTooltipItem, renderTable, toggleTooltipItemPin } from "./tooltip_table.js";
 
-export function setupControls() {
+export function setupControls({ setLanguage = () => {}, refreshLocalizedControls = () => {} } = {}) {
       const metric = document.getElementById("metric");
       const thrusters = document.getElementById("thrusters");
       const thrustersNumber = document.getElementById("thrustersNumber");

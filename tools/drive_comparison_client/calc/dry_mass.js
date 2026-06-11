@@ -2,7 +2,7 @@ import { render } from "../chart/interaction.js";
 import { cloneJson, renderDryMassPresetControls, setPresetUiText, setTextById, setupDryMassPresetControls, syncUiFromState } from "../presets/library.js";
 import { ALL_UTILITY_MODULES, ALL_WEAPON_MODULES, ARMOR_OPTIONS, DATA, DEFAULT_ARMOR_ID, EMPTY_UTILITY_MODULE, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, UI_LANG, dryMassCalcState, localText, renderRadiatorOptions, state } from "../state/core.js";
 import { enhanceSearchableSelects } from "../ui/searchable_select.js";
-import { escapeHtml, formatCompact, formatNumber, trim } from "../ui/formatting.js";
+import { escapeHtml, formatCompact, formatNumber, trim } from "../shared/formatting.js";
 import { clamp } from "../shared/math.js";
 
 export function catalogDisplayName(item) {

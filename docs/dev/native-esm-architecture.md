@@ -6,14 +6,15 @@ This project uses native browser ES modules for the drive comparison client. The
 
 The module layout should keep feature work possible without rebuilding a hidden monolith across many files.
 
-- `main.js` should stay a composition root: it wires modules together, registers lifecycle hooks, and starts the first render.
+- `main.js` should stay a thin composition root: it registers the app-level wiring and starts the first render.
+- `app/` owns cross-feature orchestration such as language refresh and whole-app reset helpers.
 - `state/` owns shared state shape, constants, localized static data, and state mutation helpers.
 - `calc/` owns pure calculations, filtering, and metric helpers.
 - `chart/` owns chart rendering, viewport context, hit testing, and pointer interaction.
 - `ui/` owns DOM controls, summaries, formatting, tooltips, and reusable UI helpers.
 - `presets/` owns preset payloads, persistence, import/export, and preset UI wiring.
 - `diagnostics/` owns debug helpers and may inspect internals, but normal runtime modules should not depend on it.
-- `shared/` owns small dependency-free utilities used across layers.
+- `shared/` owns small utilities used across layers. Shared modules may depend on other shared modules, but not on feature folders.
 
 ## Dependency direction
 
@@ -21,20 +22,23 @@ Preferred dependency flow is downward from composition and UI toward lower-level
 
 ```text
 main.js
-  -> ui/, chart/, presets/, dry mass feature modules
-    -> calc/
+  -> app/
+    -> ui/, chart/, presets/, dry mass feature modules
+      -> calc/
+        -> state/, shared/
       -> state/, shared/
-    -> state/, shared/
 ```
 
 Rules of thumb:
 
 - `state/` should not import UI, chart, presets, diagnostics, or dry mass feature modules.
 - `calc/` should not import UI, chart, presets, or diagnostics modules.
-- `shared/` should remain dependency-free.
+- `shared/` should only import other `shared/` modules or platform APIs.
 - Runtime modules should not import `diagnostics/` except from `main.js` during explicit debug installation.
 - UI modules should prefer public chart APIs over direct access to chart rendering internals.
 - Preset modules should return payloads or call supplied callbacks instead of importing chart or dry mass internals directly.
+
+The former broad `state/core.js` runtime hook registry has been reduced to a narrow metric calculation hook used by metric value definitions. Higher-level UI/chart/language orchestration now lives in `app/controller.js`.
 
 Some of these boundaries are still transitional. The import graph verifier currently fails on circular imports. Boundary warnings are available on demand with `--show-boundary-warnings`, and future cleanup PRs can promote more warnings to hard failures once the corresponding boundary is fully normalized.
 
@@ -70,6 +74,12 @@ After source client changes, rebuild the published page assets:
 
 ```bash
 npm run build
+```
+
+When local Terra Invicta template files are not available, source-only UI refactors can rebuild the generated chart from the already embedded page data instead:
+
+```bash
+python scripts/rebuild_pages.py --ui-only --skip-verify --no-commit --no-push
 ```
 
 The rebuild should keep `docs/index.html` and `docs/assets/js/` reproducible from the source modules.

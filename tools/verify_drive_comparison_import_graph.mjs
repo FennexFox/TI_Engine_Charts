@@ -115,7 +115,7 @@ function dependencyWarnings(graph) {
   const warnings = [];
   const isStateViolation = (from, to) => topFolder(from) === "state" && ["ui", "chart", "presets", "diagnostics", "calc"].includes(topFolder(to));
   const isCalcViolation = (from, to) => topFolder(from) === "calc" && ["ui", "chart", "presets", "diagnostics"].includes(topFolder(to));
-  const isSharedViolation = (from, to) => topFolder(from) === "shared" && topFolder(to) !== "";
+  const isSharedViolation = (from, to) => topFolder(from) === "shared" && !["", "shared"].includes(topFolder(to));
   const isDiagnosticsViolation = (from, to) => topFolder(to) === "diagnostics" && topFolder(from) !== "diagnostics" && from !== "main.js";
   const lowLevelChartImport = to => to === "chart/rendering.js" || to === "chart/interaction.js" || to === "chart/context.js";
   const isUiChartInternalWarning = (from, to) => topFolder(from) === "ui" && lowLevelChartImport(to);
