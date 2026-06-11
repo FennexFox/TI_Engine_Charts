@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "source": {
     "templateRoot": "TerraInvicta_Data/StreamingAssets/Templates",
     "hullTemplate": {
@@ -25,6 +25,7 @@
   "notes": [
     "Hulls and utility modules are static template data from the local Terra Invicta install.",
     "The dry-mass calculator uses hull mass_tons plus selected weapon baseWeaponMass_tons and utility module mass_tons.",
+    "Utility module effects preserve raw specialRules/specialValue and add normalized effects, effectRequirements, and unmodeledRules fields.",
     "Weapon mount sizes are normalized from mount names: Half=1, One=1, Two=2, Three=3, Four=4. Nose and hull mounts consume separate hull hardpoint capacities.",
     "Human shipyard build times use Space Dock, Shipyard, and Spaceworks constructionTimeModifier values: T1=1.0, T2=0.8, T3=0.6.",
     "Armor templates are cataloged for the dry-mass calculator; armor mass depends on hull dimensions, armor material, and nose/lateral/tail point layout."
@@ -1637,6 +1638,9 @@
       "grouping": -1,
       "minConstructionTier": 0,
       "specialRules": [],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {}
@@ -1663,6 +1667,23 @@
         "RefuelFromUnimprovedSites",
         "RequiresNonISRUDrive",
         "RadHardened"
+      ],
+      "effects": [],
+      "effectRequirements": [
+        {
+          "type": "nonIsruDrive",
+          "sourceRule": "RequiresNonISRUDrive"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RefuelFromUnimprovedSites",
+          "category": "propellant"
+        },
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
       ],
       "noCombatRepair": false,
       "alien": false,
@@ -1696,6 +1717,22 @@
         "RefuelFromAtmospheres",
         "RadHardened"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ImmunetoAerobrakingDamage",
+          "category": "damageMitigation"
+        },
+        {
+          "rule": "RefuelFromAtmospheres",
+          "category": "propellant"
+        },
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1728,6 +1765,22 @@
         "ImmuneToDamage"
       ],
       "specialValue": 0.75,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ComponentArmor",
+          "category": "damageMitigation"
+        },
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        },
+        {
+          "rule": "ImmuneToDamage",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1759,6 +1812,27 @@
         "RadHardened"
       ],
       "specialValue": 1.3,
+      "effects": [
+        {
+          "type": "thrustMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "ThrustMultiplier",
+          "multiplier": 1.3
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "nuclearDrive",
+          "sourceRule": "RequiresNuclearDrive"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1794,6 +1868,27 @@
         "RadHardened"
       ],
       "specialValue": 1.1,
+      "effects": [
+        {
+          "type": "thrustMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "ThrustMultiplier",
+          "multiplier": 1.1
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "fusionDrive",
+          "sourceRule": "RequiresFusionDrive"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1828,6 +1923,27 @@
         "RadHardened"
       ],
       "specialValue": 1.2,
+      "effects": [
+        {
+          "type": "thrustMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "ThrustMultiplier",
+          "multiplier": 1.2
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "fissionDrive",
+          "sourceRule": "RequiresFissionDrive"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1862,6 +1978,27 @@
         "RadHardened"
       ],
       "specialValue": 1.2,
+      "effects": [
+        {
+          "type": "exhaustVelocityMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "EVMultiplier",
+          "multiplier": 1.2
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "hydrogenPropellant",
+          "sourceRule": "RequiresHydrogenPropellant"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1894,6 +2031,27 @@
         "RadHardened"
       ],
       "specialValue": 1.35,
+      "effects": [
+        {
+          "type": "exhaustVelocityMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "EVMultiplier",
+          "multiplier": 1.35
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "hydrogenPropellant",
+          "sourceRule": "RequiresHydrogenPropellant"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1926,6 +2084,27 @@
         "RadHardened"
       ],
       "specialValue": 1.5,
+      "effects": [
+        {
+          "type": "exhaustVelocityMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "EVMultiplier",
+          "multiplier": 1.5
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "hydrogenPropellant",
+          "sourceRule": "RequiresHydrogenPropellant"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1957,6 +2136,14 @@
         "ECM"
       ],
       "specialValue": 0.2,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ECM",
+          "category": "defense"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -1987,6 +2174,14 @@
         "ECM"
       ],
       "specialValue": 0.4,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ECM",
+          "category": "defense"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2017,6 +2212,14 @@
         "ECM"
       ],
       "specialValue": 0.6,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ECM",
+          "category": "defense"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2047,6 +2250,14 @@
         "TargetingComputer"
       ],
       "specialValue": 0.1,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "TargetingComputer",
+          "category": "weapons"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2077,6 +2288,14 @@
         "TargetingComputer"
       ],
       "specialValue": 0.3,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "TargetingComputer",
+          "category": "weapons"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2107,6 +2326,14 @@
         "TargetingComputer"
       ],
       "specialValue": 0.5,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "TargetingComputer",
+          "category": "weapons"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2137,6 +2364,14 @@
         "SalvageBonus"
       ],
       "specialValue": 0.1,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "SalvageBonus",
+          "category": "salvage"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2168,6 +2403,14 @@
         "ArmorStruts"
       ],
       "specialValue": 1,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ArmorStruts",
+          "category": "armor"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2198,6 +2441,18 @@
         "ImmuneToDamage"
       ],
       "specialValue": 1500000,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "RotationalThrust",
+          "category": "maneuvering"
+        },
+        {
+          "rule": "ImmuneToDamage",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2227,6 +2482,14 @@
         "ReduceFleetMCConsumption"
       ],
       "specialValue": 0.8,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ReduceFleetMCConsumption",
+          "category": "missionControl"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2256,6 +2519,14 @@
         "LaserPowerBonus"
       ],
       "specialValue": 10,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "LaserPowerBonus",
+          "category": "powerDemand"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2286,6 +2557,14 @@
         "LaserPowerBonus"
       ],
       "specialValue": 20,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "LaserPowerBonus",
+          "category": "powerDemand"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2317,6 +2596,18 @@
         "RadHardened"
       ],
       "specialValue": 20,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ParticleBeamPowerBonus",
+          "category": "powerDemand"
+        },
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2348,6 +2639,18 @@
         "RadHardened"
       ],
       "specialValue": 0.5,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Magazine",
+          "category": "ammunition"
+        },
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2379,6 +2682,18 @@
         "FullRepairCost"
       ],
       "specialValue": 6,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Assault",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "FullRepairCost",
+          "category": "repair"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2411,6 +2726,18 @@
         "FullRepairCost"
       ],
       "specialValue": 8,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Assault",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "FullRepairCost",
+          "category": "repair"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2443,6 +2770,18 @@
         "FullRepairCost"
       ],
       "specialValue": 10,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Assault",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "FullRepairCost",
+          "category": "repair"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2475,6 +2814,18 @@
         "FullRepairCost"
       ],
       "specialValue": 4,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Assault",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "FullRepairCost",
+          "category": "repair"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2507,6 +2858,18 @@
         "Prospector"
       ],
       "specialValue": 0.05,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "GenerateSpaceScienceBonus",
+          "category": "science"
+        },
+        {
+          "rule": "Prospector",
+          "category": "resourceProspecting"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2539,6 +2902,18 @@
         "FullRepairCost"
       ],
       "specialValue": 10,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Assault",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "FullRepairCost",
+          "category": "repair"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2571,6 +2946,18 @@
         "FullRepairCost"
       ],
       "specialValue": 10,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Assault",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "FullRepairCost",
+          "category": "repair"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2601,6 +2988,14 @@
       "specialRules": [
         "FoundSolarPlatform"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundSolarPlatform",
+          "category": "habDeployment"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2630,6 +3025,14 @@
       "specialRules": [
         "FoundSolarOutpost"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundSolarOutpost",
+          "category": "habDeployment"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2658,6 +3061,14 @@
       "minConstructionTier": 0,
       "specialRules": [
         "FoundAutomatedFissionPlatform"
+      ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundAutomatedFissionPlatform",
+          "category": "habDeployment"
+        }
       ],
       "noCombatRepair": true,
       "alien": false,
@@ -2690,6 +3101,14 @@
       "specialRules": [
         "FoundAutomatedSolarPlatform"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundAutomatedSolarPlatform",
+          "category": "habDeployment"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2718,6 +3137,14 @@
       "minConstructionTier": 0,
       "specialRules": [
         "FoundFissionPlatform"
+      ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundFissionPlatform",
+          "category": "habDeployment"
+        }
       ],
       "noCombatRepair": true,
       "alien": false,
@@ -2750,6 +3177,14 @@
       "specialRules": [
         "FoundFissionOutpost"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundFissionOutpost",
+          "category": "habDeployment"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2780,6 +3215,14 @@
       "minConstructionTier": 0,
       "specialRules": [
         "FoundFusionPlatform"
+      ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundFusionPlatform",
+          "category": "habDeployment"
+        }
       ],
       "noCombatRepair": true,
       "alien": false,
@@ -2812,6 +3255,14 @@
       "specialRules": [
         "FoundFusionOutpost"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundFusionOutpost",
+          "category": "habDeployment"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2843,6 +3294,14 @@
       "specialRules": [
         "Repair"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Repair",
+          "category": "repair"
+        }
+      ],
       "noCombatRepair": false,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2873,6 +3332,14 @@
       "specialRules": [
         "FoundAutomatedSolarOutpost"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundAutomatedSolarOutpost",
+          "category": "habDeployment"
+        }
+      ],
       "noCombatRepair": true,
       "alien": false,
       "weightedBuildMaterials": {
@@ -2901,6 +3368,14 @@
       "minConstructionTier": 0,
       "specialRules": [
         "FoundAutomatedFissionOutpost"
+      ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundAutomatedFissionOutpost",
+          "category": "habDeployment"
+        }
       ],
       "noCombatRepair": true,
       "alien": false,
@@ -2936,6 +3411,27 @@
         "RadHardened"
       ],
       "specialValue": 1.35,
+      "effects": [
+        {
+          "type": "thrustMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "ThrustMultiplier",
+          "multiplier": 1.35
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "fusionDrive",
+          "sourceRule": "RequiresFusionDrive"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": true,
       "weightedBuildMaterials": {
@@ -2970,6 +3466,27 @@
         "RadHardened"
       ],
       "specialValue": 2,
+      "effects": [
+        {
+          "type": "exhaustVelocityMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "EVMultiplier",
+          "multiplier": 2
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "hydrogenPropellant",
+          "sourceRule": "RequiresHydrogenPropellant"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3003,6 +3520,27 @@
         "RadHardened"
       ],
       "specialValue": 1.5,
+      "effects": [
+        {
+          "type": "exhaustVelocityMultiplier",
+          "category": "drivePerformance",
+          "operation": "multiply",
+          "sourceRule": "EVMultiplier",
+          "multiplier": 1.5
+        }
+      ],
+      "effectRequirements": [
+        {
+          "type": "hydrogenPropellant",
+          "sourceRule": "RequiresHydrogenPropellant"
+        }
+      ],
+      "unmodeledRules": [
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3034,6 +3572,26 @@
         "LandHydra",
         "ImmunetoAerobrakingDamage",
         "RadHardened"
+      ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Crashdown",
+          "category": "landing"
+        },
+        {
+          "rule": "LandHydra",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "ImmunetoAerobrakingDamage",
+          "category": "damageMitigation"
+        },
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
       ],
       "noCombatRepair": true,
       "alien": true,
@@ -3069,6 +3627,26 @@
         "RadHardened"
       ],
       "specialValue": 9,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Crashdown",
+          "category": "landing"
+        },
+        {
+          "rule": "Assault",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "ImmunetoAerobrakingDamage",
+          "category": "damageMitigation"
+        },
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": true,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3102,6 +3680,22 @@
         "LandArmy"
       ],
       "specialValue": 50,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "MarineOpsDefenseOnly",
+          "category": "groundCombat"
+        },
+        {
+          "rule": "ImmunetoAerobrakingDamage",
+          "category": "damageMitigation"
+        },
+        {
+          "rule": "LandArmy",
+          "category": "groundCombat"
+        }
+      ],
       "noCombatRepair": true,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3133,6 +3727,14 @@
       "specialRules": [
         "Surveillance"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Surveillance",
+          "category": "surveillance"
+        }
+      ],
       "noCombatRepair": false,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3163,6 +3765,14 @@
         "ECM"
       ],
       "specialValue": 0.6,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "ECM",
+          "category": "defense"
+        }
+      ],
       "noCombatRepair": false,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3193,6 +3803,14 @@
         "TargetingComputer"
       ],
       "specialValue": 0.5,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "TargetingComputer",
+          "category": "weapons"
+        }
+      ],
       "noCombatRepair": false,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3222,6 +3840,14 @@
       "specialRules": [
         "FoundSurveillancePlatform"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundSurveillancePlatform",
+          "category": "habDeployment"
+        }
+      ],
       "noCombatRepair": true,
       "alien": true,
       "weightedBuildMaterials": {}
@@ -3247,6 +3873,14 @@
       "specialRules": [
         "FoundSurveillanceOrbital"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundSurveillanceOrbital",
+          "category": "habDeployment"
+        }
+      ],
       "noCombatRepair": true,
       "alien": true,
       "weightedBuildMaterials": {}
@@ -3271,6 +3905,14 @@
       "minConstructionTier": 3,
       "specialRules": [
         "FoundSurveillanceRing"
+      ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundSurveillanceRing",
+          "category": "habDeployment"
+        }
       ],
       "noCombatRepair": true,
       "alien": true,
@@ -3299,6 +3941,18 @@
         "RadHardened"
       ],
       "specialValue": 0.5,
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Magazine",
+          "category": "ammunition"
+        },
+        {
+          "rule": "RadHardened",
+          "category": "damageMitigation"
+        }
+      ],
       "noCombatRepair": false,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3327,6 +3981,18 @@
       "specialRules": [
         "FoundFusionOutpost",
         "FullRepairCost"
+      ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundFusionOutpost",
+          "category": "habDeployment"
+        },
+        {
+          "rule": "FullRepairCost",
+          "category": "repair"
+        }
       ],
       "noCombatRepair": true,
       "alien": true,
@@ -3360,6 +4026,18 @@
         "FoundFusionPlatform",
         "FullRepairCost"
       ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "FoundFusionPlatform",
+          "category": "habDeployment"
+        },
+        {
+          "rule": "FullRepairCost",
+          "category": "repair"
+        }
+      ],
       "noCombatRepair": true,
       "alien": true,
       "weightedBuildMaterials": {
@@ -3390,6 +4068,14 @@
       "minConstructionTier": 0,
       "specialRules": [
         "Repair"
+      ],
+      "effects": [],
+      "effectRequirements": [],
+      "unmodeledRules": [
+        {
+          "rule": "Repair",
+          "category": "repair"
+        }
       ],
       "noCombatRepair": false,
       "alien": true,

@@ -14,6 +14,7 @@ Important interpretation notes:
 - Weapon dry mass comes from weapon template `baseWeaponMass_tons`.
 - Weapon hardpoint use is derived from mount names: `Half*` = 1, `One*` = 1, `Two*` = 2, `Three*` = 3, `Four*` = 4.
 - Utility module dry mass comes from `TIUtilityModuleTemplate.mass_tons`.
+- Utility module effects preserve raw `specialRules`/`specialValue` and expose normalized `effects`, `effectRequirements`, and `unmodeledRules` for later engine-effect evaluation.
 - Human shipyard build times use `constructionTimeModifier`: T1 Space Dock = 1.0, T2 Shipyard = 0.8, T3 Spaceworks = 0.6.
 - Armor templates are included for dry-mass calculation; armor mass depends on hull dimensions, armor material, and nose/lateral/tail point layout.
 

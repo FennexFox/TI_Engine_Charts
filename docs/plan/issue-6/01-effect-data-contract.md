@@ -98,7 +98,12 @@ npm run verify
 
 ## Progress
 
-- [ ] Not started.
+- [x] Read the generator, current catalog output, and dry-mass calculator debug surface.
+- [x] Added normalized module effect descriptors while preserving raw `specialRules` and `specialValue`.
+- [x] Added normalized prerequisite metadata and unmodeled rule placeholders.
+- [x] Rebuilt generated catalog data, catalog documentation, and embedded app data.
+- [x] Ran phase validation commands.
+- [x] Ran manual dry-mass calculator smoke tests.
 
 ## Decision Log
 
@@ -106,8 +111,37 @@ npm run verify
   Reason: This avoids breaking existing dry-mass mass handling and keeps future rule coverage possible.
 - Decision: Do not apply effects in this phase.
   Reason: Data shape should be reviewable before any behavioral changes.
+- Decision: Emit `effects`, `effectRequirements`, and `unmodeledRules` as separate fields.
+  Reason: Multipliers, prerequisite gates, and later modeling backlog items have different consumers and should not be conflated.
+- Decision: Bump the ship catalog schema version to `3`.
+  Reason: The generated catalog now exposes additional structured fields even though existing fields remain compatible.
+- Decision: Do not copy ambiguous `specialValue` values into `unmodeledRules`.
+  Reason: Several raw rules can share one module-level value, so preserving the raw field is safer until each unsupported rule is modeled explicitly.
+- Decision: Refresh generated catalog and embedded page data in this phase.
+  Reason: Local template data was available, and the phase acceptance criteria require MVP modules to expose normalized descriptors in the shipped catalog.
 
 ## Outcomes
 
-- Pending.
+- Added a generator-side normalization helper in `tools/build_ship_catalog.py`.
+- `data/ship_catalog.json` now includes normalized descriptors for Antimatter Spiker, Muon Spiker, Neutronium Spiker, Liquid Hydrogen Containment, Slush Hydrogen Tankage, Hydron Trap, and other modules with known raw rules.
+- Raw `specialRules` and `specialValue` remain in generated module entries.
+- `docs/ship_catalog.md` documents the new module effect interpretation fields.
+- `docs/index.html` was regenerated so the embedded app data matches the refreshed catalog.
+- Validation passed:
+  - `python -m compileall -q tools scripts`
+  - `node tools/verify_drive_comparison_client_syntax.mjs`
+  - `node tools/verify_drive_comparison_import_graph.mjs`
+  - `python tools/build_ship_catalog.py`
+  - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
+  - `npm run verify`
+- Manual smoke passed in Playwright:
+  - Opened the dry-mass calculator.
+  - Selected a ship class and utility modules with and without special rules.
+  - Confirmed displayed dry mass, crew, and module power still match the existing mass-only behavior.
+  - Confirmed chart mass options did not change because of selected special-rule modules.
+  - Confirmed exported dry-mass preset JSON still exposes existing fields.
 
+## Retrospective
+
+- The generator-local contract kept the runtime change surface small and independently reviewable.
+- The main residual risk is descriptor naming becoming public API too early; later behavioral phases should continue to treat these fields as catalog contract and avoid storing duplicated interpretations in presets.
