@@ -7,7 +7,7 @@ import { updateChartControls } from "../ui/control_state.js";
 import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip } from "../ui/tooltip_table.js";
 import { axisSpaceValue, buildAxisTickPlan, makeScale, normalizeAxisDomain, valueFromAxisSpace } from "./axis.js";
 import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows, setChartHitTargets, setChartLadderHitTargets, setChartViewport, setCurrentChartRows, setCurrentDiagnostics } from "./context.js";
-import { chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawTotalMassBands, mergePinnedTooltipRefs, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
+import { baseChartResearchValues, chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawTotalMassBands, mergePinnedTooltipRefs, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
 
 export function render() {
       const diagnostics = computeDriveDiagnostics();
@@ -204,6 +204,19 @@ export function valueDomain(rows) {
       return paddedDomain(values, state.logY);
     }
 
+export function baseValueDomain(rows) {
+      if (isBandMetric()) {
+        const values = rows
+          .map(row => chartSummaryMassOptions(row)[0])
+          .filter(Boolean)
+          .map(option => optionMetricValue(option))
+          .filter(value => Number.isFinite(value) && value > 0);
+        return paddedDomain(values, state.logY);
+      }
+      const values = rows.map(metricDefs[state.metric].value).filter(v => Number.isFinite(v) && v > 0);
+      return paddedDomain(values, state.logY);
+    }
+
 export function paddedDomain(values, logScale) {
       if (!values.length) return [1, 10];
       let min = Math.min(...values);
@@ -235,23 +248,31 @@ export function renderChart(rows) {
       chart.setAttribute("preserveAspectRatio", "xMidYMid meet");
       chart.innerHTML = "";
 
-      const xValues = chartResearchValues(rows);
-      const baseXDomain = paddedDomain(xValues, state.logX);
-      const baseYDomain = valueDomain(rows);
+      const baseXDomain = paddedDomain(baseChartResearchValues(rows), state.logX);
+      const baseYDomain = baseValueDomain(rows);
+      const xConstraintDomain = paddedDomain(chartResearchValues(rows), state.logX);
+      const yConstraintDomain = valueDomain(rows);
+      const zoomContext = currentZoomContext();
       const preserveViewport = !!(state.preserveViewportOnce && state.zoom);
+      if (state.zoom && !preserveViewport && state.zoomContext && state.zoomContext !== zoomContext) {
+        state.zoom = null;
+      }
       const xDomain = preserveViewport
         ? state.zoom.xDomain.slice()
-        : (state.zoom ? constrainDomain(state.zoom.xDomain, baseXDomain, state.logX) : baseXDomain);
+        : (state.zoom ? constrainDomain(state.zoom.xDomain, xConstraintDomain, state.logX) : baseXDomain);
       const yDomain = preserveViewport
         ? state.zoom.yDomain.slice()
-        : (state.zoom ? constrainDomain(state.zoom.yDomain, baseYDomain, state.logY) : baseYDomain);
+        : (state.zoom ? constrainDomain(state.zoom.yDomain, yConstraintDomain, state.logY) : baseYDomain);
       if (state.zoom) {
         state.zoom = { xDomain, yDomain };
+        state.zoomContext = zoomContext;
+      } else {
+        state.zoomContext = "";
       }
       state.preserveViewportOnce = false;
       const x = makeScale(xDomain, [margin.left, margin.left + innerW], state.logX);
       const y = makeScale(yDomain, [margin.top + innerH, margin.top], state.logY);
-      setChartViewport({ width, height, margin, innerW, innerH, xDomain, yDomain, baseXDomain, baseYDomain });
+      setChartViewport({ width, height, margin, innerW, innerH, xDomain, yDomain, baseXDomain, baseYDomain, xConstraintDomain, yConstraintDomain });
 
       drawGridAndAxes({ width, height, margin, innerW, innerH, x, y, xDomain, yDomain });
       const clipId = "plotClip";
@@ -368,11 +389,12 @@ export function endChartPan(event) {
 
 export function setZoomDomains(xDomain, yDomain) {
       if (!chartViewport) return;
-      const nextX = constrainDomain(xDomain, chartViewport.baseXDomain, state.logX);
-      const nextY = constrainDomain(yDomain, chartViewport.baseYDomain, state.logY);
+      const nextX = constrainDomain(xDomain, chartViewport.xConstraintDomain || chartViewport.baseXDomain, state.logX);
+      const nextY = constrainDomain(yDomain, chartViewport.yConstraintDomain || chartViewport.baseYDomain, state.logY);
       state.zoom = sameDomain(nextX, chartViewport.baseXDomain, state.logX) && sameDomain(nextY, chartViewport.baseYDomain, state.logY)
         ? null
         : { xDomain: nextX, yDomain: nextY };
+      state.zoomContext = state.zoom ? currentZoomContext() : "";
       const rows = filteredRows();
       renderChart(rows);
       refreshTooltip(rows);

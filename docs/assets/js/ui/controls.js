@@ -37,6 +37,38 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       const presetImport = document.getElementById("presetImport");
       const nameSearch = document.getElementById("nameSearch");
 
+      function chartDomainsMatch(a, b) {
+        if (!Array.isArray(a) || !Array.isArray(b) || a.length !== 2 || b.length !== 2) return false;
+        const scale = Math.max(Math.abs(b[1] - b[0]), Math.abs(b[0]), Math.abs(b[1]), 1);
+        return Math.abs(a[0] - b[0]) <= scale * 1e-9
+          && Math.abs(a[1] - b[1]) <= scale * 1e-9;
+      }
+
+      function resetChartViewport() {
+        state.zoom = null;
+        state.zoomContext = "";
+        state.preserveViewportOnce = false;
+      }
+
+      function preserveCurrentViewportOnlyIfZoomed() {
+        if (!chartViewport || !chartViewport.xDomain || !chartViewport.yDomain) {
+          resetChartViewport();
+          return;
+        }
+        const isDefaultViewport = chartDomainsMatch(chartViewport.xDomain, chartViewport.baseXDomain)
+          && chartDomainsMatch(chartViewport.yDomain, chartViewport.baseYDomain);
+        if (isDefaultViewport) {
+          resetChartViewport();
+          return;
+        }
+        state.zoom = {
+          xDomain: chartViewport.xDomain.slice(),
+          yDomain: chartViewport.yDomain.slice(),
+        };
+        state.zoomContext = "";
+        state.preserveViewportOnce = true;
+      }
+
       applyStartupChartPreset();
       const languageSelect = document.getElementById("uiLanguageSelect");
       if (languageSelect) {
@@ -100,6 +132,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         input.addEventListener("change", () => {
           state.categories[category.key] = input.checked;
           syncFilterInputs();
+          resetChartViewport();
           render();
         });
         applyHelp(label, localCategoryHelp(category));
@@ -124,6 +157,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         input.checked = !!state.families[family.key];
         input.addEventListener("change", () => {
           state.families[family.key] = input.checked;
+          resetChartViewport();
           render();
         });
         const swatch = document.createElement("span");
@@ -235,13 +269,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       if (powerResearchViewSelect) {
         powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
         powerResearchViewSelect.addEventListener("change", () => {
-          if (chartViewport && chartViewport.xDomain && chartViewport.yDomain) {
-            state.zoom = {
-              xDomain: chartViewport.xDomain.slice(),
-              yDomain: chartViewport.yDomain.slice(),
-            };
-            state.preserveViewportOnce = true;
-          }
+          preserveCurrentViewportOnlyIfZoomed();
           state.powerResearchView = normalizePowerResearchView(powerResearchViewSelect.value);
           render();
         });
@@ -339,6 +367,7 @@ export function setupChartInteraction() {
       const resetZoom = document.getElementById("resetZoom");
       resetZoom.addEventListener("click", () => {
         state.zoom = null;
+        state.zoomContext = "";
         redrawChartOnly();
       });
       chart.addEventListener("wheel", handleChartWheel, { passive: false });
@@ -350,6 +379,7 @@ export function setupChartInteraction() {
       chart.addEventListener("dblclick", event => {
         event.preventDefault();
         state.zoom = null;
+        state.zoomContext = "";
         redrawChartOnly();
       });
       document.addEventListener("keydown", handleChartKeyDown);

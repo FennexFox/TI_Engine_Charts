@@ -12,6 +12,13 @@ function expect(condition, message) {
   if (!condition) failures.push(message);
 }
 
+function nearlySameDomain(a, b, tolerance = 1e-8) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== 2 || b.length !== 2) return false;
+  const scale = Math.max(Math.abs(b[1] - b[0]), Math.abs(b[0]), Math.abs(b[1]), 1);
+  return Math.abs(a[0] - b[0]) <= scale * tolerance
+    && Math.abs(a[1] - b[1]) <= scale * tolerance;
+}
+
 function htmlFileUrl(htmlFile, baseUrl) {
   const absolutePath = resolve(htmlFile);
   const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -218,6 +225,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       const select = document.getElementById("powerResearchView");
       return select ? [...select.options].map(option => ({ value: option.value, label: option.textContent.trim() })) : [];
     };
+    const debugAxisSnapshot = () => window.TI_ENGINE_CHART_DEBUG?.axisSnapshot?.() || null;
 
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
@@ -261,6 +269,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       basePoints: document.querySelectorAll("#chart .power-base-point").length,
       extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
+      xDomain: debugAxisSnapshot()?.x?.domain || null,
+      yDomain: debugAxisSnapshot()?.y?.domain || null,
     };
 
     if (target && targetOptions.length) {
@@ -294,6 +304,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       dashedLines: [...document.querySelectorAll("#chart .power-ladder-line")]
         .filter(path => (path.getAttribute("stroke-dasharray") || "").trim().length > 0).length,
       bandSurfaces: document.querySelectorAll("#chart [data-band-pair-step], #chart [data-band-step]").length,
+      xDomain: debugAxisSnapshot()?.x?.domain || null,
+      yDomain: debugAxisSnapshot()?.y?.domain || null,
     };
 
     state.powerResearchView = "best";
@@ -373,6 +385,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(powerViewChecks.allMode.ladderLines > 0 && powerViewChecks.allMode.subduedLines > 0, `${htmlFile}: All ladders mode did not render subdued ladder lines`);
   expect(powerViewChecks.allMode.dashedLines === powerViewChecks.allMode.ladderLines, `${htmlFile}: All ladders mode did not render dashed ladder lines`);
   expect(powerViewChecks.allMode.bandSurfaces === 0, `${htmlFile}: All ladders mode rendered old power band surfaces`);
+  expect(nearlySameDomain(powerViewChecks.allMode.xDomain, powerViewChecks.focusIdle.xDomain), `${htmlFile}: All ladders mode changed the default X viewport instead of fitting base points`);
+  expect(nearlySameDomain(powerViewChecks.allMode.yDomain, powerViewChecks.focusIdle.yDomain), `${htmlFile}: All ladders mode changed the default Y viewport instead of fitting base points`);
   expect(powerViewChecks.bestMode.selected === "best", `${htmlFile}: Best Available Power view did not select best mode`);
   expect(powerViewChecks.bestMode.basePoints > 0, `${htmlFile}: Best Available did not preserve first-compatible baseline points`);
   expect(powerViewChecks.bestMode.bestPoints > 0 && powerViewChecks.bestMode.bestLines > 1, `${htmlFile}: Best Available did not render best points and lines for multiple drives`);

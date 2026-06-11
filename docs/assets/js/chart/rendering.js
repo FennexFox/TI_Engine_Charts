@@ -312,6 +312,16 @@ export function drawMetricLines(rows, x, y, plot) {
       });
     }
 
+export function baseChartResearchValues(rows) {
+      const values = isBandMetric()
+        ? rows.map(row => {
+          const option = chartMassOptions(row)[0];
+          return option ? optionAdditionalResearchValue(row, option) : rowUnlockResearchValue(row);
+        })
+        : rows.map(row => rowUnlockResearchValue(row));
+      return values.filter(value => Number.isFinite(value) && value > 0);
+    }
+
 export function chartResearchValues(rows) {
       const values = isBandMetric()
         ? rows.flatMap(row => {
