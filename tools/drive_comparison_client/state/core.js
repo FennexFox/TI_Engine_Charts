@@ -12,6 +12,7 @@ export function registerMetricCalculationHooks(hooks) {
   Object.assign(metricCalculationHooks, hooks || {});
 }
 export const STANDARD_GRAVITY_MPS2 = 9.80665;
+export const DEFAULT_MIN_TWR = 0.0001;
 export let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
 export const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
     if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
@@ -35,7 +36,7 @@ export const state = {
       paretoHighlight: true,
       showImpracticalCandidates: false,
       powerResearchView: "focus",
-      minTwr: 0.0001,
+      minTwr: DEFAULT_MIN_TWR,
       minDvKps: 0,
       searchTerm: "",
       sortKey: "research",
@@ -69,7 +70,7 @@ export function chartDefaultState() {
         paretoHighlight: true,
         showImpracticalCandidates: false,
         powerResearchView: "focus",
-        minTwr: 0.0001,
+        minTwr: DEFAULT_MIN_TWR,
         minDvKps: 0,
         searchTerm: "",
         sortKey: "research",
@@ -582,7 +583,7 @@ export const dryMassCalcState = {
       notes: "",
       simulationDefaults: {
         targetDvKps: DATA.defaults.targetDvKps,
-        minTwr: 0.0001,
+        minTwr: DEFAULT_MIN_TWR,
         radiatorId: DATA.defaults.radiatorId,
       },
     };

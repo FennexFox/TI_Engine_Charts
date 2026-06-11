@@ -1,5 +1,5 @@
 import { renderDryMassPresetControls, setPresetUiText, setTextById, setupDryMassPresetControls, syncUiFromState } from "../presets/library.js";
-import { ARMOR_OPTIONS, DATA, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, dryMassCalcState, localText, renderRadiatorOptions, state } from "../state/core.js";
+import { ARMOR_OPTIONS, DATA, DEFAULT_MIN_TWR, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, dryMassCalcState, localText, renderRadiatorOptions, state } from "../state/core.js";
 import { escapeHtml, formatCompact, formatNumber, trim } from "../shared/formatting.js";
 import { clamp } from "../shared/math.js";
 import { enhanceSearchableSelects } from "./searchable_select.js";
@@ -29,6 +29,8 @@ import {
   weaponSelections,
   weaponSlotSize,
 } from "../calc/dry_mass_model.js";
+
+const MIN_TWR_MG_PER_G = 1000;
 
 export function formatHardpointSize(value) {
       return Number.isFinite(value) ? trim(value) : "-";
@@ -199,7 +201,7 @@ export function renderDryMassCalcModal() {
       if (title) title.textContent = localText("건조질량 계산기", "Dry-mass calculator");
       if (close) close.textContent = localText("닫기", "Close");
       if (apply) apply.textContent = localText("건조질량만 적용", "Apply dry mass only");
-      setTextById("dryMassCalcApplyWithDefaults", "건조질량 + 조건 적용", "Apply dry mass + defaults");
+      setTextById("dryMassCalcApplyWithDefaults", "건조질량·기본 조건 적용", "Apply dry mass & sim defaults");
       if (reset) reset.textContent = localText("초기화", "Reset");
       if (classLabel) classLabel.textContent = localText("함급", "Hull Class");
       if (slotsLabel) slotsLabel.textContent = localText("내부 유틸리티 모듈", "Internal utility modules");
@@ -208,11 +210,11 @@ export function renderDryMassCalcModal() {
       if (notesLabel) notesLabel.textContent = localText("메모", "Notes");
       if (simulationDefaultsLabel) simulationDefaultsLabel.textContent = localText("시뮬레이션 기본 조건", "Simulation defaults");
       if (targetDvLabel) targetDvLabel.textContent = localText("목표 dV (km/s)", "Target dV (km/s)");
-      if (minTwrLabel) minTwrLabel.textContent = localText("최소 TWR", "Minimum TWR");
+      if (minTwrLabel) minTwrLabel.textContent = localText("최소 TWR (mg)", "Minimum TWR (mg)");
       if (radiatorLabel) radiatorLabel.textContent = localText("라디에이터", "Radiator");
       const simulationDefaults = normalizeShipDesignSimulationDefaults();
       if (targetDvInput) targetDvInput.value = String(Math.round(simulationDefaults.targetDvKps));
-      if (minTwrInput) minTwrInput.value = String(Number(simulationDefaults.minTwr.toPrecision(4)));
+      if (minTwrInput) minTwrInput.value = String(Number((simulationDefaults.minTwr * MIN_TWR_MG_PER_G).toPrecision(4)));
       if (radiatorSelect) {
         renderRadiatorOptions(radiatorSelect);
         radiatorSelect.value = simulationDefaults.radiatorId;
@@ -319,6 +321,16 @@ export function setupDryMassCalculator({ render = () => {} } = {}) {
       const presetRadiator = document.getElementById("shipPresetRadiator");
       if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !applyWithDefaults || !reset || !dryMass || !dryMassNumber || !notes || !presetTargetDv || !presetMinTwr || !presetRadiator) return;
 
+      const syncSimulationDefaultsFromControls = () => {
+        const defaults = normalizeShipDesignSimulationDefaults();
+        defaults.targetDvKps = clamp(Number(presetTargetDv.value) || 0, 0, 100000);
+        defaults.minTwr = clamp((Number(presetMinTwr.value) || DEFAULT_MIN_TWR * MIN_TWR_MG_PER_G) / MIN_TWR_MG_PER_G, DEFAULT_MIN_TWR, 10);
+        if (DATA.radiators.some(item => item.id === presetRadiator.value)) {
+          defaults.radiatorId = presetRadiator.value;
+        }
+        return defaults;
+      };
+
       const openModal = () => {
         renderDryMassCalcModal();
         modal.classList.add("is-open");
@@ -341,16 +353,13 @@ export function setupDryMassCalculator({ render = () => {} } = {}) {
         dryMassCalcState.notes = notes.value.slice(0, 2000);
       });
       presetTargetDv.addEventListener("input", () => {
-        normalizeShipDesignSimulationDefaults().targetDvKps = clamp(Number(presetTargetDv.value) || 0, 0, 100000);
+        syncSimulationDefaultsFromControls();
       });
       presetMinTwr.addEventListener("input", () => {
-        normalizeShipDesignSimulationDefaults().minTwr = clamp(Number(presetMinTwr.value) || 0.0001, 0.0001, 10);
+        syncSimulationDefaultsFromControls();
       });
       presetRadiator.addEventListener("change", () => {
-        const defaults = normalizeShipDesignSimulationDefaults();
-        if (DATA.radiators.some(item => item.id === presetRadiator.value)) {
-          defaults.radiatorId = presetRadiator.value;
-        }
+        syncSimulationDefaultsFromControls();
       });
       modal.addEventListener("pointerdown", event => {
         pointerStartedInsideDialog = !!event.target.closest(".modal-dialog");
@@ -438,6 +447,7 @@ export function setupDryMassCalculator({ render = () => {} } = {}) {
       applyWithDefaults.addEventListener("click", () => {
         const value = clamp(dryMassCalcTotalTons(), 0, 1000000);
         state.dryMassTons = value;
+        syncSimulationDefaultsFromControls();
         applyShipDesignSimulationDefaultsToState();
         syncUiFromState();
         closeModal();

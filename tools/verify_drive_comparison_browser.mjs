@@ -423,6 +423,19 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   await page.waitForFunction(() => !document.querySelector("#presetExportModal")?.classList.contains("is-open"), null, { timeout: 5000 });
   const dryMassPresetMenuClosedByOutsideClick = await page.locator("#dryMassPresetActionsMenu").evaluate(menu => !menu.open);
   expect(dryMassPresetMenuClosedByOutsideClick, `${htmlFile}: dry-mass preset management menu did not close after an outside click`);
+  await page.locator("#dryMassPresetActionsMenu > summary").click();
+  await page.locator("#dryMassCalcClassLabel").click();
+  await page.waitForFunction(() => {
+    const menu = document.querySelector("#dryMassPresetActionsMenu");
+    const modal = document.querySelector("#dryMassCalcModal");
+    return Boolean(menu && modal?.classList.contains("is-open") && !menu.open);
+  }, null, { timeout: 5000 });
+  const dryMassPresetMenuOnlyClosed = await page.evaluate(() => ({
+    menuClosed: !document.querySelector("#dryMassPresetActionsMenu")?.open,
+    dryMassModalOpen: !!document.querySelector("#dryMassCalcModal.is-open"),
+  }));
+  expect(dryMassPresetMenuOnlyClosed.menuClosed, `${htmlFile}: dry-mass preset management menu did not close after an in-modal outside click`);
+  expect(dryMassPresetMenuOnlyClosed.dryMassModalOpen, `${htmlFile}: dry-mass modal closed when only the preset management menu should close`);
   expect(await page.locator('#dryMassCalcArmor select[data-armor-field="type"]').count() === 3, `${htmlFile}: dry-mass calculator armor type controls missing`);
   expect(await page.locator('#dryMassCalcArmor input[data-armor-field="points"]').count() === 3, `${htmlFile}: dry-mass calculator armor point controls missing`);
   const initialCalcMass = await page.evaluate(() => dryMassCalcTotalTons());
@@ -610,11 +623,18 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       && copiedPreset.id !== savedBase.id
       && copiedPreset.calculator.notes === "copy update"
       && saveAsNewPromptCount === 1;
+    const copiedPresetId = copiedPreset && copiedPreset.id;
+    renderDryMassPresetControls(copiedPresetId);
+    window.prompt = () => "Renamed Variant";
+    document.getElementById("dryMassPresetRename").click();
+    window.prompt = originalPrompt;
+    const dryMassRenameLabelSynced = document.getElementById("dryMassPresetSelect")?.selectedOptions[0]?.textContent.trim() === "Renamed Variant"
+      && document.querySelector("#dryMassPresetSelect + .searchable-select .searchable-select-value")?.textContent.trim() === "Renamed Variant";
 
     dryMassPresetLibrary = [
-      { id: "design-z", name: "Internal Search Token", displayName: { en: "Zulu", ko: "줄루" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
-      { id: "design-a", name: "Hidden Alpha Token", displayName: { en: "Alpha", ko: "알파" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
-      { id: "design-b", name: "Hidden Beta Token", displayName: { en: "Beta", ko: "베타" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "design-z", name: "Internal Search Token", displayName: { en: "Zulu", ko: "가가" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "design-a", name: "Hidden Alpha Token", displayName: { en: "Alpha", ko: "다다" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "design-b", name: "Hidden Beta Token", displayName: { en: "Beta", ko: "나나" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
     ];
     saveDryMassPresetLibrary();
     setLanguage("en", { rerender: false });
@@ -626,6 +646,13 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const sortedDryMassLabels = [...dryMassSelect.querySelectorAll("option")]
       .filter(option => option.value.startsWith("design-"))
       .map(option => option.textContent.trim());
+    setLanguage("ko", { rerender: false });
+    renderDryMassPresetControls("design-z");
+    const sortedDryMassKoreanLabels = [...dryMassSelect.querySelectorAll("option")]
+      .filter(option => option.value.startsWith("design-"))
+      .map(option => option.textContent.trim());
+    setLanguage("en", { rerender: false });
+    renderDryMassPresetControls("design-z");
     dryMassSearchTrigger?.click();
     dryMassSearchInput.value = "alpha";
     dryMassSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -644,6 +671,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       : -1;
     const dryMassSearchableOk = !!dryMassSearchable
       && sortedDryMassLabels.join("|") === "Alpha|Beta|Zulu"
+      && sortedDryMassKoreanLabels.join("|") === "가가|나나|다다"
       && alphaMatches.length === 1
       && alphaMatches[0] === "Alpha"
       && hiddenMatches === 0
@@ -712,6 +740,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       selectedDryMassImportApplied,
       saveOverwriteOk,
       saveAsNewOk,
+      dryMassRenameLabelSynced,
       dryMassSearchableOk,
       chartControls,
       dryMassControls,
@@ -753,39 +782,69 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.selectedDryMassImportApplied, `${htmlFile}: selected dry-mass preset import did not apply the imported calculator state`);
   expect(namedPresetRoundTrip.saveOverwriteOk, `${htmlFile}: dry-mass Save did not overwrite the selected user preset without creating a duplicate`);
   expect(namedPresetRoundTrip.saveAsNewOk, `${htmlFile}: dry-mass Save as New did not create a separate unique-name preset`);
+  expect(namedPresetRoundTrip.dryMassRenameLabelSynced, `${htmlFile}: dry-mass preset rename did not refresh selected labels`);
   expect(namedPresetRoundTrip.dryMassSearchableOk, `${htmlFile}: dry-mass preset searchable dropdown did not sort or filter by displayed label`);
   expect(namedPresetRoundTrip.chartControls, `${htmlFile}: chart preset management controls missing`);
   expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
 
-  const footerLayout = await page.evaluate(() => {
+  const dryMassActionLayout = await page.evaluate(() => {
+    const library = document.getElementById("dryMassPresetLibrary");
+    const toolbar = library?.querySelector(".dry-mass-preset-toolbar");
+    const actions = library?.querySelector(".dry-mass-preset-apply-actions");
+    const status = document.getElementById("dryMassPresetStatus");
     const footer = document.querySelector("#dryMassCalcModal .dry-mass-modal-footer");
     const summary = footer?.querySelector(".dry-mass-summary-row");
     const total = document.getElementById("dryMassCalcTotal");
     const breakdown = document.getElementById("dryMassCalcBreakdown");
-    const actions = footer?.querySelector(".dry-mass-modal-actions");
-    if (!footer || !summary || !total || !breakdown || !actions) return null;
+    if (!library || !toolbar || !actions || !status || !footer || !summary || !total || !breakdown) return null;
+    const libraryBox = library.getBoundingClientRect();
+    const toolbarBox = toolbar.getBoundingClientRect();
+    const actionsBox = actions.getBoundingClientRect();
+    const statusBox = status.getBoundingClientRect();
     const footerBox = footer.getBoundingClientRect();
     const summaryBox = summary.getBoundingClientRect();
     const totalBox = total.getBoundingClientRect();
     const breakdownBox = breakdown.getBoundingClientRect();
-    const actionsBox = actions.getBoundingClientRect();
     return {
-      actionsBelowSummary: actionsBox.top >= summaryBox.bottom - 1,
+      actionsInsidePresetPanel: actions.parentElement === library,
+      actionsBelowToolbar: actionsBox.top >= toolbarBox.bottom - 1,
+      actionsAboveStatus: actionsBox.bottom <= statusBox.top + 1,
+      footerHasNoActions: !footer.querySelector(".dry-mass-modal-actions"),
       totalAndCapsulesSameRow: Math.abs(totalBox.top - breakdownBox.top) < 8,
       capsulesRightAligned: Math.abs(breakdownBox.right - summaryBox.right) < 2,
-      noHorizontalOverflow: summaryBox.right <= footerBox.right + 1 && actionsBox.right <= footerBox.right + 1,
+      noHorizontalOverflow: summaryBox.right <= footerBox.right + 1 && actionsBox.right <= libraryBox.right + 1,
     };
   });
-  expect(!!footerLayout, `${htmlFile}: dry-mass modal footer layout elements missing`);
-  if (footerLayout) {
-    expect(footerLayout.actionsBelowSummary, `${htmlFile}: dry-mass modal actions should render on a separate row`);
-    expect(footerLayout.totalAndCapsulesSameRow, `${htmlFile}: dry-mass total and breakdown capsules should share a summary row`);
-    expect(footerLayout.capsulesRightAligned, `${htmlFile}: dry-mass breakdown capsules should align to the right`);
-    expect(footerLayout.noHorizontalOverflow, `${htmlFile}: dry-mass modal footer overflows horizontally`);
+  expect(!!dryMassActionLayout, `${htmlFile}: dry-mass modal layout elements missing`);
+  if (dryMassActionLayout) {
+    expect(dryMassActionLayout.actionsInsidePresetPanel, `${htmlFile}: dry-mass actions should be inside the preset panel`);
+    expect(dryMassActionLayout.actionsBelowToolbar, `${htmlFile}: dry-mass actions should render directly below the preset toolbar`);
+    expect(dryMassActionLayout.actionsAboveStatus, `${htmlFile}: dry-mass status should stay below the action row`);
+    expect(dryMassActionLayout.footerHasNoActions, `${htmlFile}: dry-mass modal footer should only contain the summary`);
+    expect(dryMassActionLayout.totalAndCapsulesSameRow, `${htmlFile}: dry-mass total and breakdown capsules should share a summary row`);
+    expect(dryMassActionLayout.capsulesRightAligned, `${htmlFile}: dry-mass breakdown capsules should align to the right`);
+    expect(dryMassActionLayout.noHorizontalOverflow, `${htmlFile}: dry-mass modal layout overflows horizontally`);
   }
 
+  await page.evaluate(() => {
+    state.minTwr = 0.37;
+  });
+  await page.locator("#dryMassCalcReset").click();
+  const dryMassDefaultMinTwr = await page.evaluate(() => ({
+    calcMinTwr: dryMassCalcState.simulationDefaults.minTwr,
+    inputValue: document.getElementById("shipPresetMinTwr")?.value,
+  }));
+  const defaultMinTwrReadout = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    syncUiFromState();
+    return document.getElementById("minTwrReadout")?.textContent.trim();
+  });
+  expect(Math.abs(dryMassDefaultMinTwr.calcMinTwr - 0.0001) < 1e-12, `${htmlFile}: dry-mass reset did not use the default minimum TWR`);
+  expect(dryMassDefaultMinTwr.inputValue === "0.1", `${htmlFile}: dry-mass minimum TWR input did not show the default mg value`);
+  expect(/0\.1mg/.test(defaultMinTwrReadout || ""), `${htmlFile}: default minimum TWR readout did not use mg`);
+
   await page.locator("#shipPresetMinTwr").evaluate(input => {
-    input.value = "0.37";
+    input.value = "370";
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await page.locator("#dryMassCalcApplyWithDefaults").click();

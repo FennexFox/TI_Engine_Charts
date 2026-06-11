@@ -550,6 +550,15 @@
       white-space: nowrap;
       flex: 0 0 auto;
     }
+    .compact-command.primary-command {
+      border-color: rgba(20, 184, 166, 0.48);
+      background: rgba(20, 184, 166, 0.16);
+      color: #dffaf4;
+      font-weight: 700;
+    }
+    .compact-command.primary-command:hover {
+      border-color: rgba(20, 184, 166, 0.72);
+    }
     .compact-command:disabled {
       opacity: 0.45;
       cursor: default;
@@ -699,6 +708,19 @@
     }
     .preset-button-row .compact-command {
       white-space: nowrap;
+    }
+    .dry-mass-preset-apply-actions {
+      display: grid;
+      grid-template-columns: auto minmax(8px, 1fr) auto auto;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .dry-mass-preset-apply-actions .compact-command {
+      white-space: nowrap;
+    }
+    .dry-mass-preset-apply-spacer {
+      min-width: 8px;
     }
     .preset-actions-menu {
       position: relative;
@@ -1729,6 +1751,12 @@
       .preset-header-row { align-items: flex-start; flex-direction: column; }
       .preset-actions-menu { display: block; width: 100%; }
       .preset-actions-menu > summary { width: fit-content; }
+      .dry-mass-preset-apply-actions {
+        grid-template-columns: 1fr;
+      }
+      .dry-mass-preset-apply-spacer {
+        display: none;
+      }
       .preset-menu-panel {
         position: static;
         grid-template-columns: 1fr;
