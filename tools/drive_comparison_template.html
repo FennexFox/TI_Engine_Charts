@@ -105,7 +105,7 @@ __STYLES__
               <input id="minTwrExp" type="range" min="-4" max="1" value="-4" step="0.1">
               <input id="minTwrNumber" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
             </div>
-            <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.0001 g</div>
+            <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.1mg</div>
           </section>
           <section class="control-block">
             <label class="label" for="radiator">라디에이터</label>
@@ -334,7 +334,24 @@ __STYLES__
               </details>
             </div>
           </div>
+          <div class="modal-actions dry-mass-modal-actions dry-mass-preset-apply-actions">
+            <button id="dryMassCalcReset" class="compact-command" type="button">초기화</button>
+            <span class="dry-mass-preset-apply-spacer" aria-hidden="true"></span>
+            <button id="dryMassCalcApply" class="compact-command" type="button">건조질량만 적용</button>
+            <button id="dryMassCalcApplyWithDefaults" class="compact-command primary-command" type="button">건조질량·기본 조건 적용</button>
+          </div>
           <span id="dryMassPresetStatus" class="preset-status" aria-live="polite"></span>
+        </section>
+        <section id="shipPresetSimulationDefaults" class="calculator-panel calculator-panel-wide simulation-defaults-panel" aria-label="시뮬레이션 기본 조건">
+          <div id="shipPresetSimulationDefaultsLabel" class="label">시뮬레이션 기본 조건</div>
+          <div class="simulation-defaults-grid">
+            <label id="shipPresetTargetDvLabel" class="label" for="shipPresetTargetDv">목표 dV (km/s)</label>
+            <input id="shipPresetTargetDv" type="number" min="0" max="100000" step="1">
+            <label id="shipPresetMinTwrLabel" class="label" for="shipPresetMinTwr">최소 TWR (mg)</label>
+            <input id="shipPresetMinTwr" type="number" min="0.1" max="10000" value="0.1" step="0.1">
+            <label id="shipPresetRadiatorLabel" class="label" for="shipPresetRadiator">라디에이터</label>
+            <select id="shipPresetRadiator" data-searchable-select="true"></select>
+          </div>
         </section>
         <section class="calculator-panel">
           <label id="dryMassCalcClassLabel" class="label" for="dryMassCalcClass">함급</label>
@@ -357,17 +374,6 @@ __STYLES__
           <label id="dryMassCalcNotesLabel" class="label" for="dryMassCalcNotes">메모</label>
           <textarea id="dryMassCalcNotes" class="calc-notes" rows="3" placeholder="선박 설계 가정 메모"></textarea>
         </section>
-        <section id="shipPresetSimulationDefaults" class="calculator-panel calculator-panel-wide simulation-defaults-panel" aria-label="시뮬레이션 기본 조건">
-          <div id="shipPresetSimulationDefaultsLabel" class="label">시뮬레이션 기본 조건</div>
-          <div class="simulation-defaults-grid">
-            <label id="shipPresetTargetDvLabel" class="label" for="shipPresetTargetDv">목표 dV (km/s)</label>
-            <input id="shipPresetTargetDv" type="number" min="0" max="100000" step="1">
-            <label id="shipPresetMinTwrLabel" class="label" for="shipPresetMinTwr">최소 TWR</label>
-            <input id="shipPresetMinTwr" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
-            <label id="shipPresetRadiatorLabel" class="label" for="shipPresetRadiator">라디에이터</label>
-            <select id="shipPresetRadiator" data-searchable-select="true"></select>
-          </div>
-        </section>
       </div>
       <div class="modal-footer dry-mass-modal-footer">
         <section class="calculator-panel dry-mass-summary-card" aria-label="예상 건조질량">
@@ -376,11 +382,6 @@ __STYLES__
             <div id="dryMassCalcBreakdown" class="calc-breakdown"></div>
           </div>
         </section>
-        <div class="modal-actions dry-mass-modal-actions">
-          <button id="dryMassCalcReset" class="compact-command" type="button">초기화</button>
-          <button id="dryMassCalcApply" class="compact-command" type="button">건조질량만 적용</button>
-          <button id="dryMassCalcApplyWithDefaults" class="compact-command" type="button">건조질량 + 조건 적용</button>
-        </div>
       </div>
     </div>
   </div>

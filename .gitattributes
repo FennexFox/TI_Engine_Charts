@@ -1,0 +1,8 @@
+# Generated Terra Invicta catalog and GitHub Pages artifacts.
+# Keep these out of language stats and ordinary generated diffs.
+data/research_catalog.json linguist-generated=true -diff -merge
+data/ship_catalog.json linguist-generated=true -diff -merge
+docs/research_catalog.md linguist-generated=true -diff -merge
+docs/ship_catalog.md linguist-generated=true -diff -merge
+docs/index.html linguist-generated=true -diff -merge
+docs/assets/js/** linguist-generated=true -diff -merge
