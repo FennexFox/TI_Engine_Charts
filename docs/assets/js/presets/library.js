@@ -1,6 +1,6 @@
 import { syncFilterInputs } from "../calc/filtering.js";
 import { clamp } from "../shared/math.js";
-import { DATA, UI_LANG, localText, metricDefs, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeModuleEffectPresetState, normalizePowerResearchView, state } from "../state/core.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 import { presetRuntimeApi } from "./runtime.js";
 import {
@@ -821,6 +821,7 @@ export function showDryMassPresetStatus(message, isError = false) {
 
 
 export function exportedPreset() {
+      const moduleEffectState = normalizeModuleEffectPresetState(state);
       return {
         format: "ti-engine-chart-preset/v1",
         lang: UI_LANG,
@@ -837,6 +838,9 @@ export function exportedPreset() {
         paretoHighlight: !!state.paretoHighlight,
         showImpracticalCandidates: !!state.showImpracticalCandidates,
         powerResearchView: normalizePowerResearchView(state.powerResearchView),
+        moduleEffectsEnabled: moduleEffectState.moduleEffectsEnabled,
+        moduleEffectSource: moduleEffectState.moduleEffectSource,
+        moduleEffectModuleIds: moduleEffectState.moduleEffectModuleIds,
         minTwr: state.minTwr,
         minDvKps: state.minDvKps,
         searchTerm: state.searchTerm,
@@ -885,6 +889,7 @@ export function applyPresetToState(rawPreset) {
       } else if (typeof preset.usePowerResearch === "boolean") {
         state.powerResearchView = preset.usePowerResearch ? "all" : "focus";
       }
+      applyModuleEffectPresetState(preset);
       if (Number.isFinite(Number(preset.minTwr))) state.minTwr = clamp(Number(preset.minTwr), 0.0001, 10);
       if (Number.isFinite(Number(preset.minDvKps))) state.minDvKps = clamp(Number(preset.minDvKps), 0, 100000);
       if (typeof preset.searchTerm === "string") state.searchTerm = preset.searchTerm.trim().toLocaleLowerCase();

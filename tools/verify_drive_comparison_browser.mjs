@@ -468,20 +468,68 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     }
     normalizeDryMassCalcSlots();
 
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker", "MissingModule", "Empty", "HydronTrap", "MuonSpiker"];
+    const expectedModuleEffects = {
+      moduleEffectsEnabled: true,
+      moduleEffectSource: "manual",
+      moduleEffectModuleIds: ["MuonSpiker", "HydronTrap"],
+    };
+
     const expected = JSON.stringify(exportedDryMassCalculatorPreset());
     const serialized = await serializePresetPayload();
     const parsed = await parsePresetPayload(serialized);
+    const exportedModuleEffects = {
+      moduleEffectsEnabled: parsed.moduleEffectsEnabled,
+      moduleEffectSource: parsed.moduleEffectSource,
+      moduleEffectModuleIds: parsed.moduleEffectModuleIds,
+    };
+    const oldPreset = JSON.parse(JSON.stringify(parsed));
+    delete oldPreset.moduleEffectsEnabled;
+    delete oldPreset.moduleEffectSource;
+    delete oldPreset.moduleEffectModuleIds;
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker"];
+    const oldApplied = applyPresetToState(oldPreset);
+    const oldModuleEffects = currentModuleEffectAssumptions();
     resetDryMassCalcState();
+    resetChartStateToDefaults();
     const applied = applyPresetToState(parsed);
+    const actual = JSON.stringify(exportedDryMassCalculatorPreset());
+    const importedModuleEffects = currentModuleEffectAssumptions();
+    dryMassCalcState.slotModules = ["MuonSpiker", "Empty", "HydronTrap"];
+    const dryMassSourceAssumptions = currentModuleEffectAssumptions({
+      moduleEffectsEnabled: true,
+      moduleEffectSource: "dryMassCalculator",
+      moduleEffectModuleIds: ["NeutroniumSpiker"],
+    });
     return {
       applied,
       expected,
-      actual: JSON.stringify(exportedDryMassCalculatorPreset()),
+      actual,
       exportedField: !!parsed.dryMassCalculator,
+      moduleFieldsExported: JSON.stringify(exportedModuleEffects) === JSON.stringify(expectedModuleEffects),
+      moduleFieldsRoundTrip: importedModuleEffects.moduleEffectsEnabled === true
+        && importedModuleEffects.moduleEffectSource === "manual"
+        && importedModuleEffects.moduleEffectModuleIds.join("|") === "MuonSpiker|HydronTrap"
+        && importedModuleEffects.moduleIds.join("|") === "MuonSpiker|HydronTrap",
+      oldPresetApplied: oldApplied,
+      oldPresetDefaults: oldModuleEffects.moduleEffectsEnabled === false
+        && oldModuleEffects.moduleEffectSource === "dryMassCalculator"
+        && oldModuleEffects.moduleEffectModuleIds.length === 0
+        && oldModuleEffects.moduleIds.length === 0,
+      dryMassSourceIds: dryMassSourceAssumptions.activeModuleIds.join("|"),
     };
   });
   expect(presetRoundTrip.exportedField, `${htmlFile}: exported preset did not include dry-mass calculator state`);
   expect(presetRoundTrip.applied, `${htmlFile}: preset with dry-mass calculator state was not accepted`);
+  expect(presetRoundTrip.moduleFieldsExported, `${htmlFile}: exported preset did not include validated module-effect fields`);
+  expect(presetRoundTrip.moduleFieldsRoundTrip, `${htmlFile}: module-effect fields did not round-trip through preset import/export`);
+  expect(presetRoundTrip.oldPresetApplied, `${htmlFile}: old preset without module-effect fields was not accepted`);
+  expect(presetRoundTrip.oldPresetDefaults, `${htmlFile}: old preset without module-effect fields did not reset to safe defaults`);
+  expect(presetRoundTrip.dryMassSourceIds === "MuonSpiker|HydronTrap", `${htmlFile}: dry-mass source module-effect assumptions did not derive selected utility IDs`);
   expect(
     presetRoundTrip.actual === presetRoundTrip.expected,
     `${htmlFile}: dry-mass calculator state did not round-trip through preset import/export`,
@@ -510,6 +558,9 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     state.targetDvKps = 321;
     state.thrusters = 4;
     state.searchTerm = "alpha";
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker", "MissingModule", "HydronTrap", "MuonSpiker"];
     const chartA = saveChartPresetFromSettings("Scenario Alpha", exportedPreset());
 
     state.dryMassTons = 67890;
@@ -538,6 +589,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       designNotes: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.notes,
       designDv: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.simulationDefaults && dryMassPresetLibrary[0].calculator.simulationDefaults.targetDvKps,
       designMinTwr: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.simulationDefaults && dryMassPresetLibrary[0].calculator.simulationDefaults.minTwr,
+      moduleEffects: currentModuleEffectAssumptions(),
     };
 
     const chartSelectedPayload = await serializePayloadObject(chartPresetExportObject(chartB));
@@ -698,6 +750,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       chartLoadedDesignNotes: chartLoadedAfterManualApply.designNotes,
       chartLoadedDesignDv: chartLoadedAfterManualApply.designDv,
       chartLoadedDesignMinTwr: chartLoadedAfterManualApply.designMinTwr,
+      chartLoadedModuleEffects: chartLoadedAfterManualApply.moduleEffects,
       selectedChartImportOk: selectedChartImport.ok,
       selectedChartCount: chartPresetLibrary.length,
       startupSaved,
@@ -740,6 +793,13 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartLoadedDesignNotes === "snapshot design notes", `${htmlFile}: named chart preset did not restore design preset content`);
   expect(namedPresetRoundTrip.chartLoadedDesignDv === 777, `${htmlFile}: named chart preset did not restore design preset simulation defaults`);
   expect(Math.abs(namedPresetRoundTrip.chartLoadedDesignMinTwr - 0.42) < 1e-9, `${htmlFile}: named chart preset did not restore design preset minimum TWR`);
+  expect(
+    namedPresetRoundTrip.chartLoadedModuleEffects
+      && namedPresetRoundTrip.chartLoadedModuleEffects.moduleEffectsEnabled === true
+      && namedPresetRoundTrip.chartLoadedModuleEffects.moduleEffectSource === "manual"
+      && namedPresetRoundTrip.chartLoadedModuleEffects.moduleEffectModuleIds.join("|") === "MuonSpiker|HydronTrap",
+    `${htmlFile}: named chart preset did not restore module-effect assumption fields`,
+  );
   expect(namedPresetRoundTrip.selectedChartImportOk, `${htmlFile}: selected chart preset import failed`);
   expect(namedPresetRoundTrip.selectedChartCount === 1, `${htmlFile}: selected chart preset import did not add one preset`);
   expect(namedPresetRoundTrip.startupSaved && namedPresetRoundTrip.startupRestored, `${htmlFile}: startup chart preset did not persist through library export/import`);

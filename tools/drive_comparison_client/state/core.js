@@ -12,10 +12,13 @@ export function registerMetricCalculationHooks(hooks) {
   Object.assign(metricCalculationHooks, hooks || {});
 }
 export const STANDARD_GRAVITY_MPS2 = 9.80665;
+export const DEFAULT_MIN_TWR = 0.0001;
 export let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
 export const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
     if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
 export const POWER_RESEARCH_VIEWS = ["focus", "all", "best"];
+export const MODULE_EFFECT_SOURCES = ["dryMassCalculator", "manual"];
+export const DEFAULT_MODULE_EFFECT_SOURCE = "dryMassCalculator";
 export const POWER_RESEARCH_VIEW_LABELS = {
       focus: { ko: "기본", en: "Base" },
       all: { ko: "전체 사다리", en: "All ladders" },
@@ -35,7 +38,10 @@ export const state = {
       paretoHighlight: true,
       showImpracticalCandidates: false,
       powerResearchView: "focus",
-      minTwr: 0.0001,
+      moduleEffectsEnabled: false,
+      moduleEffectSource: DEFAULT_MODULE_EFFECT_SOURCE,
+      moduleEffectModuleIds: [],
+      minTwr: DEFAULT_MIN_TWR,
       minDvKps: 0,
       searchTerm: "",
       sortKey: "research",
@@ -69,7 +75,10 @@ export function chartDefaultState() {
         paretoHighlight: true,
         showImpracticalCandidates: false,
         powerResearchView: "focus",
-        minTwr: 0.0001,
+        moduleEffectsEnabled: false,
+        moduleEffectSource: DEFAULT_MODULE_EFFECT_SOURCE,
+        moduleEffectModuleIds: [],
+        minTwr: DEFAULT_MIN_TWR,
         minDvKps: 0,
         searchTerm: "",
         sortKey: "research",
@@ -586,4 +595,56 @@ export const dryMassCalcState = {
         radiatorId: DATA.defaults.radiatorId,
       },
     };
+
+export function normalizeModuleEffectSource(value) {
+      return MODULE_EFFECT_SOURCES.includes(value) ? value : DEFAULT_MODULE_EFFECT_SOURCE;
+    }
+
+export function normalizeModuleEffectModuleIds(value) {
+      const validIds = new Set(ALL_UTILITY_MODULES.map(item => item && item.dataName).filter(Boolean));
+      const emptyId = EMPTY_UTILITY_MODULE.dataName || "Empty";
+      const seen = new Set();
+      const normalized = [];
+      if (!Array.isArray(value)) return normalized;
+      value.forEach(item => {
+        const id = typeof item === "string" ? item : "";
+        if (!id || id === emptyId || !validIds.has(id) || seen.has(id)) return;
+        seen.add(id);
+        normalized.push(id);
+      });
+      return normalized;
+    }
+
+export function selectedDryMassUtilityModuleIds() {
+      return normalizeModuleEffectModuleIds(dryMassCalcState.slotModules);
+    }
+
+export function normalizeModuleEffectPresetState(value = {}) {
+      const source = value && typeof value === "object" ? value : {};
+      return {
+        moduleEffectsEnabled: source.moduleEffectsEnabled === true,
+        moduleEffectSource: normalizeModuleEffectSource(source.moduleEffectSource),
+        moduleEffectModuleIds: normalizeModuleEffectModuleIds(source.moduleEffectModuleIds),
+      };
+    }
+
+export function applyModuleEffectPresetState(value = {}) {
+      const normalized = normalizeModuleEffectPresetState(value);
+      state.moduleEffectsEnabled = normalized.moduleEffectsEnabled;
+      state.moduleEffectSource = normalized.moduleEffectSource;
+      state.moduleEffectModuleIds = normalized.moduleEffectModuleIds;
+      return normalized;
+    }
+
+export function currentModuleEffectAssumptions(value = state) {
+      const normalized = normalizeModuleEffectPresetState(value);
+      const activeModuleIds = normalized.moduleEffectSource === "manual"
+        ? normalized.moduleEffectModuleIds
+        : selectedDryMassUtilityModuleIds();
+      return {
+        ...normalized,
+        activeModuleIds: activeModuleIds.slice(),
+        moduleIds: normalized.moduleEffectsEnabled ? activeModuleIds.slice() : [],
+      };
+    }
 

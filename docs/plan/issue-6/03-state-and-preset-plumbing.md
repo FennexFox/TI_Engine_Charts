@@ -82,7 +82,14 @@ npm run verify
 
 ## Progress
 
-- [ ] Not started.
+- [x] Added default-safe module-effect state fields.
+- [x] Added helpers for dry-mass selected utility IDs, manual ID validation, and active assumptions.
+- [x] Included module-effect fields in chart preset export.
+- [x] Added strict import validation and safe defaults for old presets.
+- [x] Exposed read-only helpers through debug hooks.
+- [x] Extended browser verification for old preset import and new-field round trips.
+- [x] Rebuilt generated UI assets.
+- [x] Ran validation commands and manual smoke tests.
 
 ## Decision Log
 
@@ -90,8 +97,50 @@ npm run verify
   Reason: Persistence can be reviewed independently from behavioral math changes.
 - Decision: Default to disabled/no-op.
   Reason: Existing drive comparison behavior must remain unchanged until users opt into module effects.
+- Decision: Store only `moduleEffectsEnabled`, `moduleEffectSource`, and `moduleEffectModuleIds` in chart presets.
+  Reason: The active module list can be derived from the dry-mass calculator when the source is `dryMassCalculator`, so duplicating it would create stale payload data.
+- Decision: Use `dryMassCalculator` and `manual` as the initial source values.
+  Reason: Existing chart presets already carry dry-mass calculator state and selected design preset snapshots, while manual IDs cover future explicit-copy workflows.
+- Decision: Reset missing module-effect preset fields to safe defaults during import.
+  Reason: Old presets should not accidentally inherit a previously enabled experimental state.
+- Decision: Validate module IDs against the generated utility module catalog and drop `Empty`, unknown IDs, and duplicates.
+  Reason: Later effect application should not have to handle corrupted or non-buildable placeholder IDs from persisted chart presets.
 
 ## Outcomes
 
-- Pending.
+- Added module-effect state defaults in `tools/drive_comparison_client/state/core.js`.
+- Added helpers:
+  - `normalizeModuleEffectSource`.
+  - `normalizeModuleEffectModuleIds`.
+  - `selectedDryMassUtilityModuleIds`.
+  - `normalizeModuleEffectPresetState`.
+  - `applyModuleEffectPresetState`.
+  - `currentModuleEffectAssumptions`.
+- Updated chart preset export/import in `tools/drive_comparison_client/presets/library.js`.
+- Updated debug exposure in `tools/drive_comparison_client/diagnostics/debug.js`.
+- Extended `tools/verify_drive_comparison_browser.mjs` for:
+  - validated module-effect field export.
+  - new-field preset round trip.
+  - old-preset safe defaults.
+  - dry-mass source ID derivation.
+  - named chart preset restoration.
+- Rebuilt generated UI assets under `docs/assets/js/`, including the generated copy of the Phase 02 evaluator.
+- Validation passed:
+  - `node tools/verify_drive_comparison_client_syntax.mjs`
+  - `node tools/verify_drive_comparison_import_graph.mjs --show-boundary-warnings`
+  - `node tools/verify_drive_comparison_browser.mjs`
+  - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
+  - `npm run verify`
+- Manual smoke passed in Playwright:
+  - Inspected JSON export payload for module-effect fields.
+  - Imported the exported payload and confirmed controls/state restored.
+  - Imported an old preset payload without module-effect fields and confirmed safe defaults.
+  - Saved a named chart preset, opened a fresh page, and applied it.
+  - Saved/imported dry-mass presets and confirmed design preset behavior still works.
+  - Confirmed chart mass options remain unchanged while module-effect state is enabled.
+
+## Retrospective
+
+- Keeping source selection as state instead of UI made this phase small and independently reviewable.
+- The remaining risk is semantic: `manual` IDs are persisted before there is a user-facing editor. Phase 05 should ensure users can understand and change the source before effects are enabled in normal workflows.
 
