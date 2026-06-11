@@ -196,13 +196,18 @@ export function leftPanelCardSummary(key) {
       }
       if (key === "simulation") {
         const radiator = DATA.radiators.find(item => item.id === state.radiatorId);
-        return `${runtimeHooks.formatNumber(state.dryMassTons, " t")} · ${runtimeHooks.formatNumber(state.targetDvKps, " km/s")} · ${radiator ? radiatorDisplayName(radiator) : state.radiatorId}`;
-      }
-      if (key === "filter") {
-        const parts = [];
+        const parts = [
+          runtimeHooks.formatNumber(state.dryMassTons, " t"),
+          runtimeHooks.formatNumber(state.targetDvKps, " km/s"),
+        ];
         if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
           parts.push(`TWR ≥ ${runtimeHooks.formatTwrDynamicUnit(state.minTwr)}`);
         }
+        parts.push(radiator ? radiatorDisplayName(radiator) : state.radiatorId);
+        return parts.filter(Boolean).join(" · ");
+      }
+      if (key === "filter") {
+        const parts = [];
         if (state.metric === "twr") {
           parts.push(`dV ≥ ${runtimeHooks.formatNumber(state.minDvKps, " km/s")}`);
         }
@@ -621,6 +626,7 @@ export const dryMassCalcState = {
       notes: "",
       simulationDefaults: {
         targetDvKps: DATA.defaults.targetDvKps,
+        minTwr: 0.0001,
         radiatorId: DATA.defaults.radiatorId,
       },
     };

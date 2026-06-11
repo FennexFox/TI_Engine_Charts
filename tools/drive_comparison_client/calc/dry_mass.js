@@ -294,6 +294,8 @@ export function normalizeShipDesignSimulationDefaults() {
       const defaults = dryMassCalcState.simulationDefaults;
       if (!Number.isFinite(Number(defaults.targetDvKps))) defaults.targetDvKps = state.targetDvKps;
       defaults.targetDvKps = clamp(Number(defaults.targetDvKps), 0, 100000);
+      if (!Number.isFinite(Number(defaults.minTwr))) defaults.minTwr = state.minTwr;
+      defaults.minTwr = clamp(Number(defaults.minTwr), 0.0001, 10);
       if (typeof defaults.radiatorId !== "string" || !DATA.radiators.some(item => item.id === defaults.radiatorId)) {
         defaults.radiatorId = state.radiatorId || (DATA.radiators[0] && DATA.radiators[0].id) || "";
       }
@@ -303,6 +305,7 @@ export function normalizeShipDesignSimulationDefaults() {
 export function applyShipDesignSimulationDefaultsToState() {
       const defaults = normalizeShipDesignSimulationDefaults();
       state.targetDvKps = clamp(Number(defaults.targetDvKps), 0, 100000);
+      state.minTwr = clamp(Number(defaults.minTwr), 0.0001, 10);
       if (DATA.radiators.some(item => item.id === defaults.radiatorId)) {
         state.radiatorId = defaults.radiatorId;
       }
@@ -320,6 +323,7 @@ export function resetDryMassCalcState() {
       dryMassCalcState.notes = "";
       dryMassCalcState.simulationDefaults = {
         targetDvKps: state.targetDvKps,
+        minTwr: state.minTwr,
         radiatorId: state.radiatorId,
       };
       normalizeShipDesignSimulationDefaults();
@@ -392,6 +396,9 @@ export function applyDryMassCalculatorPreset(rawCalculator) {
         }
         if (Number.isFinite(Number(rawDefaults.targetDvKps))) {
           dryMassCalcState.simulationDefaults.targetDvKps = clamp(Number(rawDefaults.targetDvKps), 0, 100000);
+        }
+        if (Number.isFinite(Number(rawDefaults.minTwr))) {
+          dryMassCalcState.simulationDefaults.minTwr = clamp(Number(rawDefaults.minTwr), 0.0001, 10);
         }
         if (typeof rawDefaults.radiatorId === "string" && DATA.radiators.some(item => item.id === rawDefaults.radiatorId)) {
           dryMassCalcState.simulationDefaults.radiatorId = rawDefaults.radiatorId;
@@ -548,6 +555,8 @@ export function renderDryMassCalcModal() {
       const simulationDefaultsLabel = document.getElementById("shipPresetSimulationDefaultsLabel");
       const targetDvLabel = document.getElementById("shipPresetTargetDvLabel");
       const targetDvInput = document.getElementById("shipPresetTargetDv");
+      const minTwrLabel = document.getElementById("shipPresetMinTwrLabel");
+      const minTwrInput = document.getElementById("shipPresetMinTwr");
       const radiatorLabel = document.getElementById("shipPresetRadiatorLabel");
       const radiatorSelect = document.getElementById("shipPresetRadiator");
       const button = document.getElementById("dryMassCalcButton");
@@ -568,9 +577,11 @@ export function renderDryMassCalcModal() {
       if (notesLabel) notesLabel.textContent = localText("메모", "Notes");
       if (simulationDefaultsLabel) simulationDefaultsLabel.textContent = localText("시뮬레이션 기본 조건", "Simulation defaults");
       if (targetDvLabel) targetDvLabel.textContent = localText("목표 dV (km/s)", "Target dV (km/s)");
+      if (minTwrLabel) minTwrLabel.textContent = localText("최소 TWR", "Minimum TWR");
       if (radiatorLabel) radiatorLabel.textContent = localText("라디에이터", "Radiator");
       const simulationDefaults = normalizeShipDesignSimulationDefaults();
       if (targetDvInput) targetDvInput.value = String(Math.round(simulationDefaults.targetDvKps));
+      if (minTwrInput) minTwrInput.value = String(Number(simulationDefaults.minTwr.toPrecision(4)));
       if (radiatorSelect) {
         renderRadiatorOptions(radiatorSelect);
         radiatorSelect.value = simulationDefaults.radiatorId;
@@ -673,8 +684,9 @@ export function setupDryMassCalculator() {
       const dryMassNumber = document.getElementById("dryMassNumber");
       const notes = document.getElementById("dryMassCalcNotes");
       const presetTargetDv = document.getElementById("shipPresetTargetDv");
+      const presetMinTwr = document.getElementById("shipPresetMinTwr");
       const presetRadiator = document.getElementById("shipPresetRadiator");
-      if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !applyWithDefaults || !reset || !dryMass || !dryMassNumber || !notes || !presetTargetDv || !presetRadiator) return;
+      if (!modal || !button || !classSelect || !slots || !weapons || !armor || !close || !apply || !applyWithDefaults || !reset || !dryMass || !dryMassNumber || !notes || !presetTargetDv || !presetMinTwr || !presetRadiator) return;
 
       const openModal = () => {
         renderDryMassCalcModal();
@@ -685,6 +697,8 @@ export function setupDryMassCalculator() {
       const closeModal = () => {
         modal.classList.remove("is-open");
       };
+      let pointerStartedInsideDialog = false;
+      let suppressNextOverlayClick = false;
 
       button.addEventListener("click", openModal);
       close.addEventListener("click", closeModal);
@@ -698,14 +712,38 @@ export function setupDryMassCalculator() {
       presetTargetDv.addEventListener("input", () => {
         normalizeShipDesignSimulationDefaults().targetDvKps = clamp(Number(presetTargetDv.value) || 0, 0, 100000);
       });
+      presetMinTwr.addEventListener("input", () => {
+        normalizeShipDesignSimulationDefaults().minTwr = clamp(Number(presetMinTwr.value) || 0.0001, 0.0001, 10);
+      });
       presetRadiator.addEventListener("change", () => {
         const defaults = normalizeShipDesignSimulationDefaults();
         if (DATA.radiators.some(item => item.id === presetRadiator.value)) {
           defaults.radiatorId = presetRadiator.value;
         }
       });
+      modal.addEventListener("pointerdown", event => {
+        pointerStartedInsideDialog = !!event.target.closest(".modal-dialog");
+      });
+      modal.addEventListener("pointerup", event => {
+        if (event.target === modal && pointerStartedInsideDialog) {
+          suppressNextOverlayClick = true;
+          window.setTimeout(() => {
+            suppressNextOverlayClick = false;
+          }, 0);
+        }
+        pointerStartedInsideDialog = false;
+      });
+      modal.addEventListener("pointercancel", () => {
+        pointerStartedInsideDialog = false;
+        suppressNextOverlayClick = false;
+      });
       modal.addEventListener("click", event => {
-        if (event.target === modal) closeModal();
+        if (event.target !== modal) return;
+        if (suppressNextOverlayClick) {
+          suppressNextOverlayClick = false;
+          return;
+        }
+        closeModal();
       });
       modal.addEventListener("keydown", event => {
         if (event.key === "Escape") closeModal();

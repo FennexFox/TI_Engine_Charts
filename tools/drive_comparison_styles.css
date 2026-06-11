@@ -783,8 +783,8 @@
       width: 100%;
     }
     #dryMassPresetActionsMenu .preset-menu-panel {
-      top: auto;
-      bottom: calc(100% + 5px);
+      top: calc(100% + 5px);
+      bottom: auto;
     }
     #dryMassPresetActionsMenu .dry-mass-transfer-menu {
       min-width: 260px;
@@ -1095,9 +1095,11 @@
     .calc-breakdown {
       display: flex;
       flex-wrap: wrap;
+      justify-content: flex-end;
       gap: 6px;
       font-size: 12px;
       color: var(--muted);
+      min-width: 0;
     }
     .calc-breakdown span {
       border: 1px solid var(--line);
@@ -1157,6 +1159,26 @@
       gap: 10px;
       margin-top: 10px;
     }
+    .dry-mass-modal-footer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+      gap: 10px;
+    }
+    .dry-mass-summary-row {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .dry-mass-summary-card {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .dry-mass-modal-actions {
+      justify-content: flex-end;
+    }
     .modal-actions {
       display: flex;
       flex-wrap: wrap;
@@ -1167,6 +1189,7 @@
       color: #cde9df;
       font-size: 15px;
       font-weight: 650;
+      white-space: nowrap;
     }
     .diagnostic-banner {
       margin: 0 0 10px;
@@ -1720,8 +1743,14 @@
       .preset-menu-actions-transfer {
         grid-template-columns: 1fr;
       }
+      .dry-mass-summary-row {
+        grid-template-columns: 1fr;
+      }
+      .calc-breakdown {
+        justify-content: flex-end;
+      }
       #dryMassPresetActionsMenu .preset-menu-panel {
-        bottom: auto;
+        top: auto;
       }
       .calculator-grid { grid-template-columns: 1fr; }
       #dryMassCalcArmor,

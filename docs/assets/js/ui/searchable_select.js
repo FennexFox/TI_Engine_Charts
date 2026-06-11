@@ -52,6 +52,7 @@ export function renderSearchableSelectOptions(select, wrapper, query = "") {
       const list = wrapper.querySelector(".searchable-select-options");
       if (!list) return;
       const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+      const matchMode = select && select.dataset.searchableMatch;
       const rows = searchableSelectOptions(select);
       list.innerHTML = "";
       let visibleOptions = 0;
@@ -67,7 +68,9 @@ export function renderSearchableSelectOptions(select, wrapper, query = "") {
           currentGroupVisible = false;
           return;
         }
-        const haystack = `${row.label} ${row.value} ${row.group}`.toLocaleLowerCase();
+        const haystack = (matchMode === "label"
+          ? row.label
+          : `${row.label} ${row.value} ${row.group}`).toLocaleLowerCase();
         if (normalizedQuery && !haystack.includes(normalizedQuery)) return;
         if (currentGroupElement && !currentGroupVisible) {
           currentGroupElement.hidden = false;

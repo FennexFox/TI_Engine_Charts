@@ -99,6 +99,14 @@ __STYLES__
               <input id="targetDvNumber" type="number" min="0" max="100000" value="500" step="1">
             </div>
           </section>
+          <section id="minTwrControl" class="control-block">
+            <label class="label" for="minTwrExp">최소 TWR</label>
+            <div class="split">
+              <input id="minTwrExp" type="range" min="-4" max="1" value="-4" step="0.1">
+              <input id="minTwrNumber" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
+            </div>
+            <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.0001 g</div>
+          </section>
           <section class="control-block">
             <label class="label" for="radiator">라디에이터</label>
             <select id="radiator" data-searchable-select="true"></select>
@@ -127,14 +135,6 @@ __STYLES__
           <label id="showMassInfoRow" class="check-row" style="display: none;"><input id="showMassInfo" type="checkbox" checked> 총질량 정보 표시</label>
           <label class="check-row"><input id="paretoHighlight" type="checkbox" checked> 파레토 후보 강조</label>
           <label class="check-row"><input id="showImpracticalCandidates" type="checkbox"> 비현실적 후보 표시</label>
-          <div id="minTwrControl" style="margin-top: 10px;">
-            <label class="label" for="minTwrExp">최소 TWR</label>
-            <div class="split">
-              <input id="minTwrExp" type="range" min="-4" max="1" value="-4" step="0.1">
-              <input id="minTwrNumber" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
-            </div>
-            <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.0001 g</div>
-          </div>
           <div id="minDvControl" style="margin-top: 10px; display: none;">
             <label class="label" for="minDv">최소 dV (km/s)</label>
             <div class="split">
@@ -312,6 +312,30 @@ __STYLES__
         <button id="dryMassCalcClose" class="compact-command" type="button">닫기</button>
       </div>
       <div class="calculator-grid">
+        <section id="dryMassPresetLibrary" class="calculator-panel calculator-panel-wide dry-mass-preset-panel" aria-label="설계 프리셋 라이브러리">
+          <div class="preset-library-row preset-toolbar-row dry-mass-preset-toolbar">
+            <select id="dryMassPresetSelect" aria-label="설계 프리셋" data-searchable-select="true" data-searchable-match="label"></select>
+            <div class="preset-button-row dry-mass-preset-actions">
+              <button id="dryMassPresetSave" class="compact-command" type="button">저장</button>
+              <button id="dryMassPresetSaveAsNew" class="compact-command" type="button">새 이름으로 저장</button>
+              <button id="dryMassPresetRename" class="compact-command" type="button">이름 변경</button>
+              <button id="dryMassPresetDelete" class="compact-command" type="button">삭제</button>
+              <details class="preset-actions-menu" id="dryMassPresetActionsMenu">
+                <summary><span id="dryMassPresetMoreLabel">프리셋 관리</span></summary>
+                <div class="preset-menu-panel preset-menu-grouped dry-mass-transfer-menu">
+                  <div class="preset-menu-section">
+                    <div id="dryMassPresetTransferGroupLabel" class="preset-menu-heading">가져오기 / 내보내기</div>
+                    <div class="preset-menu-actions">
+                      <button id="dryMassPresetExportSelected" class="compact-command" type="button">현재 설정 Export</button>
+                      <button id="dryMassPresetImport" class="compact-command" type="button">Import</button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+          <span id="dryMassPresetStatus" class="preset-status" aria-live="polite"></span>
+        </section>
         <section class="calculator-panel">
           <label id="dryMassCalcClassLabel" class="label" for="dryMassCalcClass">함급</label>
           <select id="dryMassCalcClass" data-searchable-select="true"></select>
@@ -338,40 +362,21 @@ __STYLES__
           <div class="simulation-defaults-grid">
             <label id="shipPresetTargetDvLabel" class="label" for="shipPresetTargetDv">목표 dV (km/s)</label>
             <input id="shipPresetTargetDv" type="number" min="0" max="100000" step="1">
+            <label id="shipPresetMinTwrLabel" class="label" for="shipPresetMinTwr">최소 TWR</label>
+            <input id="shipPresetMinTwr" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
             <label id="shipPresetRadiatorLabel" class="label" for="shipPresetRadiator">라디에이터</label>
             <select id="shipPresetRadiator" data-searchable-select="true"></select>
           </div>
         </section>
-        <section id="dryMassPresetLibrary" class="calculator-panel calculator-panel-wide dry-mass-preset-panel" aria-label="설계 프리셋 라이브러리">
-          <div class="preset-library-row preset-toolbar-row dry-mass-preset-toolbar">
-            <select id="dryMassPresetSelect" aria-label="설계 프리셋"></select>
-            <div class="preset-button-row dry-mass-preset-actions">
-              <button id="dryMassPresetSave" class="compact-command" type="button">저장</button>
-              <button id="dryMassPresetRename" class="compact-command" type="button">이름 변경</button>
-              <button id="dryMassPresetDelete" class="compact-command" type="button">삭제</button>
-              <details class="preset-actions-menu" id="dryMassPresetActionsMenu">
-                <summary><span id="dryMassPresetMoreLabel">프리셋 관리</span></summary>
-                <div class="preset-menu-panel preset-menu-grouped dry-mass-transfer-menu">
-                  <div class="preset-menu-section">
-                    <div id="dryMassPresetTransferGroupLabel" class="preset-menu-heading">가져오기 / 내보내기</div>
-                    <div class="preset-menu-actions">
-                      <button id="dryMassPresetExportSelected" class="compact-command" type="button">현재 설정 Export</button>
-                      <button id="dryMassPresetImport" class="compact-command" type="button">Import</button>
-                    </div>
-                  </div>
-                </div>
-              </details>
-            </div>
-          </div>
-          <span id="dryMassPresetStatus" class="preset-status" aria-live="polite"></span>
-        </section>
       </div>
-      <div class="modal-footer">
-        <div>
-          <div id="dryMassCalcTotal" class="calc-total"></div>
-          <div id="dryMassCalcBreakdown" class="calc-breakdown"></div>
-        </div>
-        <div class="modal-actions">
+      <div class="modal-footer dry-mass-modal-footer">
+        <section class="calculator-panel dry-mass-summary-card" aria-label="예상 건조질량">
+          <div class="dry-mass-summary-row">
+            <div id="dryMassCalcTotal" class="calc-total"></div>
+            <div id="dryMassCalcBreakdown" class="calc-breakdown"></div>
+          </div>
+        </section>
+        <div class="modal-actions dry-mass-modal-actions">
           <button id="dryMassCalcReset" class="compact-command" type="button">초기화</button>
           <button id="dryMassCalcApply" class="compact-command" type="button">건조질량만 적용</button>
           <button id="dryMassCalcApplyWithDefaults" class="compact-command" type="button">건조질량 + 조건 적용</button>
