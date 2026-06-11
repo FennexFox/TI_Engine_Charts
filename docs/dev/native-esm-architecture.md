@@ -40,6 +40,14 @@ Rules of thumb:
 
 The former broad `state/core.js` runtime hook registry has been reduced to a narrow metric calculation hook used by metric value definitions. Higher-level UI/chart/language orchestration now lives in `app/controller.js`.
 
+The preset layer is now split into smaller submodules:
+
+- `presets/runtime.js` stores callback hooks supplied by the composition root.
+- `presets/common.js` stores shared preset labels, help text helpers, cloning, naming, and storage utilities.
+- `presets/repository.js` owns preset normalization, built-in/user libraries, localStorage persistence, startup preset state, and export object creation.
+- `presets/codec.js` owns clipboard, base64, compression, serialization, and parsing helpers.
+- `presets/library.js` remains the compatibility facade for preset UI wiring, chart state import/export, and existing callers.
+
 Some of these boundaries are still transitional. The import graph verifier currently fails on circular imports. Boundary warnings are available on demand with `--show-boundary-warnings`, and future cleanup PRs can promote more warnings to hard failures once the corresponding boundary is fully normalized.
 
 ## Verification

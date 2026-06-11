@@ -1,324 +1,112 @@
 import { syncFilterInputs } from "../calc/filtering.js";
 import { clamp } from "../shared/math.js";
-import { CHART_PRESET_STARTUP_STORAGE_KEY, CHART_PRESET_STORAGE_KEY, DATA, DRY_MASS_PRESET_STORAGE_KEY, HELP_TEXT, UI_LANG, localText, metricDefs, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, UI_LANG, localText, metricDefs, normalizePowerResearchView, state } from "../state/core.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
+import { presetRuntimeApi } from "./runtime.js";
+import {
+  applyHelp,
+  cloneJson,
+  dedupePresetEntries,
+  dryMassPresetDisplayName,
+  helpText,
+  localCategoryHelp,
+  localLabel,
+  presetEntryOptionLabel,
+  presetTimestamp,
+  sanitizePresetName,
+  uniquePresetId,
+  uniquePresetName,
+} from "./common.js";
+import {
+  allChartPresetEntries,
+  allDryMassPresetEntries,
+  builtInChartPresetLibrary,
+  builtInDryMassPresetLibrary,
+  chartPresetDesignLibrarySnapshot,
+  chartPresetExportObject,
+  chartPresetLibrary,
+  chartPresetLibraryExportObject,
+  dryMassPresetExportObject,
+  dryMassPresetLibrary,
+  dryMassPresetLibraryExportObject,
+  firstChartPresetEntry,
+  firstDryMassPresetEntry,
+  normalizeChartPresetEntry,
+  normalizeDryMassPresetEntry,
+  restoreDesignPresetLibrarySnapshot,
+  saveChartPresetLibrary,
+  saveDryMassPresetLibrary,
+  setChartPresetLibrary,
+  setDryMassPresetLibrary,
+  setStartupChartPreset,
+  startupChartPresetId,
+} from "./repository.js";
+import {
+  copyToClipboard,
+  formatExportPayloadObject,
+  parsePresetPayload,
+  readFromClipboard,
+  serializePayloadObject,
+} from "./codec.js";
 
-const presetRuntimeApi = {
-      applyDryMassCalculatorPreset: () => false,
-      exportedDryMassCalculatorPreset: () => ({}),
-      renderDryMassCalcModal: () => {},
-      render: () => {},
-      setLanguage: () => {},
-      syncMinDvInputs: () => {},
-      syncMinTwrInputs: () => {},
-      updateChartControls: () => {},
-    };
-
-export function registerPresetRuntimeApi(api = {}) {
-      Object.assign(presetRuntimeApi, api);
-    }
-
-export function localLabel(item) {
-      if (UI_LANG === "en") return item.labelEn || item.label || item.key;
-      return item.label || item.labelEn || item.key;
-    }
-
-export let chartPresetLibrary = loadChartPresetLibrary();
-export let dryMassPresetLibrary = loadDryMassPresetLibrary();
-export const builtInChartPresetLibrary = loadBuiltInChartPresetLibrary();
-export const builtInDryMassPresetLibrary = loadBuiltInDryMassPresetLibrary();
-export let startupChartPresetId = loadStartupChartPresetId();
-
-export function setChartPresetLibrary(value) {
-      chartPresetLibrary = Array.isArray(value) ? value : [];
-}
-
-export function setDryMassPresetLibrary(value) {
-      dryMassPresetLibrary = Array.isArray(value) ? value : [];
-}
-
-export function localCategoryHelp(category) {
-      if (UI_LANG === "en") return category.helpEn || category.help || "";
-      return category.help || category.helpEn || "";
-    }
-
-export function helpText(key) {
-      const item = HELP_TEXT[key] || {};
-      return UI_LANG === "en" ? (item.en || item.ko || "") : (item.ko || item.en || "");
-    }
-
-export function applyHelp(element, text) {
-      if (!element || !text) return;
-      element.dataset.help = text;
-      element.title = text;
-    }
-
-export function cloneJson(value) {
-      const text = JSON.stringify(value);
-      return text ? JSON.parse(text) : null;
-    }
-
-export function storageReadJson(key) {
-      try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : null;
-      } catch {
-        return null;
-      }
-    }
-
-export function storageWriteJson(key, value) {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-        return true;
-      } catch {
-        return false;
-      }
-    }
-
-export function uniquePresetId(prefix) {
-      if (window.crypto && typeof window.crypto.randomUUID === "function") {
-        return `${prefix}-${window.crypto.randomUUID()}`;
-      }
-      return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    }
-
-export function sanitizePresetName(value, fallback = "Preset") {
-      const name = String(value || "").trim();
-      return name || fallback;
-    }
-
-export function uniquePresetName(baseName, library, ignoreId = "") {
-      const base = sanitizePresetName(baseName, "Preset");
-      let candidate = base;
-      let suffix = 2;
-      while (library.some(item => item.id !== ignoreId && item.name === candidate)) {
-        candidate = `${base} (${suffix})`;
-        suffix += 1;
-      }
-      return candidate;
-    }
-
-export function presetTimestamp() {
-      return new Date().toISOString();
-    }
-
-export function normalizeChartPresetEntry(rawEntry, fallbackName = "Chart preset") {
-      if (!rawEntry || typeof rawEntry !== "object") return null;
-      const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
-      const settings = source.settings && typeof source.settings === "object" ? source.settings : source;
-      if (!settings || typeof settings !== "object") return null;
-      const now = presetTimestamp();
-      return {
-        id: typeof source.id === "string" && source.id.trim() ? source.id : uniquePresetId("chart"),
-        name: sanitizePresetName(source.name, fallbackName),
-        settings: cloneJson(settings),
-        createdAt: typeof source.createdAt === "string" ? source.createdAt : now,
-        updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : now,
-      };
-    }
-
-export function normalizeDryMassPresetEntry(rawEntry, fallbackName = "Design preset") {
-      if (!rawEntry || typeof rawEntry !== "object") return null;
-      const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
-      const dryMassDesign = source.dryMassDesign && typeof source.dryMassDesign === "object"
-        ? source.dryMassDesign
-        : source.design && typeof source.design === "object"
-          ? source.design
-          : source.calculator && typeof source.calculator === "object"
-            ? source.calculator
-            : source.settings && typeof source.settings === "object"
-              ? source.settings
-              : source.dryMassCalculator && typeof source.dryMassCalculator === "object"
-                ? source.dryMassCalculator
-                : source.dryMassCalc && typeof source.dryMassCalc === "object"
-                  ? source.dryMassCalc
-                  : source;
-      if (!dryMassDesign || typeof dryMassDesign !== "object") return null;
-      const calculator = cloneJson(dryMassDesign);
-      const simulationDefaults = source.simulationDefaults && typeof source.simulationDefaults === "object"
-        ? source.simulationDefaults
-        : calculator.simulationDefaults && typeof calculator.simulationDefaults === "object"
-          ? calculator.simulationDefaults
-          : null;
-      if (simulationDefaults) calculator.simulationDefaults = cloneJson(simulationDefaults);
-      const displayName = source.displayName && typeof source.displayName === "object"
-        ? cloneJson(source.displayName)
-        : null;
-      const now = presetTimestamp();
-      const entry = {
-        id: typeof source.id === "string" && source.id.trim() ? source.id : uniquePresetId("design"),
-        name: sanitizePresetName(source.name, fallbackName),
-        calculator,
-        createdAt: typeof source.createdAt === "string" ? source.createdAt : now,
-        updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : now,
-      };
-      if (displayName) entry.displayName = displayName;
-      return entry;
-    }
-
-export function dedupePresetEntries(entries) {
-      const seen = new Set();
-      return entries.filter(entry => {
-        if (!entry || seen.has(entry.id)) return false;
-        seen.add(entry.id);
-        return true;
-      });
-    }
-
-export function presetLibraryData() {
-      const library = DATA.presetLibrary;
-      return library && typeof library === "object" ? library : {};
-    }
-
-export function builtInPresetId(prefix, rawEntry, index) {
-      const source = rawEntry && rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
-      const rawId = source && typeof source.id === "string" && source.id.trim()
-        ? source.id.trim()
-        : String(index + 1);
-      return `${prefix}:${rawId}`;
-    }
-
-export function normalizeBuiltInChartPresetEntry(rawEntry, index) {
-      if (!rawEntry || typeof rawEntry !== "object") return null;
-      const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
-      const entry = normalizeChartPresetEntry(
-        { ...source, id: builtInPresetId("built-in-chart", rawEntry, index) },
-        `Built-in chart preset ${index + 1}`,
-      );
-      if (entry) entry.builtIn = true;
-      return entry;
-    }
-
-export function normalizeBuiltInDryMassPresetEntry(rawEntry, index) {
-      if (!rawEntry || typeof rawEntry !== "object") return null;
-      const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
-      const entry = normalizeDryMassPresetEntry(
-        { ...source, id: builtInPresetId("built-in-design", rawEntry, index) },
-        `Built-in design preset ${index + 1}`,
-      );
-      if (entry) entry.builtIn = true;
-      return entry;
-    }
-
-export function loadBuiltInChartPresetLibrary() {
-      const presets = presetLibraryData().chartPresets;
-      return dedupePresetEntries((Array.isArray(presets) ? presets : [])
-        .map(normalizeBuiltInChartPresetEntry)
-        .filter(Boolean));
-    }
-
-export function loadBuiltInDryMassPresetLibrary() {
-      const presets = presetLibraryData().dryMassPresets;
-      return dedupePresetEntries((Array.isArray(presets) ? presets : [])
-        .map(normalizeBuiltInDryMassPresetEntry)
-        .filter(Boolean));
-    }
-
-export function allChartPresetEntries() {
-      return [...builtInChartPresetLibrary, ...chartPresetLibrary];
-    }
-
-export function allDryMassPresetEntries() {
-      return [...builtInDryMassPresetLibrary, ...dryMassPresetLibrary];
-    }
-
-export function loadChartPresetLibrary() {
-      const raw = storageReadJson(CHART_PRESET_STORAGE_KEY);
-      const presets = Array.isArray(raw) ? raw : (Array.isArray(raw?.presets) ? raw.presets : []);
-      return dedupePresetEntries(presets.map(item => normalizeChartPresetEntry(item)).filter(Boolean));
-    }
-
-export function loadDryMassPresetLibrary() {
-      const raw = storageReadJson(DRY_MASS_PRESET_STORAGE_KEY);
-      const presets = Array.isArray(raw) ? raw : (Array.isArray(raw?.presets) ? raw.presets : []);
-      return dedupePresetEntries(presets.map(item => normalizeDryMassPresetEntry(item)).filter(Boolean));
-    }
-
-export function loadStartupChartPresetId() {
-      try {
-        return localStorage.getItem(CHART_PRESET_STARTUP_STORAGE_KEY) || "";
-      } catch {
-        return "";
-      }
-    }
-
-export function saveChartPresetLibrary() {
-      return storageWriteJson(CHART_PRESET_STORAGE_KEY, {
-        format: "ti-engine-chart-preset-library/v1",
-        presets: chartPresetLibrary,
-      });
-    }
-
-export function saveDryMassPresetLibrary() {
-      return storageWriteJson(DRY_MASS_PRESET_STORAGE_KEY, {
-        format: "ti-engine-chart-design-preset-library/v1",
-        presets: dryMassPresetLibrary,
-      });
-    }
-
-export function chartPresetExportObject(entry) {
-      return {
-        format: "ti-engine-chart-named-preset/v1",
-        id: entry.id,
-        name: entry.name,
-        settings: cloneJson(entry.settings),
-        createdAt: entry.createdAt,
-        updatedAt: entry.updatedAt,
-      };
-    }
-
-export function chartPresetLibraryExportObject() {
-      return {
-        format: "ti-engine-chart-preset-library/v1",
-        presets: chartPresetLibrary.map(chartPresetExportObject),
-        startupPresetId: startupChartPresetId || null,
-      };
-    }
-
-export function dryMassPresetExportObject(entry) {
-      const calculator = cloneJson(entry.calculator);
-      const simulationDefaults = calculator && calculator.simulationDefaults && typeof calculator.simulationDefaults === "object"
-        ? cloneJson(calculator.simulationDefaults)
-        : null;
-      const dryMassDesign = cloneJson(calculator);
-      if (dryMassDesign && typeof dryMassDesign === "object") delete dryMassDesign.simulationDefaults;
-      const exported = {
-        format: "ti-engine-chart-design-preset/v1",
-        id: entry.id,
-        name: entry.name,
-        dryMassDesign,
-        simulationDefaults,
-        createdAt: entry.createdAt,
-        updatedAt: entry.updatedAt,
-      };
-      if (entry.displayName && typeof entry.displayName === "object") {
-        exported.displayName = cloneJson(entry.displayName);
-      }
-      return exported;
-    }
-
-export function dryMassPresetLibraryExportObject() {
-      return {
-        format: "ti-engine-chart-design-preset-library/v1",
-        presets: dryMassPresetLibrary.map(dryMassPresetExportObject),
-      };
-    }
-
-export function setStartupChartPreset(id) {
-      startupChartPresetId = id || "";
-      try {
-        if (startupChartPresetId) {
-          localStorage.setItem(CHART_PRESET_STARTUP_STORAGE_KEY, startupChartPresetId);
-        } else {
-          localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
-        }
-        return true;
-      } catch {
-        return false;
-      }
-    }
-
+export { registerPresetRuntimeApi } from "./runtime.js";
+export {
+  applyHelp,
+  cloneJson,
+  dedupePresetEntries,
+  dryMassPresetDisplayName,
+  helpText,
+  localCategoryHelp,
+  localLabel,
+  presetEntryOptionLabel,
+  presetTimestamp,
+  sanitizePresetName,
+  uniquePresetId,
+  uniquePresetName,
+} from "./common.js";
+export {
+  allChartPresetEntries,
+  allDryMassPresetEntries,
+  builtInChartPresetLibrary,
+  builtInDryMassPresetLibrary,
+  chartPresetDesignLibrarySnapshot,
+  chartPresetExportObject,
+  chartPresetLibrary,
+  chartPresetLibraryExportObject,
+  dryMassPresetExportObject,
+  dryMassPresetLibrary,
+  dryMassPresetLibraryExportObject,
+  firstChartPresetEntry,
+  firstDryMassPresetEntry,
+  loadBuiltInChartPresetLibrary,
+  loadBuiltInDryMassPresetLibrary,
+  loadChartPresetLibrary,
+  loadDryMassPresetLibrary,
+  loadStartupChartPresetId,
+  normalizeBuiltInChartPresetEntry,
+  normalizeBuiltInDryMassPresetEntry,
+  normalizeChartPresetEntry,
+  normalizeDryMassPresetEntry,
+  presetLibraryData,
+  restoreDesignPresetLibrarySnapshot,
+  saveChartPresetLibrary,
+  saveDryMassPresetLibrary,
+  setChartPresetLibrary,
+  setDryMassPresetLibrary,
+  setStartupChartPreset,
+  startupChartPresetId,
+} from "./repository.js";
+export {
+  base64ToBytes,
+  bytesToBase64,
+  copyToClipboard,
+  formatExportPayloadObject,
+  gzipBytes,
+  gunzipBytes,
+  parsePresetPayload,
+  readFromClipboard,
+  serializePayloadObject,
+} from "./codec.js";
 export function selectedChartPresetEntry() {
       const select = document.getElementById("chartPresetSelect");
       return allChartPresetEntries().find(item => item.id === (select && select.value)) || null;
@@ -329,13 +117,6 @@ export function selectedDryMassPresetEntry() {
       return allDryMassPresetEntries().find(item => item.id === (select && select.value)) || null;
     }
 
-export function firstChartPresetEntry() {
-      return allChartPresetEntries()[0] || null;
-    }
-
-export function firstDryMassPresetEntry() {
-      return allDryMassPresetEntries()[0] || null;
-    }
 
 export function applyChartPresetEntry(entry, { showStatus = true } = {}) {
       if (!entry) return false;
@@ -382,37 +163,6 @@ export function setDisabled(id, disabled) {
       if (button) button.disabled = !!disabled;
     }
 
-export function presetEntryOptionLabel(entry, startupId = "", labelFn = item => item.name) {
-      const label = labelFn(entry);
-      return entry.id === startupId
-        ? `${label} ${localText("(기본)", "(default)")}`
-        : label;
-    }
-
-export function dryMassPresetDisplayName(entry) {
-      const display = entry && entry.displayName;
-      if (display && typeof display === "object") {
-        const name = UI_LANG === "en"
-          ? display.en || display.ko || display.kor || entry.name
-          : display.ko || display.kor || display.en || entry.name;
-        return sanitizePresetName(name, entry.name || "Preset");
-      }
-      return sanitizePresetName(entry && entry.name, "Preset");
-    }
-
-export function sortedDryMassPresetEntries(entries) {
-      const locale = UI_LANG === "en" ? "en" : "ko-KR";
-      return entries
-        .map((entry, index) => ({ entry, index }))
-        .sort((left, right) => {
-          const nameCompare = dryMassPresetDisplayName(left.entry).localeCompare(dryMassPresetDisplayName(right.entry), locale, {
-            numeric: true,
-            sensitivity: "base",
-          });
-          return nameCompare || left.index - right.index;
-        })
-        .map(item => item.entry);
-    }
 
 export function appendPresetOptionGroup(select, label, entries, startupId = "", labelFn = item => item.name) {
       if (!entries.length) return;
@@ -531,9 +281,9 @@ export function saveChartPresetFromSettings(name, settings, existingId = "") {
         updatedAt: now,
       };
       if (existing) {
-        chartPresetLibrary = chartPresetLibrary.map(item => item.id === existing.id ? entry : item);
+        setChartPresetLibrary(chartPresetLibrary.map(item => item.id === existing.id ? entry : item));
       } else {
-        chartPresetLibrary = [...chartPresetLibrary, entry];
+        setChartPresetLibrary([...chartPresetLibrary, entry]);
       }
       if (!saveChartPresetLibrary()) return null;
       renderChartPresetControls(entry.id);
@@ -554,9 +304,9 @@ export function saveDryMassPresetFromCalculator(name, calculator, existingId = "
         entry.displayName = cloneJson(existing.displayName);
       }
       if (existing) {
-        dryMassPresetLibrary = dryMassPresetLibrary.map(item => item.id === existing.id ? entry : item);
+        setDryMassPresetLibrary(dryMassPresetLibrary.map(item => item.id === existing.id ? entry : item));
       } else {
-        dryMassPresetLibrary = [...dryMassPresetLibrary, entry];
+        setDryMassPresetLibrary([...dryMassPresetLibrary, entry]);
       }
       if (!saveDryMassPresetLibrary()) return null;
       renderDryMassPresetControls(entry.id);
@@ -734,20 +484,9 @@ export async function handleImportedPresetObject(raw, { preferredKind = "chart",
       return { ok: false, message: localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format.") };
     }
 
+
 export let presetExportModalState = null;
 
-export async function serializePayloadObject(object) {
-      const jsonText = JSON.stringify(object);
-      const sourceBytes = new TextEncoder().encode(jsonText);
-      const gzipped = await gzipBytes(sourceBytes);
-      if (gzipped) return `ticp1:${bytesToBase64(gzipped)}`;
-      return `tijp1:${bytesToBase64(sourceBytes)}`;
-    }
-
-export async function formatExportPayloadObject(object, format) {
-      if (format === "json") return JSON.stringify(object, null, 2);
-      return serializePayloadObject(object);
-    }
 
 export function selectedExportFormat() {
       const selected = document.querySelector('input[name="presetExportFormat"]:checked');
@@ -881,7 +620,7 @@ export function setupPresetLibraryControls() {
         const entry = selectedChartPresetEntry();
         if (entry && entry.builtIn) return showPresetStatus(localText("예시 프리셋은 삭제할 수 없습니다.", "Example presets cannot be deleted."), true);
         if (!entry || !window.confirm(localText("선택한 차트 프리셋을 삭제할까요?", "Delete the selected chart preset?"))) return;
-        chartPresetLibrary = chartPresetLibrary.filter(item => item.id !== entry.id);
+        setChartPresetLibrary(chartPresetLibrary.filter(item => item.id !== entry.id));
         if (startupChartPresetId === entry.id) setStartupChartPreset("");
         const saved = saveChartPresetLibrary();
         renderChartPresetControls();
@@ -982,7 +721,7 @@ export function setupDryMassPresetControls() {
         const entry = selectedDryMassPresetEntry();
         if (entry && entry.builtIn) return showDryMassPresetStatus(localText("예시 프리셋은 삭제할 수 없습니다.", "Example presets cannot be deleted."), true);
         if (!entry || !window.confirm(localText("선택한 설계 프리셋을 삭제할까요?", "Delete the selected design preset?"))) return;
-        dryMassPresetLibrary = dryMassPresetLibrary.filter(item => item.id !== entry.id);
+        setDryMassPresetLibrary(dryMassPresetLibrary.filter(item => item.id !== entry.id));
         const saved = saveDryMassPresetLibrary();
         renderDryMassPresetControls();
         if (saved) applySelectedDryMassPreset({ showStatus: false });
@@ -1081,21 +820,6 @@ export function showDryMassPresetStatus(message, isError = false) {
     }
 
 
-export function chartPresetDesignLibrarySnapshot() {
-      return dryMassPresetLibrary.map(dryMassPresetExportObject);
-    }
-
-export function restoreDesignPresetLibrarySnapshot(rawEntries) {
-      if (!Array.isArray(rawEntries)) return false;
-      const entries = rawEntries
-        .map((entry, index) => normalizeDryMassPresetEntry(entry, `Restored design preset ${index + 1}`))
-        .filter(Boolean)
-        .map(entry => ({ ...entry, builtIn: false }));
-      dryMassPresetLibrary = dedupePresetEntries(entries);
-      saveDryMassPresetLibrary();
-      return true;
-    }
-
 export function exportedPreset() {
       return {
         format: "ti-engine-chart-preset/v1",
@@ -1125,87 +849,11 @@ export function exportedPreset() {
       };
     }
 
-export async function copyToClipboard(text) {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      }
-      const hidden = document.createElement("textarea");
-      hidden.value = text;
-      hidden.setAttribute("readonly", "");
-      hidden.style.position = "fixed";
-      hidden.style.opacity = "0";
-      document.body.appendChild(hidden);
-      hidden.select();
-      let copied = false;
-      try {
-        copied = document.execCommand("copy");
-      } finally {
-        document.body.removeChild(hidden);
-      }
-      return copied;
-    }
-
-export async function readFromClipboard() {
-      if (!(navigator.clipboard && window.isSecureContext)) return "";
-      try {
-        return (await navigator.clipboard.readText()) || "";
-      } catch {
-        return "";
-      }
-    }
-
-export function bytesToBase64(bytes) {
-      let binary = "";
-      const chunkSize = 0x8000;
-      for (let index = 0; index < bytes.length; index += chunkSize) {
-        const chunk = bytes.subarray(index, index + chunkSize);
-        binary += String.fromCharCode(...chunk);
-      }
-      return btoa(binary);
-    }
-
-export function base64ToBytes(text) {
-      const binary = atob(text);
-      const bytes = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-      return bytes;
-    }
-
-export async function gzipBytes(bytes) {
-      if (typeof CompressionStream !== "function") return null;
-      const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
-      return new Uint8Array(await new Response(stream).arrayBuffer());
-    }
-
-export async function gunzipBytes(bytes) {
-      if (typeof DecompressionStream !== "function") return null;
-      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-      return new Uint8Array(await new Response(stream).arrayBuffer());
-    }
 
 export async function serializePresetPayload() {
       return serializePayloadObject(exportedPreset());
     }
 
-export async function parsePresetPayload(payloadText) {
-      const payload = String(payloadText || "").trim();
-      if (!payload) throw new Error("empty");
-
-      if (payload.startsWith("ticp1:")) {
-        const compressed = base64ToBytes(payload.slice("ticp1:".length));
-        const plain = await gunzipBytes(compressed);
-        if (!plain) throw new Error("no-gunzip");
-        return JSON.parse(new TextDecoder().decode(plain));
-      }
-
-      if (payload.startsWith("tijp1:")) {
-        const plain = base64ToBytes(payload.slice("tijp1:".length));
-        return JSON.parse(new TextDecoder().decode(plain));
-      }
-
-      return JSON.parse(payload);
-    }
 
 export function applyPresetToState(rawPreset) {
       const preset = rawPreset && rawPreset.settings ? rawPreset.settings : rawPreset;
@@ -1325,5 +973,4 @@ export function syncUiFromState() {
       presetRuntimeApi.renderDryMassCalcModal();
       presetRuntimeApi.render();
     }
-
 
