@@ -89,7 +89,12 @@ npm run verify
 
 ## Progress
 
-- [ ] Not started.
+- [x] Added a dependency-free pure evaluator under `calc/`.
+- [x] Added module object and caller-provided utility catalog ID resolution.
+- [x] Implemented thrust and exhaust-velocity multiplier accumulation.
+- [x] Added prerequisite, unresolved module, skipped effect, unsupported effect, and unmodeled-rule diagnostics.
+- [x] Added deterministic fixture verification for supported modifiers, unmet requirements, unsupported rules, raw fallback, and ID resolution.
+- [x] Ran phase validation commands and browser smoke.
 
 ## Decision Log
 
@@ -97,8 +102,36 @@ npm run verify
   Reason: Issue #6 explicitly asks to avoid hard-coding modifier behavior directly into chart rendering.
 - Decision: Use warnings rather than silent ignores for unsupported rules.
   Reason: Users must know when selected modules are not represented.
+- Decision: Keep `module_effects.js` dependency-free instead of importing `state/core.js` or `dry_mass_model.js`.
+  Reason: The evaluator should stay pure, DOM-free, and easy to test in Node without localStorage or browser globals.
+- Decision: Resolve string module IDs only from a caller-provided `utilityModules` or `moduleCatalog` option.
+  Reason: This supports future runtime wiring without coupling this phase to global app state.
+- Decision: Add `verify:effects` and include it in `verify:js`.
+  Reason: The new pure calculation layer should be covered by the standard verification command while remaining independent from local template data.
+- Decision: Do not expose the evaluator through the debug hook in this phase.
+  Reason: The phase acceptance criteria only require the pure layer and fixture checks; runtime exposure belongs with later state/UI wiring.
 
 ## Outcomes
 
-- Pending.
+- Added `tools/drive_comparison_client/calc/module_effects.js`.
+- Added `tools/verify_module_effects.mjs`.
+- Updated `package.json` so `npm run verify:js` runs `verify:effects`.
+- The evaluator returns base and effective thrust, exhaust velocity, and specific impulse; active effect summaries; total multipliers; and diagnostics for unresolved modules, unmet requirements, skipped effects, unsupported effects, and unmodeled raw rules.
+- The evaluator currently supports `thrustMultiplier` and `exhaustVelocityMultiplier` and checks fission, fusion, nuclear, hydrogen propellant, and non-ISRU prerequisites.
+- No chart, tooltip, dry-mass UI, preset, or `massOptions(row)` runtime wiring was added.
+- Validation passed:
+  - `node tools/verify_module_effects.mjs`
+  - `node tools/verify_drive_comparison_client_syntax.mjs`
+  - `node tools/verify_drive_comparison_import_graph.mjs --show-boundary-warnings`
+  - `npm run verify`
+- Manual smoke passed in Playwright:
+  - Opened the app.
+  - Captured a known drive row's chart mass options.
+  - Selected Muon Spiker and Hydron Trap in the dry-mass calculator.
+  - Confirmed dry mass changed from `178 t` to `228 t`.
+  - Confirmed chart mass options remained unchanged.
 
+## Retrospective
+
+- The dependency-free evaluator avoided import graph churn and made fixture tests straightforward.
+- The main residual risk is conservative drive-family inference from existing row fields; phase 04 should validate the warnings against real rows before applying the effective values to chart metrics.
