@@ -48,6 +48,13 @@ The preset layer is now split into smaller submodules:
 - `presets/codec.js` owns clipboard, base64, compression, serialization, and parsing helpers.
 - `presets/library.js` remains the compatibility facade for preset UI wiring, chart state import/export, and existing callers.
 
+
+The dry mass calculator is now split along feature boundaries:
+
+- `calc/dry_mass_model.js` owns catalog lookup, design normalization, armor/weapon/module calculations, simulation-default payload handling, and dry-mass preset import/export.
+- `calc/dry_mass.js` remains a narrow compatibility facade that re-exports the model API for existing calculation/debug callers.
+- `ui/dry_mass_calculator.js` owns the modal DOM rendering, localized text refresh, searchable-select enhancement, and event wiring. It receives the chart render callback from the UI composition layer instead of importing chart internals directly.
+
 Some of these boundaries are still transitional. The import graph verifier currently fails on circular imports. Boundary warnings are available on demand with `--show-boundary-warnings`, and future cleanup PRs can promote more warnings to hard failures once the corresponding boundary is fully normalized.
 
 ## Verification

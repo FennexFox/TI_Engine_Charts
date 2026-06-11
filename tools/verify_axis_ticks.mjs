@@ -18,6 +18,87 @@ function htmlFileUrl(htmlFile, baseUrl) {
   return new URL(pagePath, normalizedBaseUrl).href;
 }
 
+async function pageDiagnostics(page) {
+  return page.evaluate(async () => {
+    const chart = document.getElementById("chart");
+    const diagnosticBanner = document.getElementById("chartDiagnostic");
+    const debug = window.TI_ENGINE_CHART_DEBUG;
+    const debugState = debug && debug.state ? {
+      metric: debug.state.metric,
+      thrusters: debug.state.thrusters,
+      dryMassTons: debug.state.dryMassTons,
+      targetDvKps: debug.state.targetDvKps,
+      minTwr: debug.state.minTwr,
+      minDvKps: debug.state.minDvKps,
+      searchTerm: debug.state.searchTerm,
+      logX: debug.state.logX,
+      logY: debug.state.logY,
+    } : null;
+    const moduleScriptFetches = await Promise.all(Array.from(document.querySelectorAll('script[type="module"][src]')).map(async script => {
+      try {
+        const response = await fetch(script.src, { cache: "no-store" });
+        const text = await response.text();
+        return {
+          src: script.src,
+          status: response.status,
+          ok: response.ok,
+          contentType: response.headers.get("content-type") || "",
+          textStart: text.slice(0, 200),
+        };
+      } catch (error) {
+        return { src: script.src, error: error.message };
+      }
+    }));
+    const resourceEntries = performance.getEntriesByType("resource")
+      .filter(entry => entry.name.includes("/assets/js/") || entry.name.endsWith("favicon.ico"))
+      .map(entry => ({
+        name: entry.name,
+        initiatorType: entry.initiatorType,
+        transferSize: entry.transferSize,
+        encodedBodySize: entry.encodedBodySize,
+        decodedBodySize: entry.decodedBodySize,
+      }));
+    const verifyRuntimeErrors = window.__TI_VERIFY_RUNTIME_ERRORS || [];
+    return {
+      readyState: document.readyState,
+      moduleScripts: document.querySelectorAll('script[type="module"]').length,
+      moduleEntryPresent: !!document.querySelector('script[type="module"][src$="assets/js/main.js"]'),
+      moduleScriptSrcs: Array.from(document.querySelectorAll('script[type="module"][src]')).map(script => script.src),
+      moduleScriptFetches,
+      resourceEntries,
+      verifyRuntimeErrors,
+      debugPresent: !!debug,
+      debugTickPlanPresent: !!(debug && debug.tickPlan),
+      debugAxisSnapshotPresent: !!(debug && debug.axisSnapshot),
+      chartExists: !!chart,
+      chartChildCount: chart?.childElementCount ?? 0,
+      chartText: chart?.textContent?.replace(/\s+/g, " ").trim().slice(0, 500) || "",
+      chartHtmlStart: chart?.innerHTML?.replace(/\s+/g, " ").trim().slice(0, 700) || "",
+      dataPointCount: document.querySelectorAll("#chart .data-point").length,
+      visibleCountText: document.getElementById("visibleCount")?.textContent?.trim() || "",
+      metricSelectValue: document.getElementById("metric")?.value || "",
+      chartDiagnosticText: diagnosticBanner?.textContent?.trim() || "",
+      debugState,
+      currentChartRows: Array.isArray(debug?.currentChartRows) ? debug.currentChartRows.length : null,
+      dataDriveCount: Array.isArray(debug?.DATA?.drives) ? debug.DATA.drives.length : null,
+      bodyTextStart: document.body?.innerText?.replace(/\s+/g, " ").trim().slice(0, 500) || "",
+    };
+  }).catch(error => ({ diagnosticError: error.message }));
+}
+
+function formatRuntimeDiagnostics({ htmlFile, targetUrl, error, consoleErrors, pageErrors, httpErrors, requestFailures, diagnostics }) {
+  return [
+    `${htmlFile}: timed out waiting for #chart .data-point`,
+    `Target URL: ${targetUrl}`,
+    `Original error: ${error.message}`,
+    consoleErrors.length ? `Console errors: ${consoleErrors.join(" | ")}` : "Console errors: none captured",
+    pageErrors.length ? `Page errors: ${pageErrors.join(" | ")}` : "Page errors: none captured",
+    httpErrors.length ? `HTTP errors: ${httpErrors.join(" | ")}` : "HTTP errors: none captured",
+    requestFailures.length ? `Request failures: ${requestFailures.join(" | ")}` : "Request failures: none captured",
+    `Page diagnostics: ${JSON.stringify(diagnostics)}`,
+  ].join("\n");
+}
+
 function axisSpace(value, logScale) {
   return logScale ? Math.log10(Math.max(value, 1e-12)) : value;
 }
@@ -81,10 +162,58 @@ try {
   const baseUrl = process.env.PLAYWRIGHT_BASE_URL || staticServer.baseUrl;
   browser = await chromium.launch(launchOptions);
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const consoleErrors = [];
+  const pageErrors = [];
+  const httpErrors = [];
+  const requestFailures = [];
+  await page.addInitScript(() => {
+    window.__TI_VERIFY_RUNTIME_ERRORS = [];
+    window.addEventListener("error", event => {
+      window.__TI_VERIFY_RUNTIME_ERRORS.push({
+        type: "error",
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
+    });
+    window.addEventListener("unhandledrejection", event => {
+      window.__TI_VERIFY_RUNTIME_ERRORS.push({
+        type: "unhandledrejection",
+        reason: String(event.reason && (event.reason.stack || event.reason.message || event.reason)),
+      });
+    });
+  });
+  page.on("console", message => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", error => pageErrors.push(error.message));
+  page.on("response", response => {
+    const status = response.status();
+    if (status >= 400) {
+      httpErrors.push(`${status} ${response.url()}`);
+    }
+  });
+  page.on("requestfailed", request => {
+    requestFailures.push(`${request.failure()?.errorText || "failed"} ${request.url()}`);
+  });
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204, body: "" }));
   const targetUrl = htmlFileUrl(htmlFile, baseUrl);
   await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#chart .data-point", { timeout: 15000 });
+  try {
+    await page.waitForSelector("#chart .data-point", { timeout: 15000 });
+  } catch (error) {
+    throw new Error(formatRuntimeDiagnostics({
+      htmlFile,
+      targetUrl,
+      error,
+      consoleErrors,
+      pageErrors,
+      httpErrors,
+      requestFailures,
+      diagnostics: await pageDiagnostics(page),
+    }));
+  }
 
   const hasDebug = await page.evaluate(() => !!(window.TI_ENGINE_CHART_DEBUG && window.TI_ENGINE_CHART_DEBUG.tickPlan && window.TI_ENGINE_CHART_DEBUG.axisSnapshot));
   expect(hasDebug, `${htmlFile}: axis debug API missing`);

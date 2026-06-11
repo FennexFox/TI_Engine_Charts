@@ -1,4 +1,4 @@
-import { setupDryMassCalculator } from "../calc/dry_mass.js";
+import { setupDryMassCalculator } from "./dry_mass_calculator.js";
 import { filteredRows, syncFilterInputs } from "../calc/filtering.js";
 import { isBandMetric } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
@@ -318,7 +318,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         syncFilterInputs();
         render();
       });
-      setupDryMassCalculator();
+      setupDryMassCalculator({ render });
       refreshSourceNote();
       refreshLocalizedControls();
       syncFilterInputs();

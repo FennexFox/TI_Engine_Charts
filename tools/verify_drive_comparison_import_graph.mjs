@@ -27,7 +27,7 @@ function moduleKey(file) {
 }
 
 function resolveRelativeImport(fromFile, specifier) {
-  if (!specifier.startsWith(".")) return null;
+  if (!specifier.startsWith(".")) return { type: "external" };
   const base = resolve(dirname(fromFile), specifier);
   const candidates = [
     base,
@@ -35,8 +35,23 @@ function resolveRelativeImport(fromFile, specifier) {
     resolve(base, "index.js"),
   ];
   const resolved = candidates.find(candidate => existsSync(candidate));
-  if (!resolved || !resolved.startsWith(clientDir)) return null;
-  return moduleKey(resolved);
+  if (!resolved) {
+    return {
+      type: "missing",
+      from: moduleKey(fromFile),
+      specifier,
+      candidates: candidates.map(candidate => toPosix(relative(repoRoot, candidate))),
+    };
+  }
+  if (!resolved.startsWith(clientDir)) {
+    return {
+      type: "outside",
+      from: moduleKey(fromFile),
+      specifier,
+      resolved: toPosix(relative(repoRoot, resolved)),
+    };
+  }
+  return { type: "module", module: moduleKey(resolved) };
 }
 
 function importSpecifiers(source) {
@@ -56,17 +71,23 @@ function importSpecifiers(source) {
 
 function buildGraph(files) {
   const graph = new Map();
+  const unresolved = [];
   for (const file of files) {
     const key = moduleKey(file);
     const source = readFileSync(file, "utf8");
-    const deps = importSpecifiers(source)
-      .map(specifier => resolveRelativeImport(file, specifier))
-      .filter(Boolean)
-      .filter(dep => dep !== key)
-      .sort();
-    graph.set(key, [...new Set(deps)]);
+    const deps = [];
+    for (const specifier of importSpecifiers(source)) {
+      const resolved = resolveRelativeImport(file, specifier);
+      if (!resolved || resolved.type === "external") continue;
+      if (resolved.type === "module") {
+        if (resolved.module !== key) deps.push(resolved.module);
+      } else {
+        unresolved.push(resolved);
+      }
+    }
+    graph.set(key, [...new Set(deps)].sort());
   }
-  return graph;
+  return { graph, unresolved };
 }
 
 function findCycles(graph) {
@@ -135,9 +156,22 @@ function dependencyWarnings(graph) {
 }
 
 const files = moduleFiles(clientDir);
-const graph = buildGraph(files);
+const { graph, unresolved } = buildGraph(files);
 const cycles = findCycles(graph);
 const warnings = dependencyWarnings(graph);
+
+if (unresolved.length) {
+  console.error("Drive comparison client import graph contains unresolved relative imports:");
+  for (const issue of unresolved) {
+    if (issue.type === "missing") {
+      console.error(`- ${issue.from} imports ${issue.specifier}, but none of these files exist:`);
+      for (const candidate of issue.candidates) console.error(`  - ${candidate}`);
+    } else if (issue.type === "outside") {
+      console.error(`- ${issue.from} imports ${issue.specifier}, which resolves outside the client directory: ${issue.resolved}`);
+    }
+  }
+  process.exit(1);
+}
 
 if (cycles.length) {
   console.error("Drive comparison client import graph contains circular dependencies:");

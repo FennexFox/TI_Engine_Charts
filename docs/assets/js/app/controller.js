@@ -1,5 +1,6 @@
 import { render } from "../chart/interaction.js";
-import { renderDryMassCalcModal, resetDryMassCalcState } from "../calc/dry_mass.js";
+import { resetDryMassCalcState } from "../calc/dry_mass.js";
+import { renderDryMassCalcModal } from "../ui/dry_mass_calculator.js";
 import {
   applyHelp,
   helpText,

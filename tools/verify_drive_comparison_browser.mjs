@@ -31,15 +31,69 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const consoleErrors = [];
   const pageErrors = [];
+  const httpErrors = [];
+  const requestFailures = [];
+  await page.addInitScript(() => {
+    window.__TI_VERIFY_RUNTIME_ERRORS = [];
+    window.addEventListener("error", event => {
+      window.__TI_VERIFY_RUNTIME_ERRORS.push({
+        type: "error",
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
+    });
+    window.addEventListener("unhandledrejection", event => {
+      window.__TI_VERIFY_RUNTIME_ERRORS.push({
+        type: "unhandledrejection",
+        reason: String(event.reason && (event.reason.stack || event.reason.message || event.reason)),
+      });
+    });
+  });
   page.on("console", message => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
   page.on("pageerror", error => pageErrors.push(error.message));
+  page.on("response", response => {
+    const status = response.status();
+    if (status >= 400) {
+      httpErrors.push(`${status} ${response.url()}`);
+    }
+  });
+  page.on("requestfailed", request => {
+    requestFailures.push(`${request.failure()?.errorText || "failed"} ${request.url()}`);
+  });
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204, body: "" }));
 
   await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
   expect(await page.locator('script[type="module"][src$="assets/js/main.js"]').count() === 1, `${htmlFile}: module entry script missing`);
-  await page.waitForSelector("#chart .data-point", { timeout: 15000 });
+  try {
+    await page.waitForSelector("#chart .data-point", { timeout: 15000 });
+  } catch (error) {
+    const diagnostics = await page.evaluate(() => {
+      const chart = document.getElementById("chart");
+      const diagnosticBanner = document.getElementById("chartDiagnostic");
+      return {
+        readyState: document.readyState,
+        moduleScripts: document.querySelectorAll('script[type="module"]').length,
+        chartExists: !!chart,
+        chartChildCount: chart?.childElementCount ?? 0,
+        dataPointCount: document.querySelectorAll("#chart .data-point").length,
+        visibleCountText: document.getElementById("visibleCount")?.textContent?.trim() || "",
+        metric: document.getElementById("metric")?.value || "",
+        chartDiagnosticText: diagnosticBanner?.textContent?.trim() || "",
+        bodyTextStart: document.body?.innerText?.replace(/\s+/g, " ").trim().slice(0, 500) || "",
+      };
+    }).catch(diagnosticError => ({ diagnosticError: diagnosticError.message }));
+    throw new Error([
+      `${htmlFile}: timed out waiting for #chart .data-point`,
+      `Original error: ${error.message}`,
+      consoleErrors.length ? `Console errors: ${consoleErrors.join(" | ")}` : "Console errors: none captured",
+      pageErrors.length ? `Page errors: ${pageErrors.join(" | ")}` : "Page errors: none captured",
+      `Page diagnostics: ${JSON.stringify(diagnostics)}`,
+    ].join("\n"));
+  }
 
   const title = await page.locator("h1").innerText();
   const initialLanguage = await page.evaluate(() => ({
