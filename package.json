@@ -4,7 +4,8 @@
   "private": true,
   "description": "Terra Invicta engine chart builder and GitHub Pages publisher.",
   "scripts": {
-    "build": "python scripts/rebuild_pages.py --no-commit --no-push --skip-verify",
+    "build": "python scripts/rebuild_pages.py --no-commit --no-push",
+    "build:fast": "python scripts/rebuild_pages.py --no-commit --no-push --skip-verify",
     "deploy": "python scripts/rebuild_pages.py",
     "verify": "npm run verify:python && npm run verify:js && npm run verify:axis && npm run verify:browser",
     "verify:python": "python -m compileall -q tools scripts",
@@ -13,7 +14,7 @@
     "verify:browser": "node tools/verify_drive_comparison_browser.mjs",
     "playwright:install": "playwright install chromium",
     "verify:modules": "node tools/verify_drive_comparison_import_graph.mjs",
-    "build:verify": "python scripts/rebuild_pages.py --no-commit --no-push --skip-verify && npm run verify"
+    "build:verify": "npm run build && npm run verify"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

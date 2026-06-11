@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,15 +26,21 @@ function moduleKey(file) {
   return toPosix(relative(clientDir, file));
 }
 
+function isFile(path) {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
 function resolveRelativeImport(fromFile, specifier) {
   if (!specifier.startsWith(".")) return { type: "external" };
   const base = resolve(dirname(fromFile), specifier);
-  const candidates = [
-    base,
-    `${base}.js`,
-    resolve(base, "index.js"),
-  ];
-  const resolved = candidates.find(candidate => existsSync(candidate));
+  const candidates = specifier.endsWith(".js")
+    ? [base]
+    : [`${base}.js`, resolve(base, "index.js")];
+  const resolved = candidates.find(candidate => existsSync(candidate) && isFile(candidate));
   if (!resolved) {
     return {
       type: "missing",

@@ -83,6 +83,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         visibleCountText: document.getElementById("visibleCount")?.textContent?.trim() || "",
         metric: document.getElementById("metric")?.value || "",
         chartDiagnosticText: diagnosticBanner?.textContent?.trim() || "",
+        runtimeErrors: window.__TI_VERIFY_RUNTIME_ERRORS || [],
         bodyTextStart: document.body?.innerText?.replace(/\s+/g, " ").trim().slice(0, 500) || "",
       };
     }).catch(diagnosticError => ({ diagnosticError: diagnosticError.message }));
@@ -91,6 +92,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       `Original error: ${error.message}`,
       consoleErrors.length ? `Console errors: ${consoleErrors.join(" | ")}` : "Console errors: none captured",
       pageErrors.length ? `Page errors: ${pageErrors.join(" | ")}` : "Page errors: none captured",
+      httpErrors.length ? `HTTP errors: ${httpErrors.join(" | ")}` : "HTTP errors: none captured",
+      requestFailures.length ? `Request failures: ${requestFailures.join(" | ")}` : "Request failures: none captured",
       `Page diagnostics: ${JSON.stringify(diagnostics)}`,
     ].join("\n"));
   }

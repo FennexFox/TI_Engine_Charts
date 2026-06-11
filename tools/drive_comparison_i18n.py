@@ -1,4 +1,4 @@
-﻿"""Translation and metadata-redaction helpers for the drive comparison page.
+"""Translation and metadata-redaction helpers for the drive comparison page.
 
 This module keeps static i18n replacement data and source metadata cleanup out of
 ``build_drive_comparison.py``.  The chart builder emits a GitHub Pages-ready HTML
