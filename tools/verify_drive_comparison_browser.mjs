@@ -31,15 +31,72 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const consoleErrors = [];
   const pageErrors = [];
+  const httpErrors = [];
+  const requestFailures = [];
+  await page.addInitScript(() => {
+    window.__TI_VERIFY_RUNTIME_ERRORS = [];
+    window.addEventListener("error", event => {
+      window.__TI_VERIFY_RUNTIME_ERRORS.push({
+        type: "error",
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
+    });
+    window.addEventListener("unhandledrejection", event => {
+      window.__TI_VERIFY_RUNTIME_ERRORS.push({
+        type: "unhandledrejection",
+        reason: String(event.reason && (event.reason.stack || event.reason.message || event.reason)),
+      });
+    });
+  });
   page.on("console", message => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
   page.on("pageerror", error => pageErrors.push(error.message));
+  page.on("response", response => {
+    const status = response.status();
+    if (status >= 400) {
+      httpErrors.push(`${status} ${response.url()}`);
+    }
+  });
+  page.on("requestfailed", request => {
+    requestFailures.push(`${request.failure()?.errorText || "failed"} ${request.url()}`);
+  });
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204, body: "" }));
 
   await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
   expect(await page.locator('script[type="module"][src$="assets/js/main.js"]').count() === 1, `${htmlFile}: module entry script missing`);
-  await page.waitForSelector("#chart .data-point", { timeout: 15000 });
+  try {
+    await page.waitForSelector("#chart .data-point", { timeout: 15000 });
+  } catch (error) {
+    const diagnostics = await page.evaluate(() => {
+      const chart = document.getElementById("chart");
+      const diagnosticBanner = document.getElementById("chartDiagnostic");
+      return {
+        readyState: document.readyState,
+        moduleScripts: document.querySelectorAll('script[type="module"]').length,
+        chartExists: !!chart,
+        chartChildCount: chart?.childElementCount ?? 0,
+        dataPointCount: document.querySelectorAll("#chart .data-point").length,
+        visibleCountText: document.getElementById("visibleCount")?.textContent?.trim() || "",
+        metric: document.getElementById("metric")?.value || "",
+        chartDiagnosticText: diagnosticBanner?.textContent?.trim() || "",
+        runtimeErrors: window.__TI_VERIFY_RUNTIME_ERRORS || [],
+        bodyTextStart: document.body?.innerText?.replace(/\s+/g, " ").trim().slice(0, 500) || "",
+      };
+    }).catch(diagnosticError => ({ diagnosticError: diagnosticError.message }));
+    throw new Error([
+      `${htmlFile}: timed out waiting for #chart .data-point`,
+      `Original error: ${error.message}`,
+      consoleErrors.length ? `Console errors: ${consoleErrors.join(" | ")}` : "Console errors: none captured",
+      pageErrors.length ? `Page errors: ${pageErrors.join(" | ")}` : "Page errors: none captured",
+      httpErrors.length ? `HTTP errors: ${httpErrors.join(" | ")}` : "HTTP errors: none captured",
+      requestFailures.length ? `Request failures: ${requestFailures.join(" | ")}` : "Request failures: none captured",
+      `Page diagnostics: ${JSON.stringify(diagnostics)}`,
+    ].join("\n"));
+  }
 
   const title = await page.locator("h1").innerText();
   const initialLanguage = await page.evaluate(() => ({
@@ -65,45 +122,56 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       && /Basic information \(thrust, efficiency, power\)/.test(englishMetricGroups[1] || ""),
     `${htmlFile}: English metric group labels were not localized`,
   );
-  const filterSummaryChecks = await page.evaluate(() => {
-    const summaryText = () => document.querySelector('.control-card[data-control-card="filter"] [data-card-summary]')?.textContent || "";
+  const cardSummaryChecks = await page.evaluate(() => {
+    const simulationSummaryText = () => document.querySelector('.control-card[data-control-card="simulation"] [data-card-summary]')?.textContent || "";
+    const filterSummaryText = () => document.querySelector('.control-card[data-control-card="filter"] [data-card-summary]')?.textContent || "";
 
     setLanguage("en", { rerender: false });
     Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
     syncUiFromState();
     updateLeftPanelCardSummaries();
-    const totalMassSummary = summaryText();
+    const totalMassSimulationSummary = simulationSummaryText();
+    const totalMassFilterSummary = filterSummaryText();
 
     Object.assign(state, { metric: "twr", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
     syncUiFromState();
     updateLeftPanelCardSummaries();
-    const twrSummary = summaryText();
+    const twrSimulationSummary = simulationSummaryText();
+    const twrFilterSummary = filterSummaryText();
 
     setLanguage("ko", { rerender: false });
     Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
     syncUiFromState();
     updateLeftPanelCardSummaries();
-    const koreanSummary = summaryText();
+    const koreanFilterSummary = filterSummaryText();
 
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
     syncUiFromState();
     updateLeftPanelCardSummaries();
 
-    return { totalMassSummary, twrSummary, koreanSummary };
+    return { totalMassSimulationSummary, totalMassFilterSummary, twrSimulationSummary, twrFilterSummary, koreanFilterSummary };
   });
   expect(
-    /TWR/.test(filterSummaryChecks.totalMassSummary) && !/dV/.test(filterSummaryChecks.totalMassSummary),
-    `${htmlFile}: total-mass filter summary should show only the TWR threshold`,
+    /TWR/.test(cardSummaryChecks.totalMassSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.totalMassSimulationSummary),
+    `${htmlFile}: total-mass simulation summary should show the TWR threshold`,
   );
   expect(
-    /dV/.test(filterSummaryChecks.twrSummary) && !/TWR/.test(filterSummaryChecks.twrSummary),
+    !/TWR/.test(cardSummaryChecks.totalMassFilterSummary) && !/dV/.test(cardSummaryChecks.totalMassFilterSummary),
+    `${htmlFile}: total-mass filter summary should not show moved simulation thresholds`,
+  );
+  expect(
+    /dV/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary),
     `${htmlFile}: TWR filter summary should show only the dV threshold`,
   );
   expect(
-    /X축 로그/.test(filterSummaryChecks.koreanSummary)
-      && /Y축 로그/.test(filterSummaryChecks.koreanSummary)
-      && !/log X|log Y|Log X|Log Y/.test(filterSummaryChecks.koreanSummary),
+    !/TWR/.test(cardSummaryChecks.twrSimulationSummary),
+    `${htmlFile}: TWR simulation summary should not show the minimum TWR threshold when that control is hidden`,
+  );
+  expect(
+    /X축 로그/.test(cardSummaryChecks.koreanFilterSummary)
+      && /Y축 로그/.test(cardSummaryChecks.koreanFilterSummary)
+      && !/log X|log Y|Log X|Log Y/.test(cardSummaryChecks.koreanFilterSummary),
     `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
 
@@ -339,7 +407,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(exportModalAboveDryMassModal, `${htmlFile}: export modal appears behind the dry-mass calculator modal`);
   await page.locator("#presetExportClose").click();
   await page.waitForFunction(() => !document.querySelector("#presetExportModal")?.classList.contains("is-open"), null, { timeout: 5000 });
-  await page.locator("#dryMassPresetActionsMenu > summary").click();
+  const dryMassPresetMenuClosedByOutsideClick = await page.locator("#dryMassPresetActionsMenu").evaluate(menu => !menu.open);
+  expect(dryMassPresetMenuClosedByOutsideClick, `${htmlFile}: dry-mass preset management menu did not close after an outside click`);
   expect(await page.locator('#dryMassCalcArmor select[data-armor-field="type"]').count() === 3, `${htmlFile}: dry-mass calculator armor type controls missing`);
   expect(await page.locator('#dryMassCalcArmor input[data-armor-field="points"]').count() === 3, `${htmlFile}: dry-mass calculator armor point controls missing`);
   const initialCalcMass = await page.evaluate(() => dryMassCalcTotalTons());
@@ -417,6 +486,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     dryMassCalcState.notes = "snapshot design notes";
     dryMassCalcState.simulationDefaults = {
       targetDvKps: 777,
+      minTwr: 0.42,
       radiatorId: DATA.radiators[0] ? DATA.radiators[0].id : state.radiatorId,
     };
     const designSnapshot = saveDryMassPresetFromCalculator("Design Snapshot", exportedDryMassCalculatorPreset());
@@ -453,6 +523,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       designCount: dryMassPresetLibrary.length,
       designNotes: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.notes,
       designDv: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.simulationDefaults && dryMassPresetLibrary[0].calculator.simulationDefaults.targetDvKps,
+      designMinTwr: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.simulationDefaults && dryMassPresetLibrary[0].calculator.simulationDefaults.minTwr,
     };
 
     const chartSelectedPayload = await serializePayloadObject(chartPresetExportObject(chartB));
@@ -488,6 +559,81 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       preferredKind: "dryMass",
       promptToSaveCurrent: false,
     });
+    const selectedDryMassImportedId = dryMassPresetLibrary[0] && dryMassPresetLibrary[0].id;
+    const selectedDryMassCountAfterImport = dryMassPresetLibrary.length;
+    const selectedDryMassImportSelected = document.getElementById("dryMassPresetSelect")?.value === selectedDryMassImportedId;
+    const selectedDryMassImportApplied = dryMassCalcState.notes === "alpha notes";
+
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
+    resetDryMassCalcState();
+    dryMassCalcState.notes = "overwrite baseline";
+    const savedBase = saveDryMassPresetFromCalculator("Variant", exportedDryMassCalculatorPreset());
+    renderDryMassPresetControls(savedBase && savedBase.id);
+    dryMassCalcState.notes = "overwrite update";
+    const originalPrompt = window.prompt;
+    let savePromptCount = 0;
+    window.prompt = () => {
+      savePromptCount += 1;
+      return "Should Not Prompt";
+    };
+    document.getElementById("dryMassPresetSave").click();
+    const saveOverwriteOk = dryMassPresetLibrary.length === 1
+      && dryMassPresetLibrary[0].id === savedBase.id
+      && dryMassPresetLibrary[0].calculator.notes === "overwrite update"
+      && savePromptCount === 0;
+    let saveAsNewPromptCount = 0;
+    dryMassCalcState.notes = "copy update";
+    window.prompt = () => {
+      saveAsNewPromptCount += 1;
+      return "Variant";
+    };
+    document.getElementById("dryMassPresetSaveAsNew").click();
+    window.prompt = originalPrompt;
+    const copiedPreset = dryMassPresetLibrary.find(item => item.name === "Variant (2)");
+    const saveAsNewOk = dryMassPresetLibrary.length === 2
+      && !!copiedPreset
+      && copiedPreset.id !== savedBase.id
+      && copiedPreset.calculator.notes === "copy update"
+      && saveAsNewPromptCount === 1;
+
+    dryMassPresetLibrary = [
+      { id: "design-z", name: "Internal Search Token", displayName: { en: "Zulu", ko: "줄루" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "design-a", name: "Hidden Alpha Token", displayName: { en: "Alpha", ko: "알파" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "design-b", name: "Hidden Beta Token", displayName: { en: "Beta", ko: "베타" }, calculator: exportedDryMassCalculatorPreset(), createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+    ];
+    saveDryMassPresetLibrary();
+    setLanguage("en", { rerender: false });
+    renderDryMassPresetControls("design-z");
+    const dryMassSelect = document.getElementById("dryMassPresetSelect");
+    const dryMassSearchable = dryMassSelect?.nextElementSibling;
+    const dryMassSearchInput = dryMassSearchable?.querySelector(".searchable-select-search");
+    const dryMassSearchTrigger = dryMassSearchable?.querySelector(".searchable-select-trigger");
+    const sortedDryMassLabels = [...dryMassSelect.querySelectorAll("option")]
+      .filter(option => option.value.startsWith("design-"))
+      .map(option => option.textContent.trim());
+    dryMassSearchTrigger?.click();
+    dryMassSearchInput.value = "alpha";
+    dryMassSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    const alphaMatches = dryMassSearchable
+      ? [...dryMassSearchable.querySelectorAll(".searchable-select-option")].map(option => option.textContent.trim())
+      : [];
+    dryMassSearchInput.value = "hidden";
+    dryMassSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    const hiddenMatches = dryMassSearchable
+      ? dryMassSearchable.querySelectorAll(".searchable-select-option").length
+      : -1;
+    dryMassSearchInput.value = "";
+    dryMassSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    const restoredSearchCount = dryMassSearchable
+      ? dryMassSearchable.querySelectorAll(".searchable-select-option").length
+      : -1;
+    const dryMassSearchableOk = !!dryMassSearchable
+      && sortedDryMassLabels.join("|") === "Alpha|Beta|Zulu"
+      && alphaMatches.length === 1
+      && alphaMatches[0] === "Alpha"
+      && hiddenMatches === 0
+      && restoredSearchCount === 3;
 
     const chartControls = [
       "#chartPresetSelect",
@@ -511,12 +657,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const dryMassControls = [
       "#dryMassPresetSelect",
       "#dryMassPresetSave",
+      "#dryMassPresetSaveAsNew",
       "#dryMassPresetRename",
       "#dryMassPresetDelete",
       "#dryMassPresetActionsMenu",
       "#dryMassPresetExportSelected",
       "#dryMassPresetImport",
       "#shipPresetTargetDv",
+      "#shipPresetMinTwr",
       "#shipPresetRadiator",
       "#dryMassCalcApplyWithDefaults",
     ].every(selector => !!document.querySelector(selector))
@@ -535,6 +683,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       chartLoadedDesignCount: chartLoadedAfterManualApply.designCount,
       chartLoadedDesignNotes: chartLoadedAfterManualApply.designNotes,
       chartLoadedDesignDv: chartLoadedAfterManualApply.designDv,
+      chartLoadedDesignMinTwr: chartLoadedAfterManualApply.designMinTwr,
       selectedChartImportOk: selectedChartImport.ok,
       selectedChartCount: chartPresetLibrary.length,
       startupSaved,
@@ -544,7 +693,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       dryMassImportOk: dryMassImport.ok,
       dryMassCountAfterLibraryImport,
       selectedDryMassImportOk: selectedDryMassImport.ok,
-      selectedDryMassCount: dryMassPresetLibrary.length,
+      selectedDryMassCount: selectedDryMassCountAfterImport,
+      selectedDryMassImportSelected,
+      selectedDryMassImportApplied,
+      saveOverwriteOk,
+      saveAsNewOk,
+      dryMassSearchableOk,
       chartControls,
       dryMassControls,
     };
@@ -571,6 +725,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartLoadedDesignCount === 1, `${htmlFile}: named chart preset did not restore design preset library`);
   expect(namedPresetRoundTrip.chartLoadedDesignNotes === "snapshot design notes", `${htmlFile}: named chart preset did not restore design preset content`);
   expect(namedPresetRoundTrip.chartLoadedDesignDv === 777, `${htmlFile}: named chart preset did not restore design preset simulation defaults`);
+  expect(Math.abs(namedPresetRoundTrip.chartLoadedDesignMinTwr - 0.42) < 1e-9, `${htmlFile}: named chart preset did not restore design preset minimum TWR`);
   expect(namedPresetRoundTrip.selectedChartImportOk, `${htmlFile}: selected chart preset import failed`);
   expect(namedPresetRoundTrip.selectedChartCount === 1, `${htmlFile}: selected chart preset import did not add one preset`);
   expect(namedPresetRoundTrip.startupSaved && namedPresetRoundTrip.startupRestored, `${htmlFile}: startup chart preset did not persist through library export/import`);
@@ -580,9 +735,63 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.dryMassCountAfterLibraryImport === 1, `${htmlFile}: dry-mass preset library did not merge one preset`);
   expect(namedPresetRoundTrip.selectedDryMassImportOk, `${htmlFile}: selected dry-mass preset import failed`);
   expect(namedPresetRoundTrip.selectedDryMassCount === 1, `${htmlFile}: selected dry-mass preset import did not add one preset`);
+  expect(namedPresetRoundTrip.selectedDryMassImportSelected, `${htmlFile}: selected dry-mass preset import did not move the dropdown selection`);
+  expect(namedPresetRoundTrip.selectedDryMassImportApplied, `${htmlFile}: selected dry-mass preset import did not apply the imported calculator state`);
+  expect(namedPresetRoundTrip.saveOverwriteOk, `${htmlFile}: dry-mass Save did not overwrite the selected user preset without creating a duplicate`);
+  expect(namedPresetRoundTrip.saveAsNewOk, `${htmlFile}: dry-mass Save as New did not create a separate unique-name preset`);
+  expect(namedPresetRoundTrip.dryMassSearchableOk, `${htmlFile}: dry-mass preset searchable dropdown did not sort or filter by displayed label`);
   expect(namedPresetRoundTrip.chartControls, `${htmlFile}: chart preset management controls missing`);
   expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
-  await page.locator("#dryMassCalcClose").click();
+
+  const footerLayout = await page.evaluate(() => {
+    const footer = document.querySelector("#dryMassCalcModal .dry-mass-modal-footer");
+    const summary = footer?.querySelector(".dry-mass-summary-row");
+    const total = document.getElementById("dryMassCalcTotal");
+    const breakdown = document.getElementById("dryMassCalcBreakdown");
+    const actions = footer?.querySelector(".dry-mass-modal-actions");
+    if (!footer || !summary || !total || !breakdown || !actions) return null;
+    const footerBox = footer.getBoundingClientRect();
+    const summaryBox = summary.getBoundingClientRect();
+    const totalBox = total.getBoundingClientRect();
+    const breakdownBox = breakdown.getBoundingClientRect();
+    const actionsBox = actions.getBoundingClientRect();
+    return {
+      actionsBelowSummary: actionsBox.top >= summaryBox.bottom - 1,
+      totalAndCapsulesSameRow: Math.abs(totalBox.top - breakdownBox.top) < 8,
+      capsulesRightAligned: Math.abs(breakdownBox.right - summaryBox.right) < 2,
+      noHorizontalOverflow: summaryBox.right <= footerBox.right + 1 && actionsBox.right <= footerBox.right + 1,
+    };
+  });
+  expect(!!footerLayout, `${htmlFile}: dry-mass modal footer layout elements missing`);
+  if (footerLayout) {
+    expect(footerLayout.actionsBelowSummary, `${htmlFile}: dry-mass modal actions should render on a separate row`);
+    expect(footerLayout.totalAndCapsulesSameRow, `${htmlFile}: dry-mass total and breakdown capsules should share a summary row`);
+    expect(footerLayout.capsulesRightAligned, `${htmlFile}: dry-mass breakdown capsules should align to the right`);
+    expect(footerLayout.noHorizontalOverflow, `${htmlFile}: dry-mass modal footer overflows horizontally`);
+  }
+
+  await page.locator("#shipPresetMinTwr").evaluate(input => {
+    input.value = "0.37";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.locator("#dryMassCalcApplyWithDefaults").click();
+  await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
+  const minTwrAppliedFromDesignDefaults = await page.evaluate(() => Math.abs(state.minTwr - 0.37) < 1e-9);
+  expect(minTwrAppliedFromDesignDefaults, `${htmlFile}: dry-mass Apply with defaults did not apply minimum TWR`);
+  await page.locator("#dryMassCalcButton").click();
+  await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
+  const notesBox = await page.locator("#dryMassCalcNotes").boundingBox();
+  expect(!!notesBox, `${htmlFile}: dry-mass notes field was not measurable`);
+  if (notesBox) {
+    await page.mouse.move(notesBox.x + 8, notesBox.y + Math.min(12, notesBox.height / 2));
+    await page.mouse.down();
+    await page.mouse.move(8, 8);
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+    expect(await page.locator("#dryMassCalcModal.is-open").count() === 1, `${htmlFile}: dry-mass modal closed after a drag that started inside the memo field`);
+    await page.mouse.click(8, 8);
+    await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
+  }
 
   const metricSearchable = page.locator("#metric + .searchable-select");
   await metricSearchable.locator(".searchable-select-trigger").click();

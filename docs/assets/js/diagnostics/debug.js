@@ -1,3 +1,4 @@
+import { setLanguage, resetApplicationStateToDefaults } from "../app/controller.js";
 import { chartMassOptions } from "../calc/filtering.js";
 import {
   applyDryMassCalculatorPreset,
@@ -57,7 +58,6 @@ import {
   leftPanelLayout,
   loadLeftPanelLayout,
   resetChartStateToDefaults,
-  setLanguage,
   setLeftPanelLayout,
   state,
   updateLeftPanelCardSummaries,
@@ -108,6 +108,7 @@ export function installDebugHooks() {
     render,
     renderDryMassPresetControls,
     renderPresetLibraryControls,
+    resetApplicationStateToDefaults,
     resetChartStateToDefaults,
     resetDryMassCalcState,
     saveChartPresetFromSettings,
@@ -181,6 +182,7 @@ export function installDebugHooks() {
     render: { value: render, configurable: true },
     renderDryMassPresetControls: { value: renderDryMassPresetControls, configurable: true },
     renderPresetLibraryControls: { value: renderPresetLibraryControls, configurable: true },
+    resetApplicationStateToDefaults: { value: resetApplicationStateToDefaults, configurable: true },
     resetChartStateToDefaults: { value: resetChartStateToDefaults, configurable: true },
     resetDryMassCalcState: { value: resetDryMassCalcState, configurable: true },
     saveChartPresetFromSettings: { value: saveChartPresetFromSettings, configurable: true },

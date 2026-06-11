@@ -1,5 +1,6 @@
-import { isBandMetric, optionMetricValue } from "../chart/rendering.js";
+import { isBandMetric, optionMetricValue } from "./metrics.js";
 import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, UI_LANG, metricDefs, powerResearchActive, state } from "../state/core.js";
+import { clamp } from "../shared/math.js";
 
 export function rowCategoryLabel(row) {
       return UI_LANG === "en" ? (row.categoryLabelEn || row.categoryLabel) : (row.categoryLabel || row.categoryLabelEn);
@@ -29,9 +30,6 @@ export function syncFilterInputs() {
       });
     }
 
-export function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
-    }
 
 export function filteredRows() {
       return computeDriveDiagnostics().visibleRows;

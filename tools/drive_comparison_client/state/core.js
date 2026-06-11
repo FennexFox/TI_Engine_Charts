@@ -1,26 +1,15 @@
+import { formatNumber, formatTwr, formatTwrDynamicUnit } from "../shared/formatting.js";
+
 export const DATA = JSON.parse(document.getElementById("ti-data").textContent);
 export const STATIC_TRANSLATIONS = JSON.parse(document.getElementById("ti-static-translations").textContent);
 export const NOTE_HTML = JSON.parse(document.getElementById("ti-note-html").textContent);
-export const runtimeHooks = {
-  applyHelp: () => {},
+
+const metricCalculationHooks = {
   chartMassOptions: () => [],
-  enhanceSearchableSelect: () => {},
-  formatNumber: value => String(value ?? ""),
-  formatTwr: value => String(value ?? ""),
-  formatTwrDynamicUnit: value => String(value ?? ""),
-  helpText: () => "",
-  isBandMetric: () => false,
-  localCategoryHelp: () => "",
-  localLabel: item => item?.label || item?.labelEn || item?.key || "",
-  refreshSourceNote: () => {},
-  render: () => {},
-  renderDryMassCalcModal: () => {},
-  resetDryMassCalcState: () => {},
-  setPresetUiText: () => {},
 };
 
-export function registerCoreHooks(hooks) {
-  Object.assign(runtimeHooks, hooks || {});
+export function registerMetricCalculationHooks(hooks) {
+  Object.assign(metricCalculationHooks, hooks || {});
 }
 export const STANDARD_GRAVITY_MPS2 = 9.80665;
 export let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
@@ -103,7 +92,6 @@ export function resetChartStateToDefaults() {
         preserveViewportOnce: false,
         pan: null,
       });
-      runtimeHooks.resetDryMassCalcState();
     }
 
 export function translateText(value, lang = UI_LANG) {
@@ -127,13 +115,17 @@ export function normalizePowerResearchView(value) {
       return POWER_RESEARCH_VIEWS.includes(value) ? value : "focus";
     }
 
+export function isBandMetricKey(metric = state.metric) {
+      return metric === "totalMassTons" || metric === "fuelMassTons" || metric === "twr";
+    }
+
 export function powerResearchViewLabel(value = state.powerResearchView) {
       const label = POWER_RESEARCH_VIEW_LABELS[normalizePowerResearchView(value)] || POWER_RESEARCH_VIEW_LABELS.focus;
       return localText(label.ko, label.en);
     }
 
 export function powerResearchActive() {
-      return runtimeHooks.isBandMetric() && POWER_RESEARCH_VIEWS.includes(state.powerResearchView);
+      return isBandMetricKey(state.metric) && POWER_RESEARCH_VIEWS.includes(state.powerResearchView);
     }
 
 export const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
@@ -196,15 +188,20 @@ export function leftPanelCardSummary(key) {
       }
       if (key === "simulation") {
         const radiator = DATA.radiators.find(item => item.id === state.radiatorId);
-        return `${runtimeHooks.formatNumber(state.dryMassTons, " t")} · ${runtimeHooks.formatNumber(state.targetDvKps, " km/s")} · ${radiator ? radiatorDisplayName(radiator) : state.radiatorId}`;
+        const parts = [
+          formatNumber(state.dryMassTons, " t"),
+          formatNumber(state.targetDvKps, " km/s"),
+        ];
+        if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
+          parts.push(`TWR ≥ ${formatTwrDynamicUnit(state.minTwr)}`);
+        }
+        parts.push(radiator ? radiatorDisplayName(radiator) : state.radiatorId);
+        return parts.filter(Boolean).join(" · ");
       }
       if (key === "filter") {
         const parts = [];
-        if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
-          parts.push(`TWR ≥ ${runtimeHooks.formatTwrDynamicUnit(state.minTwr)}`);
-        }
         if (state.metric === "twr") {
-          parts.push(`dV ≥ ${runtimeHooks.formatNumber(state.minDvKps, " km/s")}`);
+          parts.push(`dV ≥ ${formatNumber(state.minDvKps, " km/s")}`);
         }
         if (state.paretoHighlight) parts.push(localText("파레토 ON", "Pareto ON"));
         if (state.showImpracticalCandidates) parts.push(localText("비현실 후보 ON", "Impractical ON"));
@@ -367,7 +364,7 @@ export function radiatorDisplayName(item) {
     }
 
 export function radiatorOptionLabel(item) {
-      return `${radiatorDisplayName(item)} (${runtimeHooks.formatNumber(item.specificPowerKWPerKg, " kW/kg")})`;
+      return `${radiatorDisplayName(item)} (${formatNumber(item.specificPowerKWPerKg, " kW/kg")})`;
     }
 
 export function renderRadiatorOptions(select) {
@@ -425,45 +422,9 @@ export function applyStaticLanguage() {
       if (note) note.innerHTML = NOTE_HTML[UI_LANG] || NOTE_HTML.ko;
     }
 
-export function setLanguage(lang, { rerender = true } = {}) {
+export function setUiLanguage(lang) {
       UI_LANG = lang === "en" ? "en" : "ko";
       localStorage.setItem("tiEngineChartLanguage", UI_LANG);
-      applyStaticLanguage();
-      refreshLocalizedControls();
-      runtimeHooks.refreshSourceNote();
-      updateLeftPanelCardSummaries();
-      if (rerender) runtimeHooks.render();
-    }
-
-export function refreshLocalizedControls() {
-      document.querySelectorAll(".category-row").forEach(row => {
-        const category = DATA.categories.find(item => item.key === row.dataset.categoryKey);
-        const text = row.querySelector(".category-name");
-        if (category && text) text.textContent = runtimeHooks.localLabel(category);
-        if (category) runtimeHooks.applyHelp(row, runtimeHooks.localCategoryHelp(category));
-      });
-      document.querySelectorAll(".family-row").forEach(row => {
-        const family = DATA.subfamilies.find(item => item.key === row.dataset.familyKey);
-        const text = row.querySelector(".family-name");
-        if (family && text) text.textContent = runtimeHooks.localLabel(family);
-      });
-      syncMetricGroupLabels();
-      runtimeHooks.enhanceSearchableSelect(document.getElementById("metric"));
-      const showTwrInfo = document.getElementById("showTwrInfo");
-      const showMassInfo = document.getElementById("showMassInfo");
-      const paretoHighlight = document.getElementById("paretoHighlight");
-      const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
-      const nameSearch = document.getElementById("nameSearch");
-      if (showTwrInfo) runtimeHooks.applyHelp(showTwrInfo.closest(".check-row"), runtimeHooks.helpText("showTwrInfo"));
-      if (showMassInfo) runtimeHooks.applyHelp(showMassInfo.closest(".check-row"), runtimeHooks.helpText("showMassInfo"));
-      if (paretoHighlight) runtimeHooks.applyHelp(paretoHighlight.closest(".check-row"), runtimeHooks.helpText("paretoHighlight"));
-      if (showImpracticalCandidates) runtimeHooks.applyHelp(showImpracticalCandidates.closest(".check-row"), runtimeHooks.helpText("showImpracticalCandidates"));
-      runtimeHooks.applyHelp(document.querySelector("#minTwrControl .label"), runtimeHooks.helpText("minTwr"));
-      runtimeHooks.applyHelp(document.querySelector("#minDvControl .label"), runtimeHooks.helpText("minDv"));
-      renderRadiatorOptions(document.getElementById("radiator"));
-      runtimeHooks.enhanceSearchableSelect(document.getElementById("radiator"));
-      runtimeHooks.setPresetUiText();
-      runtimeHooks.renderDryMassCalcModal();
     }
 
 export const metricDefs = {
@@ -471,7 +432,7 @@ export const metricDefs = {
         label: "추력 (MN)",
         hint: "템플릿 thrust_N을 MN으로 환산",
         value: row => row.thrustN / 1e6,
-        format: value => runtimeHooks.formatNumber(value, " MN"),
+        format: value => formatNumber(value, " MN"),
       },
       fuelEfficiency: {
         get label() {
@@ -483,40 +444,40 @@ export const metricDefs = {
             : "템플릿 EV_kps";
         },
         value: row => state.fuelEfficiencyUnit === "seconds" ? row.specificImpulseSeconds : row.exhaustVelocityKps,
-        format: value => runtimeHooks.formatNumber(value, state.fuelEfficiencyUnit === "seconds" ? " s" : " km/s"),
+        format: value => formatNumber(value, state.fuelEfficiencyUnit === "seconds" ? " s" : " km/s"),
       },
       powerRequirementGW: {
         label: "출력 요구량 (GW)",
         hint: "thrust_N * EV_kps * 0.5 / 1,000,000 / efficiency",
         value: row => row.powerRequirementGW,
-        format: value => runtimeHooks.formatNumber(value, " GW"),
+        format: value => formatNumber(value, " GW"),
       },
       totalMassTons: {
         label: "목표 dV 총질량 (t)",
         hint: "총질량 = 기준 건조질량 + 드라이브 + 전원 + 라디에이터 + 추진체",
         value: row => {
-          const values = runtimeHooks.chartMassOptions(row);
+          const values = metricCalculationHooks.chartMassOptions(row);
           return values.length ? values[0].totalMassTons : NaN;
         },
-        format: value => runtimeHooks.formatNumber(value, " t"),
+        format: value => formatNumber(value, " t"),
       },
       fuelMassTons: {
         label: "목표 dV 연료질량 (t)",
         hint: "연료질량 = (기준 건조질량 + 드라이브 + 전원 + 라디에이터) * (질량비 - 1)",
         value: row => {
-          const values = runtimeHooks.chartMassOptions(row);
+          const values = metricCalculationHooks.chartMassOptions(row);
           return values.length ? values[0].propellantTons : NaN;
         },
-        format: value => runtimeHooks.formatNumber(value, " t"),
+        format: value => formatNumber(value, " t"),
       },
       twr: {
         label: "TWR",
         hint: "추력 / (목표 dV 총질량 * g)",
         value: row => {
-          const values = runtimeHooks.chartMassOptions(row);
+          const values = metricCalculationHooks.chartMassOptions(row);
           return values.length ? values[0].twr : NaN;
         },
-        format: value => runtimeHooks.formatTwr(value, ""),
+        format: value => formatTwr(value, ""),
       },
     };
 
@@ -621,6 +582,7 @@ export const dryMassCalcState = {
       notes: "",
       simulationDefaults: {
         targetDvKps: DATA.defaults.targetDvKps,
+        minTwr: 0.0001,
         radiatorId: DATA.defaults.radiatorId,
       },
     };

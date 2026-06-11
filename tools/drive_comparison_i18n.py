@@ -29,6 +29,7 @@ ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 
 ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ('<html lang="ko">', '<html lang="en">'),
+    ("새 이름으로 저장", "Save as New"),
     ("전원 보기", "Power view"),
     ("시뮬레이션 기본 조건", "Simulation defaults"),
     ("기본 프리셋을 설정했습니다.", "Default preset set."),
