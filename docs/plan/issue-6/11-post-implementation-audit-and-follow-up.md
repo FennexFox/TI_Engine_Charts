@@ -6,6 +6,12 @@ Re-check the Phase 01-10 implementation record against the current repository an
 
 This is an audit and planning document. It does not change application behavior.
 
+Product-scope lens for this audit:
+
+- The app's core job is to help users compare thrusters by showing the research-cost and performance tradeoff needed to reach a desired propulsion capability.
+- Module effects are in scope only when they change propulsion metrics already shown by the chart, such as thrust, EV/Isp, power demand, waste heat, radiator mass, dry mass, total mass, TWR, or practical dV.
+- Ship-design, combat, survivability, and automatic recommendation systems are outside this issue's product goal. They may produce warnings when selected modules cannot be modeled, but they should not become follow-up implementation targets here.
+
 ## Audit Summary
 
 - Phase 01-06 MVP scope is implemented and recorded with progress, decisions, outcomes, validation, and retrospective sections.
@@ -18,12 +24,12 @@ This is an audit and planning document. It does not change application behavior.
   - UI summaries and diagnostics in `tools/drive_comparison_client/ui/control_state.js`, `tools/drive_comparison_client/ui/dry_mass_calculator.js`, and `tools/drive_comparison_client/ui/tooltip_table.js`.
   - deterministic and browser coverage in `tools/verify_module_effects.mjs` and `tools/verify_drive_comparison_browser.mjs`.
 - The main residual work is not broken implementation; it is deliberately deferred product scope:
-  - full Terra Invicta save/ship-design parsing.
-  - full ship-designer legality validation.
-  - weapon-specific module power semantics.
-  - dynamic reactor candidate/frontier recalculation under modified power demand.
+  - user-facing documentation for explicit propulsion-assumption payloads.
+  - diagnostics for imported propulsion/module assumptions that were accepted, normalized, dropped, or ignored.
+  - reactor capacity validation under modified propulsion power demand.
   - production-data-backed heat modules beyond verifier fixtures.
-  - optional built-in assumption presets and optimization helpers.
+  - optional built-in propulsion-assumption examples, only if they do not imply optimality.
+- Full ship-designer legality, weapon-specific semantics, combat rules, and automatic optimization should remain warnings or explicit non-goals, not follow-up targets for this issue.
 
 ## Phase-by-Phase Assessment
 
@@ -35,10 +41,10 @@ This is an audit and planning document. It does not change application behavior.
 | 04 - MVP Thrust and EV Calculation | Appropriate. MVP effects are wired through calculation hooks and `massOptions()`. | `effectiveDriveValues()` feeds thrust, EV/Isp, mass ratio, propellant, total mass, TWR, and max practical dV. | Power and heat were intentionally deferred here and later covered in Phase 07-08. |
 | 05 - MVP UX and Warnings | Appropriate. Users can see enabled state, source, chips, and warnings. | `#moduleEffectsControl`, `updateModuleEffectsPanel()`, dry-mass slot chips, and tooltip module-effect details exist. | Warning density can still grow for complex imports. A grouped warning summary remains useful follow-up polish. |
 | 06 - MVP Verification Hardening | Appropriate. Standard verification now exercises the MVP. | `package.json` runs `verify:effects`; browser tests cover preset formats, warnings, and named presets. | Browser tests are broad and growing. Future work should split scenario helpers before the file becomes hard to maintain. |
-| 07 - Power Demand Follow-Up | Appropriate for the chosen model. Auxiliary utility power is added to modified drive power and shown separately from base power. | Evaluator returns `basePowerRequirementGW`, `modifiedPowerRequirementGW`, `moduleAuxiliaryPowerGW`, and `powerWarnings`; `powerRequirementGW` metric reads effective power. | Reactor candidate lists are still build-time lists. Modified power can outgrow assumptions behind the existing frontier unless a later pass validates capacity/frontier compatibility. Weapon-only power bonuses remain warnings. |
+| 07 - Power Demand Follow-Up | Appropriate for the chosen model. Auxiliary utility power is added to modified drive power and shown separately from base power. | Evaluator returns `basePowerRequirementGW`, `modifiedPowerRequirementGW`, `moduleAuxiliaryPowerGW`, and `powerWarnings`; `powerRequirementGW` metric reads effective power. | Reactor candidate lists are still build-time lists. Modified power can outgrow assumptions behind the displayed options unless a later pass validates capacity compatibility. Weapon-only power bonuses remain warnings. |
 | 08 - Waste Heat and Radiator Follow-Up | Appropriate for the chosen model. Modified power and heat multipliers flow into waste heat/radiator mass. | `massOptions()` exposes base/modified heat and radiator fields; tooltip breakdown displays base-vs-modified values. | Current production catalog has no explicit heat-specific module rule, so supported heat multiplier coverage is fixture-based. Future source data should be audited before claiming broad thermal parity. |
-| 09 - Compatibility Validation Follow-Up | Appropriate. Known prerequisites and same-group mutual exclusions prevent false application while keeping selection permissive. | Structured diagnostics include unmet requirements, unsupported rules/effects, mutual exclusions, impossible combinations, power warnings, and heat warnings. | This is not complete ship-designer validation. Slot legality, module quantity legality, alien/buildable constraints, and imported-payload drop reporting need follow-up if ship import expands. |
-| 10 - Ship Design Import and Advanced Workflows | Appropriate for an explicit assumption-payload boundary. The phase did not implement a save parser, by design. | `ti-engine-chart-ship-assumption/v1` import applies dry-mass calculator state and module-effect assumptions; table base badges and Performance Detail base/total display were added. | User-facing import schema docs, dropped-module reporting, built-in assumption presets, chart overlays, and optimization helpers remain deferred. |
+| 09 - Compatibility Validation Follow-Up | Appropriate. Known prerequisites and same-group mutual exclusions prevent false application while keeping selection permissive. | Structured diagnostics include unmet requirements, unsupported rules/effects, mutual exclusions, impossible combinations, power warnings, and heat warnings. | This is not complete ship-designer validation and should not become one under this issue. Only imported-payload drop reporting remains relevant to the current propulsion-assumption boundary. |
+| 10 - Ship Design Import and Advanced Workflows | Appropriate for an explicit assumption-payload boundary. The phase did not implement a save parser, by design. | `ti-engine-chart-ship-assumption/v1` import applies dry-mass calculator state and module-effect assumptions; table base badges and Performance Detail base/total display were added. | User-facing import schema docs, dropped-module reporting, and tightly scoped assumption examples remain relevant. Full save-design import, chart clutter, and optimization helpers should not be treated as this issue's follow-up roadmap. |
 
 ## Acceptance-Criteria Review
 
@@ -46,15 +52,17 @@ This is an audit and planning document. It does not change application behavior.
 - Supported effects visible and deterministic: covered for thrust, EV/Isp, auxiliary power, and heat multiplier fixtures.
 - Unsupported effects visible: covered through panel and tooltip warnings.
 - Preset compatibility: covered for old payloads, JSON, compressed payloads, named chart presets, and clean-profile round trips.
-- Advanced workflows: partially complete. Explicit assumption import and table comparison are implemented; full save-design import, built-in presets, chart overlay, and optimization are deferred.
+- Advanced workflows: partially complete. Explicit assumption import and table comparison are implemented. Future work should harden that boundary, not expand into save-design parsing, whole-ship workflows, or automatic optimization.
 
-## Deferred Scope
+## Scope Boundaries
 
 ### Intentional Non-Goals
 
 - Full Terra Invicta ship-designer parity.
+- Combat performance, survivability, weapon-effect, or battle-outcome modeling.
 - Server-side calculation.
 - Automatic module optimization.
+- Automatic thruster, module, reactor, or ship-design recommendations.
 - Hard-blocking invalid dry-mass selections.
 - Parsing raw game save files or opaque ship designs.
 - Dynamic reactor candidate generation from scratch.
@@ -86,12 +94,12 @@ Scope:
   - dry-mass only.
   - dry-mass plus module effects from calculator slots.
   - dry-mass plus manual module-effect IDs.
-- Add a short "not a game save parser" warning.
+- Add a short "not a game save or ship-design parser" warning.
 - Keep Phase 10 retrospective notes in sync when the import or base-vs-total display changes.
 
 Acceptance criteria:
 - A contributor can create a valid assumption payload without reading `presets/library.js`.
-- The docs clearly distinguish explicit assumption payloads from future save parsing.
+- The docs clearly distinguish explicit assumption payloads from raw saves, full ship designs, and recommendation workflows.
 - Existing `npm run verify` remains green.
 
 Validation:
@@ -112,6 +120,7 @@ Scope:
 Non-goals:
 - Do not block import.
 - Do not implement full ship-designer legality.
+- Do not infer combat loadouts, weapon behavior, or optimal module choices from an imported payload.
 
 Acceptance criteria:
 - Importing invalid or partially invalid module assumptions does not silently hide dropped data.
@@ -125,18 +134,19 @@ node tools/verify_drive_comparison_browser.mjs docs/index.html
 npm run verify
 ```
 
-### Follow-Up 03 - Reactor Capacity and Dynamic Frontier Validation
+### Follow-Up 03 - Reactor Capacity Warning Validation
 
-Goal: Check whether modified power demand invalidates build-time reactor candidate assumptions.
+Goal: Ensure module-modified propulsion power demand cannot make the chart display an impossible retained power candidate without a visible warning.
 
 Scope:
 - Audit whether every retained power option can satisfy `modifiedPowerRequirementGW` under auxiliary power.
-- If not, add a diagnostic and optionally filter invalid power candidates only when doing so preserves current chart semantics.
+- If not, add a diagnostic and optionally filter invalid power candidates only when doing so preserves current research-cost and drive-comparison semantics.
 - Keep base and modified power fields visible.
 - Add focused browser tests for an auxiliary-power scenario that crosses a reactor max-output boundary.
 
 Non-goals:
 - Do not rebuild all reactor candidate generation in the browser unless diagnostics prove filtering is insufficient.
+- Do not add reactor/module optimization or automatic recommendations.
 
 Acceptance criteria:
 - Modified power demand cannot silently use an under-capacity reactor candidate.
@@ -163,6 +173,7 @@ Scope:
 
 Non-goals:
 - Do not invent thermal formulas for ambiguous combat or survivability rules.
+- Do not model combat damage mitigation, repair, targeting, or weapon performance.
 
 Acceptance criteria:
 - Every production heat-like rule is either modeled with a documented formula or explicitly warned.
@@ -203,26 +214,27 @@ node tools/verify_drive_comparison_browser.mjs docs/index.html
 npm run verify
 ```
 
-### Follow-Up 06 - Built-In Assumption Presets
+### Follow-Up 06 - Optional Assumption Examples
 
-Goal: Decide whether curated module-effect presets are worth shipping.
+Goal: Decide whether curated propulsion-assumption examples are worth shipping as documentation aids.
 
 Scope:
-- Prototype optional built-in dry-mass or chart presets in `data/preset_library.json`.
-- Candidate presets:
+- Prototype optional built-in dry-mass or chart examples in `data/preset_library.json`.
+- Candidate examples:
   - no module effects.
   - selected dry-mass modules source.
-  - common fusion spiker plus hydrogen tankage.
-  - auxiliary-power stress test.
+  - one clearly labeled thrust/EV module-effect demonstration.
+  - one clearly labeled auxiliary-power warning demonstration.
 - Keep defaults unchanged.
 
 Non-goals:
-- Do not make presets imply optimality.
-- Do not add catalog-maintenance-heavy presets unless tests protect them.
+- Do not make examples imply optimality, recommendation, or best-build guidance.
+- Do not add catalog-maintenance-heavy examples unless tests protect them.
+- Do not add combat, whole-ship, or progression-planning presets.
 
 Acceptance criteria:
-- Presets are optional, localized well enough for current UI, and do not alter startup defaults.
-- Built-in preset import/export and language display continue working.
+- Examples are optional, localized well enough for current UI, and do not alter startup defaults.
+- Built-in example import/export and language display continue working.
 
 Validation:
 
@@ -231,65 +243,25 @@ npm run build:fast
 npm run verify
 ```
 
-### Follow-Up 07 - Ship Design Import Foundation
+## Explicitly Not Scheduled Here
 
-Goal: Prepare for actual ship design import without coupling the comparison tool to a brittle save parser.
+These ideas appeared in earlier planning language but should not be follow-up implementation targets for this issue:
 
-Scope:
-- Define accepted source formats separately from `ti-engine-chart-ship-assumption/v1`.
-- Add a parser boundary module with fixtures, not UI code.
-- Map hull, utility modules, weapons, armor, and simulation defaults with explicit diagnostics.
-- Reuse Follow-Up 02 dropped-data reporting.
+- Full ship-design import from Terra Invicta saves or opaque ship-design blobs.
+- Any parser that maps weapons, armor, combat utilities, or battle simulation defaults.
+- Automatic optimization, "best module" selection, or recommended build generation.
+- Combat-performance, survivability, repair, targeting, magazine, ECM, or weapon-damage modeling.
+- Chart overlays or extra visual layers that make the research-cost/performance comparison harder to scan.
 
-Non-goals:
-- Do not parse every game save structure in the first pass.
-- Do not accept opaque save data without schema/version detection.
-
-Acceptance criteria:
-- A parser fixture can produce the existing assumption payload shape.
-- Import failures are actionable and do not mutate current calculator state.
-- The app remains usable without parser support.
-
-Validation:
-
-```powershell
-node tools/verify_drive_comparison_client_syntax.mjs
-node tools/verify_drive_comparison_browser.mjs docs/index.html
-npm run verify
-```
-
-### Follow-Up 08 - Optional Optimization Helpers
-
-Goal: Explore recommendation helpers only after the current model is documented and validated.
-
-Scope:
-- Add non-authoritative filters or comparison helpers, such as "show assumptions that improve this visible drive".
-- Require all recommendations to cite their assumptions and diagnostics.
-- Keep automatic module choice out of the default workflow.
-
-Non-goals:
-- Do not claim optimal ship design.
-- Do not make the app choose modules silently.
-
-Acceptance criteria:
-- Any helper remains transparent, reversible, and testable.
-- Unsupported or invalid assumptions are never recommended as applied effects.
-
-Validation:
-
-```powershell
-npm run verify
-```
+If any of these are ever pursued, they should be opened as a separate product decision with a scope that does not redefine this app as a full ship design calculator.
 
 ## Recommended Order
 
 1. Follow-Up 01 - Documentation and Schema Hardening.
 2. Follow-Up 02 - Import Diagnostics and Dropped-Module Reporting.
-3. Follow-Up 03 - Reactor Capacity and Dynamic Frontier Validation.
+3. Follow-Up 03 - Reactor Capacity Warning Validation.
 4. Follow-Up 05 - Warning UX Consolidation.
 5. Follow-Up 04 - Production Heat Rule Audit.
-6. Follow-Up 06 - Built-In Assumption Presets.
-7. Follow-Up 07 - Ship Design Import Foundation.
-8. Follow-Up 08 - Optional Optimization Helpers.
+6. Follow-Up 06 - Optional Assumption Examples.
 
-Rationale: Document the public contract first, then make imports safer, then validate the largest remaining calculation risk. Presets and optimization should wait until the assumptions are easier to explain and diagnose.
+Rationale: Document the public contract first, then make explicit assumption imports safer, then validate the largest remaining propulsion-calculation risk. Optional examples come last because they are only useful after assumptions and diagnostics are easy to explain.
