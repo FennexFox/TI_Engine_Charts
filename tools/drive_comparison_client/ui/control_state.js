@@ -1,4 +1,5 @@
 import { isBandMetric } from "../calc/metrics.js";
+import { isModuleRuleRelevantToDriveChart } from "../calc/module_effects.js";
 import { clamp } from "../shared/math.js";
 import { DATA, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, state } from "../state/core.js";
 import { formatNumber, formatTwrDynamicUnit } from "./formatting.js";
@@ -60,7 +61,10 @@ function moduleRequirementSummaries(module) {
 
 function moduleUnmodeledRules(module) {
   return Array.isArray(module && module.unmodeledRules)
-    ? module.unmodeledRules.map(rule => rule && rule.rule).filter(Boolean)
+    ? module.unmodeledRules
+      .filter(rule => isModuleRuleRelevantToDriveChart(rule))
+      .map(rule => rule && rule.rule)
+      .filter(Boolean)
     : [];
 }
 

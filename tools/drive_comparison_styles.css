@@ -1616,11 +1616,32 @@
     }
     .tooltip-metric-value {
       margin-top: 0;
+      max-width: 190px;
       color: var(--ink);
       font-variant-numeric: tabular-nums;
       font-size: 12px;
       font-weight: 700;
       line-height: 1.25;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+    .performance-total-value.is-modified {
+      color: #f1c17e;
+      font-weight: 800;
+      text-decoration: underline;
+      text-decoration-color: rgba(241, 193, 126, 0.45);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 2px;
+      cursor: help;
+    }
+    .performance-baseline-value {
+      display: block;
+      margin-top: 2px;
+      color: #a9b5ad;
+      font-size: 10px;
+      font-weight: 650;
+      line-height: 1.25;
+      white-space: normal;
     }
     .tooltip-breakdown {
       margin-top: 0;

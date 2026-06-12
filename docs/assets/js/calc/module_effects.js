@@ -14,6 +14,19 @@ const RAW_REQUIREMENT_RULES = {
   RequiresNonISRUDrive: "nonIsruDrive",
 };
 
+const DRIVE_CHART_UNMODELED_RULE_CATEGORIES = new Set([
+  "powerdemand",
+  "heat",
+  "wasteheat",
+  "thermal",
+  "radiator",
+]);
+
+const RAW_UNMODELED_RULE_CATEGORIES = {
+  LaserPowerBonus: "powerDemand",
+  ParticleBeamPowerBonus: "powerDemand",
+};
+
 function finiteNumber(value, fallback = NaN) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -32,6 +45,15 @@ function moduleId(module) {
 
 function normalizeToken(value) {
   return String(value || "").toLowerCase();
+}
+
+export function isModuleRuleRelevantToDriveChart(rule) {
+  const category = typeof rule === "string"
+    ? rule
+    : rule && typeof rule === "object"
+      ? rule.category
+      : "";
+  return DRIVE_CHART_UNMODELED_RULE_CATEGORIES.has(normalizeToken(category));
 }
 
 function rowTokens(row) {
@@ -154,12 +176,13 @@ function unsupportedRules(module) {
     return module.unmodeledRules.map(rule => ({
       rule: String(rule && rule.rule || ""),
       category: String(rule && rule.category || "unsupported"),
-    })).filter(rule => rule.rule);
+    })).filter(rule => rule.rule && isModuleRuleRelevantToDriveChart(rule));
   }
   const rules = Array.isArray(module.specialRules) ? module.specialRules : [];
   return rules
     .filter(rule => !RAW_EFFECT_RULES[rule] && !RAW_REQUIREMENT_RULES[rule])
-    .map(rule => ({ rule, category: "unsupported" }));
+    .map(rule => ({ rule, category: RAW_UNMODELED_RULE_CATEGORIES[rule] || "unsupported" }))
+    .filter(rule => isModuleRuleRelevantToDriveChart(rule));
 }
 
 function moduleGrouping(module) {

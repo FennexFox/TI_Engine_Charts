@@ -122,10 +122,20 @@ npm run verify
 - Importing that payload applies calculator slots, notes, simulation defaults, and module-effect source/enabled/manual-ID assumptions without parsing game saves.
 - Exported chart presets continue to preserve dry-mass calculator and module-effect assumptions, so imported ship scenarios can be saved, reloaded, and re-imported on a clean profile.
 - `tools/drive_comparison_client/ui/tooltip_table.js` now shows a small base-value badge on thrust, fuel-efficiency, or power-requirement table cells when module effects change the displayed value.
+- The right-panel Performance Detail now highlights modified total performance values and exposes baseline performance plus module-impact breakdowns through hover text.
+- Module-effect warnings now suppress unmodeled rules outside the chart's drive performance and research-cost scope while retaining power-demand and heat/radiator warnings.
 - Browser verification covers representative ship assumption import, dry-mass mapping, module-effect mapping, base-vs-modified table display, named preset reapply, and clean-profile export/import.
 - Validation completed:
   - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
   - `node tools/verify_drive_comparison_browser.mjs docs/index.html`
   - `npm run verify`
   - In-app Browser smoke confirmed generated `docs/index.html` loads with chart points, table rows, dry-mass entry point, and no runtime errors.
+
+## Retrospective
+
+- What worked: The explicit assumption-payload boundary kept import behavior useful without prematurely committing to a game save parser.
+- What worked: Keeping base-vs-modified comparison in table badges and Performance Detail preserved the existing chart surface while making module effects discoverable.
+- What changed after initial implementation: Performance Detail needed a stronger distinction between baseline drive performance and total module-adjusted performance, because simply showing `base` inline could make users wonder whether module effects were only partially applied.
+- What to watch: Import diagnostics are still coarse; a later pass should report modules that were dropped or normalized during calculator import.
+- Follow-up scope: Document the `ti-engine-chart-ship-assumption/v1` schema, add dropped-module reporting, and validate modified power demand against reactor capacity assumptions before expanding real ship-design import.
 

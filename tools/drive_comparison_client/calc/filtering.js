@@ -246,6 +246,7 @@ export function massOptions(row) {
         const wasteHeatMultiplier = Number.isFinite(Number(effective.wasteHeatMultiplier)) ? Number(effective.wasteHeatMultiplier) : 1;
         const baseSelfContained = !!option.selfContained || basePowerRequirementGW <= 0;
         const selfContained = !!option.selfContained || modifiedPowerRequirementGW <= 0;
+        const basePowerPlantMassTons = baseSelfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * basePowerRequirementGW);
         const powerPlantMassTons = selfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * modifiedPowerRequirementGW);
         const baseWasteHeatGW = baseSelfContained || row.openCycleCooling ? 0 : basePowerRequirementGW * (1 - option.efficiency);
         const modifiedWasteHeatGW = selfContained || row.openCycleCooling ? 0 : Math.max(0, modifiedPowerRequirementGW * (1 - option.efficiency) * wasteHeatMultiplier);
@@ -260,6 +261,13 @@ export function massOptions(row) {
         const propellantTons = dryWithHardwareTons * massRatioMinusOne;
         const totalMassTons = dryWithHardwareTons + propellantTons;
         const twr = effective.thrustN / (totalMassTons * 1000 * STANDARD_GRAVITY_MPS2);
+        const baseMassRatioMinusOne = Math.exp(targetDv / row.exhaustVelocityKps) - 1;
+        const baseMassRatio = baseMassRatioMinusOne + 1;
+        const baseHardwareMassTons = row.driveMassTons + basePowerPlantMassTons + baseRadiatorMassTons;
+        const baseDryWithHardwareTons = baseDryTons + baseHardwareMassTons;
+        const basePropellantTons = baseDryWithHardwareTons * baseMassRatioMinusOne;
+        const baseTotalMassTons = baseDryWithHardwareTons + basePropellantTons;
+        const baseTwr = row.thrustN / (baseTotalMassTons * 1000 * STANDARD_GRAVITY_MPS2);
         const moduleEffectFields = effectEvaluation ? {
           baseThrustN: effectEvaluation.baseThrustN,
           effectiveThrustN: effectEvaluation.effectiveThrustN,
@@ -277,6 +285,7 @@ export function massOptions(row) {
         } : {};
         return {
           ...option,
+          basePowerPlantMassTons,
           reactorMassTons: powerPlantMassTons,
           powerPlantMassTons,
           basePowerRequirementGW,
@@ -288,14 +297,22 @@ export function massOptions(row) {
           baseRadiatorMassTons,
           radiatorMassTons,
           wasteHeatGW: modifiedWasteHeatGW,
+          baseHardwareMassTons,
           hardwareMassTons,
           baseDryTons,
+          baseDryWithHardwareTons,
           dryWithHardwareTons,
+          basePropellantTons,
           propellantTons,
+          baseTotalMassTons,
           totalMassTons,
+          baseTwr,
           twr,
           maxPracticalDvKps: effective.exhaustVelocityKps * Math.log(EXTREME_MASS_RATIO),
+          baseMaxPracticalDvKps: row.exhaustVelocityKps * Math.log(EXTREME_MASS_RATIO),
+          baseMassRatio,
           massRatio,
+          baseMassRatioMinusOne,
           massRatioMinusOne,
           ...moduleEffectFields,
         };

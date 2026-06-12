@@ -230,7 +230,7 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
   assertClose(result.effectiveExhaustVelocityKps, 100, "thrust multiplier leaves exhaust velocity unchanged");
   assert.equal(result.activeEffects.length, 1, "thrust multiplier is summarized");
   assert.equal(result.activeEffects[0].field, "thrustN");
-  assert.equal(result.diagnostics.unsupportedRules.length, 1, "unmodeled companion rule is diagnosed");
+  assert.equal(result.diagnostics.unsupportedRules.length, 0, "out-of-scope companion rule is suppressed");
 }
 
 {
@@ -314,10 +314,7 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
   const base = fixtureMassSummary(fusionHydrogenDrive, []);
   const unsupported = fixtureMassSummary(fusionHydrogenDrive, [electronicCountermeasures]);
   assert.equal(result.activeEffects.length, 0, "unsupported rule does not become active");
-  assert.equal(result.diagnostics.unsupportedRules.length, 1, "unsupported rule is diagnosed");
-  assert.equal(result.diagnostics.unsupportedRules[0].rule, "ECM");
-  assert.equal(result.diagnostics.unsupportedRules[0].severity, "info", "unsupported rule carries severity");
-  assert.equal(result.diagnostics.unsupportedRules[0].applied, false, "unsupported rule is marked not applied");
+  assert.equal(result.diagnostics.unsupportedRules.length, 0, "out-of-scope unsupported rule is suppressed");
   assertClose(unsupported.effectiveThrustN, base.effectiveThrustN, "unsupported-only module keeps base thrust");
   assertClose(unsupported.effectiveExhaustVelocityKps, base.effectiveExhaustVelocityKps, "unsupported-only module keeps base exhaust velocity");
   assertClose(unsupported.totalMassTons, base.totalMassTons, "unsupported-only module keeps base total mass");

@@ -93,9 +93,31 @@ export function tooltipMetricsHtml(row, option = null) {
       const effectiveEvKps = option && Number.isFinite(Number(option.effectiveExhaustVelocityKps)) ? Number(option.effectiveExhaustVelocityKps) : effective.exhaustVelocityKps;
       const basePowerRequirementGW = option && Number.isFinite(Number(option.basePowerRequirementGW)) ? Number(option.basePowerRequirementGW) : (effective.basePowerRequirementGW ?? row.powerRequirementGW);
       const modifiedPowerRequirementGW = option && Number.isFinite(Number(option.modifiedPowerRequirementGW)) ? Number(option.modifiedPowerRequirementGW) : (effective.powerRequirementGW ?? row.powerRequirementGW);
-      const thrustText = modifiedMetricText(effectiveThrustN / 1e6, baseThrustN / 1e6, " MN");
-      const evText = modifiedMetricText(effectiveEvKps, baseEvKps, " km/s");
-      const powerText = modifiedMetricText(modifiedPowerRequirementGW, basePowerRequirementGW, " GW");
+      const effectBreakdown = performanceBreakdownItems(option, effective);
+      const thrustHtml = performanceMetricValueHtml({
+        effectiveValue: effectiveThrustN / 1e6,
+        baseValue: baseThrustN / 1e6,
+        formatValue: value => formatNumber(value, " MN"),
+        breakdownItems: effectBreakdown.thrust,
+      });
+      const evHtml = performanceMetricValueHtml({
+        effectiveValue: effectiveEvKps,
+        baseValue: baseEvKps,
+        formatValue: value => formatNumber(value, " km/s"),
+        breakdownItems: effectBreakdown.ev,
+      });
+      const twrHtml = performanceMetricValueHtml({
+        effectiveValue: twrValue,
+        baseValue: option && Number.isFinite(Number(option.baseTwr)) ? Number(option.baseTwr) : twrValue,
+        formatValue: value => formatTwr(value, " g"),
+        breakdownItems: effectBreakdown.total,
+      });
+      const powerHtml = performanceMetricValueHtml({
+        effectiveValue: modifiedPowerRequirementGW,
+        baseValue: basePowerRequirementGW,
+        formatValue: value => formatNumber(value, " GW"),
+        breakdownItems: effectBreakdown.power,
+      });
       const moduleEffects = moduleEffectTooltipHtml(option, effective);
       const researchRows = [
         [UI_LANG === "en" ? "Unlock research" : "개방 연구력", formatResearch(unlockResearch), true],
@@ -104,11 +126,11 @@ export function tooltipMetricsHtml(row, option = null) {
         [UI_LANG === "en" ? "Power research" : "전원 연구", formatResearch(powerResearch), false],
       ];
       const performanceRows = [
-        [UI_LANG === "en" ? "Thrust" : "추력", thrustText],
-        [UI_LANG === "en" ? "TWR" : "TWR", formatTwr(twrValue, " g")],
-        [UI_LANG === "en" ? "Exhaust velocity" : "EV", evText],
-        [UI_LANG === "en" ? "Efficiency" : "효율", formatPercent(row.efficiency)],
-        [UI_LANG === "en" ? "Power requirement" : "출력 요구량", powerText],
+        [UI_LANG === "en" ? "Thrust" : "추력", thrustHtml],
+        [UI_LANG === "en" ? "TWR" : "TWR", twrHtml],
+        [UI_LANG === "en" ? "Exhaust velocity" : "EV", evHtml],
+        [UI_LANG === "en" ? "Efficiency" : "효율", escapeHtml(formatPercent(row.efficiency))],
+        [UI_LANG === "en" ? "Power requirement" : "출력 요구량", powerHtml],
       ];
       return `
         <details class="tooltip-section" open>
@@ -118,7 +140,7 @@ export function tooltipMetricsHtml(row, option = null) {
               ${performanceRows.map(([label, value]) => `
                 <div class="tooltip-metric">
                   <div class="tooltip-metric-label">${escapeHtml(label)}</div>
-                  <div class="tooltip-metric-value">${escapeHtml(value)}</div>
+                  <div class="tooltip-metric-value">${value}</div>
                 </div>
               `).join("")}
             </div>
@@ -147,6 +169,67 @@ export function tooltipMetricsHtml(row, option = null) {
             </div>
           </div>
         </details>
+      `;
+    }
+
+export function performanceBreakdownItems(option, effective) {
+      const evaluation = effective && effective.moduleEffectEvaluation;
+      const activeEffects = option && Array.isArray(option.activeModuleEffects)
+        ? option.activeModuleEffects
+        : evaluation && Array.isArray(evaluation.activeEffects)
+          ? evaluation.activeEffects
+          : [];
+      const powerContributions = option && Array.isArray(option.powerContributions)
+        ? option.powerContributions
+        : evaluation && Array.isArray(evaluation.powerContributions)
+          ? evaluation.powerContributions
+          : [];
+      const effectItem = effect => {
+        const multiplier = Number(effect && effect.multiplier);
+        const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
+        return `${effect.moduleName || effect.moduleId || ""}: ${effectTypeLabel(effect.type)} ${value}`.trim();
+      };
+      const thrust = activeEffects.filter(effect => effect.type === "thrustMultiplier").map(effectItem);
+      const ev = activeEffects.filter(effect => effect.type === "exhaustVelocityMultiplier").map(effectItem);
+      const heat = activeEffects.filter(effect => effect.type === "wasteHeatMultiplier").map(effectItem);
+      const power = powerContributions
+        .map(item => `${item.moduleName || item.moduleId || ""}: ${UI_LANG === "en" ? "Aux power" : "보조 전력"} +${formatNumber(Number(item.powerRequirementGW), " GW")}`.trim())
+        .filter(Boolean);
+      return {
+        thrust,
+        ev,
+        power,
+        heat,
+        total: [...thrust, ...ev, ...power, ...heat],
+      };
+    }
+
+export function performanceMetricValueHtml({ effectiveValue, baseValue, formatValue, breakdownItems = [] }) {
+      const effective = formatValue(effectiveValue);
+      if (!Number.isFinite(effectiveValue) || !Number.isFinite(baseValue)) return escapeHtml(effective);
+      const scale = Math.max(Math.abs(baseValue), 1);
+      if (Math.abs(effectiveValue - baseValue) <= scale * 1e-9) return escapeHtml(effective);
+      const ratio = baseValue !== 0 ? (effectiveValue - baseValue) / baseValue : NaN;
+      if (Number.isFinite(ratio) && Math.abs(ratio) <= 0.01) return escapeHtml(effective);
+      const base = formatValue(baseValue);
+      const delta = effectiveValue - baseValue;
+      const deltaText = `${delta > 0 ? "+" : ""}${formatValue(delta)}`;
+      const ratioText = Number.isFinite(ratio) ? ` (${ratio > 0 ? "+" : ""}${formatPercent(ratio)})` : "";
+      const impact = `${deltaText}${ratioText}`;
+      const titleLines = [
+        `${UI_LANG === "en" ? "Total performance" : "전체 성능"}: ${effective}`,
+        `${UI_LANG === "en" ? "Baseline performance" : "기준 성능"}: ${base}`,
+        `${UI_LANG === "en" ? "Module impact" : "모듈 영향"}: ${impact}`,
+        ...(
+          breakdownItems.length
+            ? [`${UI_LANG === "en" ? "Breakdown" : "Breakdown"}: ${breakdownItems.join("; ")}`]
+            : []
+        ),
+      ];
+      const title = titleLines.join("\n");
+      return `
+        <span class="performance-total-value is-modified" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${escapeHtml(effective)}</span>
+        <span class="performance-baseline-value">${escapeHtml(`${UI_LANG === "en" ? "base" : "기준"} ${base} · ${impact}`)}</span>
       `;
     }
 

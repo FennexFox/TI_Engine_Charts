@@ -284,8 +284,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && Math.abs(fissionBase.twr - incompatible.twr) < 1e-12
         && incompatible.moduleEffectDiagnostics.unmetRequirements.length > 0
         && incompatible.moduleEffectDiagnostics.skippedEffects.length > 0,
-      unsupportedDiagnosed: !!unsupported
-        && unsupported.moduleEffectDiagnostics.unsupportedRules.some(item => item.rule === "ECM"),
+      outOfScopeUnsupportedSuppressed: !!unsupported
+        && !unsupported.moduleEffectDiagnostics.unsupportedRules.some(item => item.rule === "ECM"),
       mutualExclusionSkipped: !!base && !!mutuallyExclusive
         && Math.abs(mutuallyExclusive.totalMassTons - base.totalMassTons) < 1e-9
         && Math.abs(mutuallyExclusive.twr - base.twr) < 1e-12
@@ -315,7 +315,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectCalculationChecks.thrustApplied, `${htmlFile}: thrust multiplier did not update TWR/effective thrust`);
   expect(moduleEffectCalculationChecks.evApplied, `${htmlFile}: EV multiplier did not update propellant/total mass/max practical dV`);
   expect(moduleEffectCalculationChecks.incompatibleSkipped, `${htmlFile}: incompatible module effect was not skipped with diagnostics`);
-  expect(moduleEffectCalculationChecks.unsupportedDiagnosed, `${htmlFile}: unsupported module rule was not carried as diagnostics`);
+  expect(moduleEffectCalculationChecks.outOfScopeUnsupportedSuppressed, `${htmlFile}: out-of-scope unsupported module rule was carried as chart diagnostics`);
   expect(moduleEffectCalculationChecks.mutualExclusionSkipped, `${htmlFile}: mutually exclusive module effects were not skipped with diagnostics`);
   expect(moduleEffectCalculationChecks.powerAuxApplied, `${htmlFile}: auxiliary module power did not update power demand and mass options`);
   expect(moduleEffectCalculationChecks.heatApplied, `${htmlFile}: waste heat multiplier did not update heat and radiator mass options`);
@@ -393,9 +393,16 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       const option = chartMassOptions(row)[0] || null;
       return !!option && !option.selfContained && option.wasteHeatGW > 0;
     });
+    const lowImpactAuxPowerDrive = currentChartRows.find(row => (
+      Number(row.powerRequirementGW) > 1
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
 
     let compatibleTooltipText = "";
     let compatibleTooltipChips = 0;
+    let compatiblePerformanceModifiedCount = 0;
+    let compatiblePerformanceBaselineCount = 0;
+    let compatiblePerformanceTitle = "";
     if (fusionHydrogen) {
       state.moduleEffectsEnabled = true;
       state.moduleEffectSource = "manual";
@@ -409,6 +416,31 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         refreshTooltip(currentChartRows);
         compatibleTooltipText = document.querySelector("#tooltip")?.textContent || "";
         compatibleTooltipChips = document.querySelectorAll("#tooltip .tooltip-module-effects .effect-chip.is-active").length;
+        compatiblePerformanceModifiedCount = document.querySelectorAll("#tooltip .performance-total-value.is-modified").length;
+        compatiblePerformanceBaselineCount = document.querySelectorAll("#tooltip .performance-baseline-value").length;
+        compatiblePerformanceTitle = document.querySelector("#tooltip .performance-total-value.is-modified")?.getAttribute("title") || "";
+      }
+    }
+
+    let lowImpactPerformanceModifiedCount = 0;
+    let lowImpactPerformanceChecked = false;
+    let lowImpactPerformanceText = "";
+    let lowImpactPanelText = "";
+    if (lowImpactAuxPowerDrive) {
+      state.moduleEffectsEnabled = true;
+      state.moduleEffectSource = "manual";
+      state.moduleEffectModuleIds = ["MobileSpaceScienceLab"];
+      syncUiFromState();
+      lowImpactPanelText = panel?.textContent || "";
+      const option = chartMassOptions(lowImpactAuxPowerDrive)[0];
+      if (option) {
+        lowImpactPerformanceChecked = true;
+        const ref = tooltipRef(lowImpactAuxPowerDrive.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        lowImpactPerformanceModifiedCount = document.querySelectorAll("#tooltip .performance-total-value.is-modified").length;
+        lowImpactPerformanceText = document.querySelector("#tooltip")?.textContent || "";
       }
     }
 
@@ -479,7 +511,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       activeChipCount,
       mutedChipCount,
       panelWarnsRequirements: panelWarnings.some(text => /requires fusion drive/i.test(text)),
-      panelWarnsUnsupported: panelWarnings.some(text => /rules not modeled/i.test(text) && /ArmorStruts/.test(text)),
+      panelSuppressesOutOfScopeUnsupported: !panelWarnings.some(text => /rules not modeled/i.test(text) && /ArmorStruts/.test(text)),
       optionEffectLabelVisible,
       selectedSlotEffectVisible: /Thrust/i.test(selectedSlotEffects),
       slotSearchableRendered,
@@ -488,6 +520,18 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && /Thrust/i.test(compatibleTooltipText)
         && /base/i.test(compatibleTooltipText)
         && compatibleTooltipChips > 0,
+      compatiblePerformanceShowsTotalAndBaseline: compatiblePerformanceModifiedCount > 0
+        && compatiblePerformanceBaselineCount > 0
+        && /Total performance/i.test(compatiblePerformanceTitle)
+        && /Baseline performance/i.test(compatiblePerformanceTitle)
+        && /Module impact/i.test(compatiblePerformanceTitle)
+        && /Breakdown/i.test(compatiblePerformanceTitle)
+        && /Muon Spiker/i.test(compatiblePerformanceTitle),
+      lowImpactPerformanceSuppressed: lowImpactPerformanceChecked
+        && lowImpactPerformanceModifiedCount === 0,
+      lowImpactWarningsSuppressed: /Mobile Space Science Lab/i.test(lowImpactPanelText)
+        && !/rules not modeled|GenerateSpaceScienceBonus|Prospector/i.test(lowImpactPanelText)
+        && !/unsupported rule|GenerateSpaceScienceBonus|Prospector/i.test(lowImpactPerformanceText),
       incompatibleTooltipWarns: /unmet prerequisite/i.test(incompatibleTooltipText) && /hydrogenPropellant/.test(incompatibleTooltipText),
       unsupportedPanelWarns: /rules not modeled/i.test(unsupportedPanelText) && /LaserPowerBonus/.test(unsupportedPanelText) && /Aux power/i.test(unsupportedPanelText),
       mutualExclusionPanelWarns: /Mutually exclusive module group/i.test(mutualExclusionPanelText) && /Muon Spiker/i.test(mutualExclusionPanelText) && /Antimatter Spiker/i.test(mutualExclusionPanelText),
@@ -505,11 +549,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectUxChecks.activeChipCount >= 1, `${htmlFile}: active module-effect chip was not rendered`);
   expect(moduleEffectUxChecks.mutedChipCount >= 1, `${htmlFile}: module without modeled performance effects was not visibly identified`);
   expect(moduleEffectUxChecks.panelWarnsRequirements, `${htmlFile}: module effects panel did not show prerequisite warnings`);
-  expect(moduleEffectUxChecks.panelWarnsUnsupported, `${htmlFile}: module effects panel did not show unsupported rule warnings`);
+  expect(moduleEffectUxChecks.panelSuppressesOutOfScopeUnsupported, `${htmlFile}: module effects panel showed out-of-scope unsupported rule warnings`);
   expect(moduleEffectUxChecks.optionEffectLabelVisible, `${htmlFile}: dry-mass module option labels did not identify module effects`);
   expect(moduleEffectUxChecks.selectedSlotEffectVisible, `${htmlFile}: selected dry-mass module slot did not show effect chips`);
   expect(moduleEffectUxChecks.slotSearchableRendered, `${htmlFile}: dry-mass module selector was not enhanced as searchable`);
   expect(moduleEffectUxChecks.compatibleTooltipShowsEffects, `${htmlFile}: compatible drive tooltip did not show active module effects and base values`);
+  expect(moduleEffectUxChecks.compatiblePerformanceShowsTotalAndBaseline, `${htmlFile}: Performance Detail did not show highlighted total values with baseline and module-impact breakdown`);
+  expect(moduleEffectUxChecks.lowImpactPerformanceSuppressed, `${htmlFile}: Performance Detail highlighted a module impact at or below the 1% display threshold`);
+  expect(moduleEffectUxChecks.lowImpactWarningsSuppressed, `${htmlFile}: out-of-scope Mobile Space Science Lab rules were shown as module warnings`);
   expect(moduleEffectUxChecks.incompatibleTooltipWarns, `${htmlFile}: incompatible drive tooltip did not show unmet prerequisite warning`);
   expect(moduleEffectUxChecks.unsupportedPanelWarns, `${htmlFile}: unsupported-only module effect selection was silent`);
   expect(moduleEffectUxChecks.mutualExclusionPanelWarns, `${htmlFile}: mutually exclusive module selection was not warned in the panel`);
