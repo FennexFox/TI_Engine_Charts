@@ -168,7 +168,7 @@ Manual smoke results:
 - Confirmed browser DATA has `schemaVersion: 5`.
 - Confirmed `DATA.driveLinks` exists with 171 links.
 - Confirmed `DATA.method.driveLinks` documents projected dependency links and transitive shortcut removal.
-- Confirmed Fusion examples exist, including Protium Nova Torch to Protium Converter Torch across thruster counts.
+- Confirmed Fusion examples exist within matching thruster-count rows, including Protium Nova Torch to Protium Converter Torch.
 - Confirmed the verifier rejects family-only links by requiring every emitted fission/electric/fusion link to be backed by research closure.
 - Confirmed the chart still renders points after adding the data contract; rendering has not switched to `driveLinks` yet.
 

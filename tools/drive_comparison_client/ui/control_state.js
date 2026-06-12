@@ -117,8 +117,8 @@ export function updateShipDesignerPanel() {
   const button = document.getElementById("dryMassCalcButton");
   if (title) title.textContent = localText("함선 설계", "Ship Designer");
   if (button) {
-    const label = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
-    button.textContent = localText("함선 설계 편집", "Edit Ship Design");
+    const label = localText("함선 설계 편집", "Edit Ship Design");
+    button.textContent = label;
     button.setAttribute("aria-label", label);
     button.title = label;
   }

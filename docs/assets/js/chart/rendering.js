@@ -1,7 +1,7 @@
 import { chartMassOptions, chartSummaryMassOptions, isImpracticalOption, massOptions, rowUnlockResearchValue } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
-import { allDriveRowsById, chart, localText, metricDefs, metricLabel, powerResearchActive, state } from "../state/core.js";
+import { DATA, allDriveRowsById, chart, localText, metricDefs, metricLabel, powerResearchActive, state } from "../state/core.js";
 import { formatAxisTick, paintStyle } from "../ui/formatting.js";
 import { buildAxisTickPlan } from "./axis.js";
 import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows } from "./context.js";
