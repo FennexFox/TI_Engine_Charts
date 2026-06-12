@@ -425,11 +425,13 @@ export function syncTablePowerStepDetails() {
       });
     }
 
-export function tablePowerStepsDetailsHtml(row, selectedPowerOptionIds = new Set()) {
+export function tablePowerStepsDetailsHtml(row, selectedPowerOptionIds = new Set(), summaryHtml = "") {
       const options = chartMassOptions(row);
       if (!isBandMetric() || !options.length) return "";
       const selectedIds = selectedPowerOptionIds instanceof Set ? selectedPowerOptionIds : new Set();
       const open = selectedIds.size > 0;
+      const summary = summaryHtml || escapeHtml(reactorBandText(options));
+      const summaryLabel = UI_LANG === "en" ? "Toggle power steps" : "전원 단계 펼치기/접기";
       const baseCombined = optionAdditionalResearchValue(row, options[0]);
       const headers = UI_LANG === "en"
         ? ["Power plant", "+Research", "Combined", "Wet mass", "TWR", "Plant", "Radiator"]
@@ -452,9 +454,8 @@ export function tablePowerStepsDetailsHtml(row, selectedPowerOptionIds = new Set
       }).join("");
       return `
         <details class="table-power-steps-details" data-row-id="${escapeHtml(row.id)}"${open ? ' open data-auto-opened="true"' : ""}>
-          <summary>
-            <span>${UI_LANG === "en" ? "Power steps" : "전원 단계"}</span>
-            <span class="table-power-steps-hint">${UI_LANG === "en" ? "opens when pinned" : "핀하면 자동 펼침"}</span>
+          <summary aria-label="${escapeHtml(summaryLabel)}">
+            <span class="table-power-steps-label">${summary}</span>
           </summary>
           <div class="power-steps-table-wrap">
             <table class="power-steps-table">
@@ -490,6 +491,11 @@ export function resolveTooltipItems(rows, refs = state.lastTooltipItems) {
 
 export function refreshTooltip(rows = currentChartRows) {
       const previousSignature = powerResearchFocusSignature();
+      if (state.dismissedTooltipKeys.size && state.tooltipPinnedItems.length) {
+        state.tooltipPinnedItems = dedupeTooltipRefs(state.tooltipPinnedItems)
+          .filter(item => !state.dismissedTooltipKeys.has(item.key));
+        if (!state.tooltipPinnedItems.length) state.tooltipPinned = false;
+      }
       if (!state.lastTooltipItems.length) {
         renderEmptyTooltip();
         redrawPowerResearchFocusIfChanged(previousSignature);
@@ -725,7 +731,9 @@ export function renderTable(rows) {
         const powerOptions = isBandMetric() ? chartSummaryMassOptions(row) : massOptions(row);
         const selectedPowerIds = selectedPowerIdsByRow.get(row.id) || new Set();
         const powerCell = powerOptions.length
-          ? `${reactorBandLabel(powerOptions)}${tablePowerStepsDetailsHtml(row, selectedPowerIds)}`
+          ? (isBandMetric()
+            ? tablePowerStepsDetailsHtml(row, selectedPowerIds, reactorBandLabel(powerOptions))
+            : reactorBandLabel(powerOptions))
           : `<span class="warning">없음</span>`;
         tr.innerHTML = `
           <td><div class="drive-name">${escapeHtml(row.displayName)}</div><div class="project-name">${escapeHtml(rowProjectLabel(row))}</div></td>

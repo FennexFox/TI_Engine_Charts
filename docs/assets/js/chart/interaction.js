@@ -668,12 +668,12 @@ export function handleChartClick(point) {
         return;
       }
       const primary = visibleHits[0];
-      const selectedKeys = new Set(dedupeTooltipRefs(state.lastTooltipItems).map(item => item.key));
+      const pinnedSnapshotKeys = new Set(dedupeTooltipRefs(state.tooltipPinnedItems).map(item => item.key));
       if (isPinnedTooltipKey(primary.key)) {
         unpinTooltipItemByKey(primary.key);
         return;
       }
-      if (state.tooltipPinned && selectedKeys.has(primary.key)) {
+      if (state.tooltipPinned && pinnedSnapshotKeys.has(primary.key)) {
         unpinTooltip();
         return;
       }
