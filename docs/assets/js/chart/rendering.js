@@ -1,4 +1,4 @@
-import { chartMassOptions, chartSummaryMassOptions, isImpracticalOption, massOptions, rowUnlockResearchValue } from "../calc/filtering.js";
+import { chartMassOptions, chartSummaryMassOptions, closestDriveRowForThrusterCount, isImpracticalOption, massOptions, rowUnlockResearchValue } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
 import { DATA, allDriveRowsById, chart, localText, metricDefs, metricLabel, powerResearchActive, state } from "../state/core.js";
@@ -239,11 +239,7 @@ export function resolveTooltipRow(ref, rowById, rows) {
       if (direct) return direct;
       const original = allDriveRowsById.get(ref.rowId);
       if (!original) return null;
-      return rows.find(row => row.baseKey === original.baseKey
-        && row.thrusterCount === state.thrusters
-        && row.familyKey === original.familyKey)
-        || rows.find(row => row.baseKey === original.baseKey && row.thrusterCount === state.thrusters)
-        || null;
+      return closestDriveRowForThrusterCount(original, state.thrusters, rows);
     }
 
 export function isPinnedTooltipKey(key) {

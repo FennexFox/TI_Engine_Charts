@@ -32,6 +32,52 @@ export function syncFilterInputs() {
     }
 
 
+const driveRowsByBaseKey = new Map();
+
+DATA.drives.forEach(row => {
+  const baseKey = row.baseKey || row.id;
+  if (!driveRowsByBaseKey.has(baseKey)) driveRowsByBaseKey.set(baseKey, []);
+  driveRowsByBaseKey.get(baseKey).push(row);
+});
+
+driveRowsByBaseKey.forEach(rows => {
+  rows.sort((a, b) => (Number(a.thrusterCount) || 0) - (Number(b.thrusterCount) || 0));
+});
+
+export function driveRowsForBaseKey(row, candidates = null) {
+  if (!row) return [];
+  const baseKey = row.baseKey || row.id;
+  const sourceRows = Array.isArray(candidates)
+    ? candidates.filter(candidate => (candidate.baseKey || candidate.id) === baseKey)
+    : (driveRowsByBaseKey.get(baseKey) || []);
+  return [...sourceRows].sort((a, b) => (Number(a.thrusterCount) || 0) - (Number(b.thrusterCount) || 0));
+}
+
+export function closestDriveRowForThrusterCount(row, selectedCount = state.thrusters, candidates = null) {
+  const rows = driveRowsForBaseKey(row, candidates);
+  if (!rows.length) return null;
+  const targetCount = Math.round(clamp(Number(selectedCount) || 1, 1, 6));
+  const exact = rows.find(candidate => Number(candidate.thrusterCount) === targetCount);
+  if (exact) return exact;
+  let best = rows[0];
+  let bestDistance = Math.abs((Number(best.thrusterCount) || 0) - targetCount);
+  rows.slice(1).forEach(candidate => {
+    const candidateCount = Number(candidate.thrusterCount) || 0;
+    const distance = Math.abs(candidateCount - targetCount);
+    if (distance < bestDistance || (distance === bestDistance && candidateCount < (Number(best.thrusterCount) || 0))) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  });
+  return best;
+}
+
+export function rowMatchesSelectedThrusterCount(row, selectedCount = state.thrusters, candidates = null) {
+  const closest = closestDriveRowForThrusterCount(row, selectedCount, candidates);
+  return closest ? closest.id === row.id : Number(row.thrusterCount) === Number(selectedCount);
+}
+
+
 export function filteredRows() {
       return computeDriveDiagnostics().visibleRows;
     }
@@ -79,7 +125,7 @@ export function computeDriveDiagnostics() {
 
 export function evaluateDriveVisibility(row) {
       const reasons = [];
-      if (row.thrusterCount !== state.thrusters || !rowMatchesSearch(row) || !rowFamilySelected(row)) {
+      if (!rowMatchesSelectedThrusterCount(row) || !rowMatchesSearch(row) || !rowFamilySelected(row)) {
         reasons.push("familyFilter");
       }
       if (!Number.isFinite(rowUnlockResearchValue(row)) || rowUnlockResearchValue(row) <= 0) {
@@ -102,7 +148,7 @@ export function rowFamilySelected(row) {
     }
 
 export function rowInFamilyDiagnosticScope(row) {
-      return row.thrusterCount === state.thrusters && rowMatchesSearch(row);
+      return rowMatchesSelectedThrusterCount(row) && rowMatchesSearch(row);
     }
 
 export function rowMatchesSearch(row) {
