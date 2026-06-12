@@ -1,7 +1,7 @@
 import { isBandMetric } from "../calc/metrics.js";
 import { isModuleRuleRelevantToDriveChart } from "../calc/module_effects.js";
 import { clamp } from "../shared/math.js";
-import { DATA, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, state } from "../state/core.js";
 import { formatNumber, formatTwrDynamicUnit } from "./formatting.js";
 
 function utilityModuleById(id) {
@@ -191,7 +191,7 @@ export function syncMinTwrInputs() {
   const number = document.getElementById("minTwrNumber");
   const readout = document.getElementById("minTwrReadout");
   if (!slider || !number || !readout) return;
-  state.minTwr = clamp(state.minTwr || 0.0001, 0.0001, 10);
+  state.minTwr = clamp(state.minTwr || DEFAULT_MIN_TWR, DEFAULT_MIN_TWR, 10);
   const exponent = clamp(Math.log10(state.minTwr), Number(slider.min), Number(slider.max));
   slider.value = String(exponent);
   number.value = String(Number(state.minTwr.toPrecision(4)));

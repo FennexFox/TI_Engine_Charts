@@ -5,7 +5,7 @@ import { clamp } from "../shared/math.js";
 import { chartViewport } from "../chart/context.js";
 import { endChartPan, handleChartKeyDown, handleChartPointerDown, handleChartPointerLeave, handleChartPointerMove, handleChartWheel, redrawChartOnly, render, updateSortHeaders } from "../chart/interaction.js";
 import { applyHelp, applyStartupChartPreset, exportedPreset, handleImportedPresetObject, helpText, localCategoryHelp, localLabel, openSerializedObjectExport, parsePresetPayload, readFromClipboard, setupPresetLibraryControls, showPresetStatus } from "../presets/library.js";
-import { DATA, applyStaticLanguage, categoryRoot, chart, familyRoot, localText, normalizePowerResearchView, renderRadiatorOptions, setupLeftPanelCards, state, tooltip } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, applyStaticLanguage, categoryRoot, chart, familyRoot, localText, normalizePowerResearchView, renderRadiatorOptions, setupLeftPanelCards, state, tooltip } from "../state/core.js";
 import { enhanceSearchableSelect } from "./searchable_select.js";
 import { backgroundStyle } from "./formatting.js";
 import { updateChartControls, syncMinTwrInputs, syncMinDvInputs, updateModuleEffectsPanel } from "./control_state.js";
@@ -289,7 +289,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         render();
       });
       minTwrNumber.addEventListener("input", () => {
-        state.minTwr = clamp(Number(minTwrNumber.value) || 0.0001, 0.0001, 10);
+        state.minTwr = clamp(Number(minTwrNumber.value) || DEFAULT_MIN_TWR, DEFAULT_MIN_TWR, 10);
         syncMinTwrInputs();
         render();
       });

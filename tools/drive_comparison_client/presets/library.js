@@ -1,6 +1,6 @@
 import { syncFilterInputs } from "../calc/filtering.js";
 import { clamp } from "../shared/math.js";
-import { DATA, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeModuleEffectPresetState, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeModuleEffectPresetState, normalizePowerResearchView, state } from "../state/core.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 import { presetRuntimeApi } from "./runtime.js";
 import {
@@ -14,6 +14,7 @@ import {
   presetEntryOptionLabel,
   presetTimestamp,
   sanitizePresetName,
+  sortedDryMassPresetEntries,
   uniquePresetId,
   uniquePresetName,
 } from "./common.js";
@@ -63,6 +64,7 @@ export {
   presetEntryOptionLabel,
   presetTimestamp,
   sanitizePresetName,
+  sortedDryMassPresetEntries,
   uniquePresetId,
   uniquePresetName,
 } from "./common.js";
@@ -143,8 +145,10 @@ export function applyDryMassPresetEntry(entry, { showStatus = true } = {}) {
         return false;
       }
       presetRuntimeApi.renderDryMassCalcModal();
+      renderDryMassPresetControls(entry.id);
       if (state.moduleEffectsEnabled) presetRuntimeApi.render();
-      if (showStatus) showDryMassPresetStatus(localText(`“${entry.name}” 설계 프리셋을 적용했습니다. 적용 버튼으로 차트에 반영하세요.`, `Applied design preset “${entry.name}”. Use an apply button to update the chart.`));
+      const label = dryMassPresetDisplayName(entry);
+      if (showStatus) showDryMassPresetStatus(localText(`“${label}” 설계 프리셋을 적용했습니다. 적용 버튼으로 차트에 반영하세요.`, `Applied design preset “${label}”. Use an apply button to update the chart.`));
       return true;
     }
 
@@ -215,7 +219,9 @@ export function renderChartPresetControls(preferredId = "") {
 export function renderDryMassPresetControls(preferredId = "") {
       const select = document.getElementById("dryMassPresetSelect");
       if (!select) return;
-      const allEntries = allDryMassPresetEntries();
+      const builtInEntries = sortedDryMassPresetEntries(builtInDryMassPresetLibrary);
+      const userEntries = sortedDryMassPresetEntries(dryMassPresetLibrary);
+      const allEntries = [...builtInEntries, ...userEntries];
       const selectedId = preferredId || select.value || (allEntries[0] && allEntries[0].id) || "";
       const hasPresets = allEntries.length > 0;
       select.innerHTML = "";
@@ -225,26 +231,8 @@ export function renderDryMassPresetControls(preferredId = "") {
         option.textContent = localText("설계 프리셋 없음", "No design presets");
         select.appendChild(option);
       } else {
-        appendPresetOptionGroup(select, localText("예시 프리셋", "Example presets"), builtInDryMassPresetLibrary);
-        appendPresetOptionGroup(select, localText("내 프리셋", "My presets"), dryMassPresetLibrary);
-        const entriesById = new Map(allEntries.map(entry => [entry.id, entry]));
-        const locale = UI_LANG === "en" ? "en" : "ko-KR";
-        Array.from(select.querySelectorAll("option")).forEach(option => {
-          const entry = entriesById.get(option.value);
-          if (entry) option.textContent = dryMassPresetDisplayName(entry);
-        });
-        Array.from(select.querySelectorAll("optgroup")).forEach(group => {
-          Array.from(group.children)
-            .map((option, index) => ({ option, index }))
-            .sort((left, right) => {
-              const nameCompare = left.option.textContent.localeCompare(right.option.textContent, locale, {
-                numeric: true,
-                sensitivity: "base",
-              });
-              return nameCompare || left.index - right.index;
-            })
-            .forEach(item => group.appendChild(item.option));
-        });
+        appendPresetOptionGroup(select, localText("예시 프리셋", "Example presets"), builtInEntries, "", dryMassPresetDisplayName);
+        appendPresetOptionGroup(select, localText("내 프리셋", "My presets"), userEntries, "", dryMassPresetDisplayName);
         select.value = allEntries.some(item => item.id === selectedId)
           ? selectedId
           : allEntries[0].id;
@@ -951,7 +939,7 @@ export function applyPresetToState(rawPreset) {
         state.powerResearchView = preset.usePowerResearch ? "all" : "focus";
       }
       applyModuleEffectPresetState(preset);
-      if (Number.isFinite(Number(preset.minTwr))) state.minTwr = clamp(Number(preset.minTwr), 0.0001, 10);
+      if (Number.isFinite(Number(preset.minTwr))) state.minTwr = clamp(Number(preset.minTwr), DEFAULT_MIN_TWR, 10);
       if (Number.isFinite(Number(preset.minDvKps))) state.minDvKps = clamp(Number(preset.minDvKps), 0, 100000);
       if (typeof preset.searchTerm === "string") state.searchTerm = preset.searchTerm.trim().toLocaleLowerCase();
 

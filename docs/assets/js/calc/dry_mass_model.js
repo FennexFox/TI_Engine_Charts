@@ -1,4 +1,4 @@
-import { ALL_UTILITY_MODULES, ALL_WEAPON_MODULES, ARMOR_OPTIONS, DATA, DEFAULT_ARMOR_ID, EMPTY_UTILITY_MODULE, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, UI_LANG, dryMassCalcState, state } from "../state/core.js";
+import { ALL_UTILITY_MODULES, ALL_WEAPON_MODULES, ARMOR_OPTIONS, DATA, DEFAULT_ARMOR_ID, DEFAULT_MIN_TWR, EMPTY_UTILITY_MODULE, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, UI_LANG, dryMassCalcState, state } from "../state/core.js";
 import { clamp } from "../shared/math.js";
 
 function cloneJson(value) {
@@ -251,8 +251,8 @@ export function normalizeShipDesignSimulationDefaults() {
       const defaults = dryMassCalcState.simulationDefaults;
       if (!Number.isFinite(Number(defaults.targetDvKps))) defaults.targetDvKps = state.targetDvKps;
       defaults.targetDvKps = clamp(Number(defaults.targetDvKps), 0, 100000);
-      if (!Number.isFinite(Number(defaults.minTwr))) defaults.minTwr = state.minTwr;
-      defaults.minTwr = clamp(Number(defaults.minTwr), 0.0001, 10);
+      if (!Number.isFinite(Number(defaults.minTwr))) defaults.minTwr = DEFAULT_MIN_TWR;
+      defaults.minTwr = clamp(Number(defaults.minTwr), DEFAULT_MIN_TWR, 10);
       if (typeof defaults.radiatorId !== "string" || !DATA.radiators.some(item => item.id === defaults.radiatorId)) {
         defaults.radiatorId = state.radiatorId || (DATA.radiators[0] && DATA.radiators[0].id) || "";
       }
@@ -262,7 +262,7 @@ export function normalizeShipDesignSimulationDefaults() {
 export function applyShipDesignSimulationDefaultsToState() {
       const defaults = normalizeShipDesignSimulationDefaults();
       state.targetDvKps = clamp(Number(defaults.targetDvKps), 0, 100000);
-      state.minTwr = clamp(Number(defaults.minTwr), 0.0001, 10);
+      state.minTwr = clamp(Number(defaults.minTwr), DEFAULT_MIN_TWR, 10);
       if (DATA.radiators.some(item => item.id === defaults.radiatorId)) {
         state.radiatorId = defaults.radiatorId;
       }
@@ -280,7 +280,7 @@ export function resetDryMassCalcState() {
       dryMassCalcState.notes = "";
       dryMassCalcState.simulationDefaults = {
         targetDvKps: state.targetDvKps,
-        minTwr: state.minTwr,
+        minTwr: DEFAULT_MIN_TWR,
         radiatorId: state.radiatorId,
       };
       normalizeShipDesignSimulationDefaults();
@@ -355,7 +355,7 @@ export function applyDryMassCalculatorPreset(rawCalculator) {
           dryMassCalcState.simulationDefaults.targetDvKps = clamp(Number(rawDefaults.targetDvKps), 0, 100000);
         }
         if (Number.isFinite(Number(rawDefaults.minTwr))) {
-          dryMassCalcState.simulationDefaults.minTwr = clamp(Number(rawDefaults.minTwr), 0.0001, 10);
+          dryMassCalcState.simulationDefaults.minTwr = clamp(Number(rawDefaults.minTwr), DEFAULT_MIN_TWR, 10);
         }
         if (typeof rawDefaults.radiatorId === "string" && DATA.radiators.some(item => item.id === rawDefaults.radiatorId)) {
           dryMassCalcState.simulationDefaults.radiatorId = rawDefaults.radiatorId;

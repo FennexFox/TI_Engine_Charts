@@ -595,7 +595,7 @@ export const dryMassCalcState = {
       notes: "",
       simulationDefaults: {
         targetDvKps: DATA.defaults.targetDvKps,
-        minTwr: 0.0001,
+        minTwr: DEFAULT_MIN_TWR,
         radiatorId: DATA.defaults.radiatorId,
       },
     };
