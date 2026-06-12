@@ -120,6 +120,26 @@ export function driveLinksAvailable() {
       return Array.isArray(DATA.driveLinks);
     }
 
+export function driveLinkVisibleForMode(link, mode = state.connectionLineMode) {
+      if (!link || mode === "off") return false;
+      if (mode === "strict") return link.kind === "projectedResearchDependency";
+      if (mode === "lineage") {
+        return link.kind === "projectedResearchDependency" || link.kind === "reactorLineageProgression";
+      }
+      if (mode === "all") {
+        return link.kind === "projectedResearchDependency"
+          || link.kind === "reactorLineageProgression"
+          || link.kind === "driveFamilyProgression";
+      }
+      return true;
+    }
+
+export function driveLinkKindClass(kind) {
+      if (kind === "reactorLineageProgression") return "is-reactor-lineage";
+      if (kind === "driveFamilyProgression") return "is-drive-family-lineage";
+      return "is-projected-research";
+    }
+
 export function visibleRowsById(rows) {
       return new Map(rows.map(row => [row.id, row]));
     }
@@ -127,7 +147,7 @@ export function visibleRowsById(rows) {
 export function resolveDriveLinkSegments(rows, coordinateForRow) {
       if (!driveLinksAvailable()) return null;
       const rowById = visibleRowsById(rows);
-      return DATA.driveLinks.map(link => {
+      return DATA.driveLinks.filter(link => driveLinkVisibleForMode(link)).map(link => {
         const source = rowById.get(link.from);
         const target = rowById.get(link.to);
         if (!source || !target) return null;
@@ -142,13 +162,14 @@ export function resolveDriveLinkSegments(rows, coordinateForRow) {
 export function drawDriveLinkSegments(plot, segments, segmentAttrs) {
       segments.forEach(segment => {
         plot.appendChild(svgEl("path", {
-          class: "base-drive-line drive-link-segment",
+          class: `base-drive-line drive-link-segment ${driveLinkKindClass(segment.link.kind)}`,
           d: linePath([
             [segment.start.xCoord, segment.start.yCoord],
             [segment.end.xCoord, segment.end.yCoord],
           ]),
           fill: "none",
           "data-drive-link": "true",
+          "data-drive-link-kind": segment.link.kind || "projectedResearchDependency",
           "data-from": segment.link.from,
           "data-to": segment.link.to,
           "data-family-key": segment.link.familyKey || segment.source.familyKey,
@@ -408,13 +429,16 @@ export function drawMetricLines(rows, x, y, plot) {
         };
       });
       if (linkSegments) {
-        drawDriveLinkSegments(plot, linkSegments, segment => ({
-          stroke: segment.source.familyColor,
-          "stroke-width": 2.2,
-          "stroke-linejoin": "round",
-          "stroke-linecap": "round",
-          opacity: 0.82,
-        }));
+        drawDriveLinkSegments(plot, linkSegments, segment => {
+          const lineage = segment.link.kind !== "projectedResearchDependency";
+          return {
+            stroke: segment.source.familyColor,
+            "stroke-width": lineage ? 1.55 : 2.2,
+            "stroke-linejoin": "round",
+            "stroke-linecap": "round",
+            opacity: lineage ? 0.48 : 0.82,
+          };
+        });
       }
       groups.forEach(group => {
         const color = group[0].familyColor;
@@ -510,11 +534,12 @@ export function drawTotalMassBands(rows, x, y, plot) {
         drawDriveLinkSegments(plot, linkSegments, segment => {
           const color = segment.source.familyBandColor || segment.source.familyColor;
           const colorOklch = segment.source.familyBandColorOklch || color;
+          const lineage = segment.link.kind !== "projectedResearchDependency";
           return {
             stroke: color,
             style: paintStyle("stroke", color, colorOklch),
-            "stroke-width": 1.7,
-            opacity: 0.58,
+            "stroke-width": lineage ? 1.25 : 1.7,
+            opacity: lineage ? 0.38 : 0.58,
           };
         });
       }
@@ -561,12 +586,13 @@ export function drawPowerBestAvailableComparison(rows, x, y, plot, secondaryDoma
         drawDriveLinkSegments(plot, linkSegments, segment => {
           const color = segment.source.familyBandColor || segment.source.familyColor;
           const colorOklch = segment.source.familyBandColorOklch || color;
+          const lineage = segment.link.kind !== "projectedResearchDependency";
           return {
             stroke: color,
             style: paintStyle("stroke", color, colorOklch),
-            "stroke-width": 1.35,
+            "stroke-width": lineage ? 1.1 : 1.35,
             "stroke-dasharray": "3 5",
-            opacity: 0.44,
+            opacity: lineage ? 0.30 : 0.44,
           };
         });
       }

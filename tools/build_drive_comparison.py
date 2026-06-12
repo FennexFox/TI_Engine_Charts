@@ -35,7 +35,27 @@ STANDARD_GRAVITY_MPS2 = 9.80665
 TARGET_DV_KPS = 500.0
 DEFAULT_DRY_MASS_TONS = 10000.0
 DEFAULT_PRESET_LIBRARY_PATH = ROOT / "data" / "preset_library.json"
-DRIVE_LINK_KIND = "projectedResearchDependency"
+PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND = "projectedResearchDependency"
+REACTOR_LINEAGE_LINK_KIND = "reactorLineageProgression"
+DRIVE_FAMILY_LINEAGE_LINK_KIND = "driveFamilyProgression"
+DRIVE_LINK_KINDS = {
+    PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND,
+    REACTOR_LINEAGE_LINK_KIND,
+    DRIVE_FAMILY_LINEAGE_LINK_KIND,
+}
+# Backwards-compatible alias used by older verification/reporting code.
+DRIVE_LINK_KIND = PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND
+
+REACTOR_LINEAGE_CATEGORIES = {"Fission", "Fusion", "Antimatter"}
+DRIVE_FAMILY_LINEAGE_CLASSES = {
+    "Electromagnetic",
+    "Electrostatic",
+    "Electrothermal",
+    "Fission_Pulse",
+    "NuclearSaltWater",
+    "Fusion_Pulse",
+}
+LINEAGE_EXCLUDED_POWER_CLASSES = {"", "Any_General", "Self_Contained"}
 
 CATEGORY_ORDER = ("Chemical", "Electric", "Fission", "Fusion", "Antimatter", "Alien")
 DEFAULT_CATEGORY_KEY = "Fusion"
@@ -338,6 +358,65 @@ def drive_link_candidate_edges(
     return edges
 
 
+def drive_lineage_kind(row: dict[str, Any]) -> str | None:
+    classification = str(row.get("classification") or "")
+    category_key = str(row.get("categoryKey") or "")
+    required_power_class = str(row.get("requiredPowerPlantClass") or "")
+    if classification in DRIVE_FAMILY_LINEAGE_CLASSES or category_key == "Electric":
+        return DRIVE_FAMILY_LINEAGE_LINK_KIND
+    if category_key in REACTOR_LINEAGE_CATEGORIES and required_power_class not in LINEAGE_EXCLUDED_POWER_CLASSES:
+        return REACTOR_LINEAGE_LINK_KIND
+    return None
+
+
+def lineage_sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        as_float(row.get("unlockCumulativeResearch"), math.inf),
+        as_float(row.get("cumulativeResearch"), math.inf),
+        as_float(row.get("ownResearchCost"), math.inf),
+        str(row.get("baseDisplayName") or row.get("displayName") or ""),
+        str(row.get("id") or ""),
+    )
+
+
+def lineage_candidate_edges(
+    drive_rows: Iterable[dict[str, Any]],
+    excluded_edges: set[tuple[str, str]] | None = None,
+) -> dict[str, set[tuple[str, str]]]:
+    excluded = excluded_edges or set()
+    groups: dict[tuple[str, int, str], list[dict[str, Any]]] = {}
+    for row in drive_rows:
+        row_id = str(row.get("id") or "")
+        kind = drive_lineage_kind(row)
+        if not row_id or not kind or not row.get("familyKey") or row.get("thrusterCount") is None:
+            continue
+        groups.setdefault((str(row["familyKey"]), int(row["thrusterCount"]), kind), []).append(row)
+
+    edges_by_kind = {
+        REACTOR_LINEAGE_LINK_KIND: set(),
+        DRIVE_FAMILY_LINEAGE_LINK_KIND: set(),
+    }
+    for (_family_key, _thruster_count, kind), group in groups.items():
+        ordered = sorted(group, key=lineage_sort_key)
+        previous: dict[str, Any] | None = None
+        for current in ordered:
+            if previous is None:
+                previous = current
+                continue
+            previous_project = str(previous.get("requiredProject") or "")
+            current_project = str(current.get("requiredProject") or "")
+            edge = (str(previous["id"]), str(current["id"]))
+            if (
+                previous_project
+                and current_project
+                and previous_project != current_project
+                and edge not in excluded
+            ):
+                edges_by_kind[kind].add(edge)
+            previous = current
+    return edges_by_kind
+
+
 def has_alternate_drive_link_path(
     source_id: str,
     target_id: str,
@@ -371,28 +450,41 @@ def transitive_reduced_drive_link_edges(edges: set[tuple[str, str]]) -> set[tupl
 def build_drive_links(drive_rows: Iterable[dict[str, Any]], research: ResearchCostIndex) -> list[dict[str, Any]]:
     rows = list(drive_rows)
     row_by_id = {str(row.get("id")): row for row in rows if row.get("id")}
-    reduced_edges = transitive_reduced_drive_link_edges(drive_link_candidate_edges(rows, research))
-    return [
-        {
+    projected_edges = transitive_reduced_drive_link_edges(drive_link_candidate_edges(rows, research))
+    edges_by_kind: dict[str, set[tuple[str, str]]] = {
+        PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND: projected_edges,
+        **lineage_candidate_edges(rows, projected_edges),
+    }
+
+    def link_sort_key(item: tuple[str, tuple[str, str]]) -> tuple[Any, ...]:
+        kind, edge = item
+        source_id, target_id = edge
+        return (
+            row_by_id[source_id].get("familyKey") or "",
+            row_by_id[source_id].get("thrusterCount") or 0,
+            row_by_id[source_id].get("unlockCumulativeResearch") or row_by_id[source_id].get("cumulativeResearch") or 0,
+            source_id,
+            row_by_id[target_id].get("unlockCumulativeResearch") or row_by_id[target_id].get("cumulativeResearch") or 0,
+            target_id,
+            kind,
+        )
+
+    links: list[dict[str, Any]] = []
+    for kind, edge in sorted(
+        ((kind, edge) for kind, edges in edges_by_kind.items() for edge in edges),
+        key=link_sort_key,
+    ):
+        source_id, target_id = edge
+        source = row_by_id[source_id]
+        links.append({
             "from": source_id,
             "to": target_id,
-            "categoryKey": row_by_id[source_id]["categoryKey"],
-            "familyKey": row_by_id[source_id]["familyKey"],
-            "thrusterCount": row_by_id[source_id]["thrusterCount"],
-            "kind": DRIVE_LINK_KIND,
-        }
-        for source_id, target_id in sorted(
-            reduced_edges,
-            key=lambda edge: (
-                row_by_id[edge[0]].get("familyKey") or "",
-                row_by_id[edge[0]].get("thrusterCount") or 0,
-                row_by_id[edge[0]].get("cumulativeResearch") or 0,
-                edge[0],
-                row_by_id[edge[1]].get("cumulativeResearch") or 0,
-                edge[1],
-            ),
-        )
-    ]
+            "categoryKey": source["categoryKey"],
+            "familyKey": source["familyKey"],
+            "thrusterCount": source["thrusterCount"],
+            "kind": kind,
+        })
+    return links
 
 
 def remove_thruster_suffix(data_name: str, display: str) -> tuple[str, str, int | None]:
@@ -568,6 +660,8 @@ def compatible_power_sequence(
     required_power_plant_class: str | None = None,
     include_self_contained: bool = True,
     prune_frontier: bool = True,
+    lower_bound_strategy: str = "drive_unlock_latest",
+    research: ResearchCostIndex | None = None,
 ) -> list[dict[str, Any]]:
     power_requirement = as_float(
         drive.get("powerRequirementGW") if power_requirement_gw is None else power_requirement_gw,
@@ -608,27 +702,48 @@ def compatible_power_sequence(
     if not compatible:
         return []
 
-    closure_matches = [
-        plant
-        for plant in compatible
-        if plant.get("requiredProject") in unlock_closure
-    ]
-    if closure_matches:
-        lower = max(closure_matches, key=lambda plant: as_float(plant["cumulativeResearch"], 0.0))
+    def additional_research_cost(plant: dict[str, Any]) -> float:
+        plant_project = str(plant.get("requiredProject") or "") or None
+        drive_project = str(drive.get("requiredProject") or "") or None
+        if not plant_project or plant_project in unlock_closure:
+            return 0.0
+        if research is not None:
+            return max(0.0, research.combined_cumulative_cost(drive_project, plant_project) - drive_cumulative)
+        return max(0.0, as_float(plant.get("cumulativeResearch"), 0.0) - drive_cumulative)
+
+    if lower_bound_strategy == "minimum_additional_research":
+        sequence = [{**plant, "auxiliaryAdditionalResearchCost": additional_research_cost(plant)} for plant in compatible]
+        sequence.sort(
+            key=lambda plant: (
+                as_float(plant.get("auxiliaryAdditionalResearchCost"), math.inf),
+                as_float(plant.get("specificMassTonsPerGW"), math.inf),
+                max(0.0, power_requirement * (1.0 - as_float(plant.get("efficiency"), 0.0))),
+                as_float(plant.get("cumulativeResearch"), math.inf),
+                str(plant.get("displayName") or ""),
+            ),
+        )
     else:
-        already_available = [
+        closure_matches = [
             plant
             for plant in compatible
-            if as_float(plant["cumulativeResearch"], math.inf) <= drive_cumulative
+            if plant.get("requiredProject") in unlock_closure
         ]
-        lower = max(already_available, key=lambda plant: as_float(plant["cumulativeResearch"], 0.0)) if already_available else compatible[0]
+        if closure_matches:
+            lower = max(closure_matches, key=lambda plant: as_float(plant["cumulativeResearch"], 0.0))
+        else:
+            already_available = [
+                plant
+                for plant in compatible
+                if as_float(plant["cumulativeResearch"], math.inf) <= drive_cumulative
+            ]
+            lower = max(already_available, key=lambda plant: as_float(plant["cumulativeResearch"], 0.0)) if already_available else compatible[0]
 
-    lower_cost = as_float(lower["cumulativeResearch"], 0.0)
-    sequence = [
-        {**plant}
-        for plant in compatible
-        if as_float(plant["cumulativeResearch"], 0.0) >= lower_cost
-    ]
+        lower_cost = as_float(lower["cumulativeResearch"], 0.0)
+        sequence = [
+            {**plant}
+            for plant in compatible
+            if as_float(plant["cumulativeResearch"], 0.0) >= lower_cost
+        ]
     if prune_frontier:
         sequence_drive = {
             **drive,
@@ -796,6 +911,8 @@ def build_data(
                 power_requirement_gw=max_auxiliary_power_gw,
                 required_power_plant_class="Any_General",
                 include_self_contained=False,
+                lower_bound_strategy="minimum_additional_research",
+                research=research,
             )
             for option in row["auxiliaryPowerOptions"]:
                 option["combinedCumulativeResearch"] = research.combined_cumulative_cost(
@@ -899,7 +1016,8 @@ def build_data(
             "radiatorMassTons": "zero for self-contained drives with no auxiliary module load or for open-cycle cooling drives, otherwise wasteHeatGW * 1,000,000 / radiator specificPower_2s_KWkg / 1000, with base wasteHeatGW = drivePowerRequirementGW * (1 - powerPlantEfficiency). Runtime module effects may add selected utility auxiliary power and apply supported waste-heat multipliers before radiator mass is calculated.",
             "moduleEffects": "disabled by default. When enabled, supported drive-performance, auxiliary-power, and waste-heat effects are applied to modified chart values; unsupported module rules are preserved as visible diagnostics.",
             "totalMass": "baseDryMass + drive mass + power plant mass + radiator mass + propellant mass, where propellantMass = dryMassWithHardware * (exp(targetDvKps / exhaustVelocityKps) - 1). The dashboard slider is the base dry mass before adding the selected drive, power plant, and radiator.",
-            "driveLinks": "Projected same-family drive progression links. A link exists only when the source drive's required project is in the target drive's research closure for the same thruster count; variants sharing the same required project are ignored, and transitive shortcut links are removed against the full projected candidate graph.",
+            "driveLinks": "Builder-validated same-family drive progression links. Links may be strict projected drive research dependencies, reactor/power lineage progression, or propulsion-family progression. Family membership alone does not create a link; variants sharing the same required project are ignored, and projected research dependency shortcut links are removed against the full projected candidate graph.",
+            "selfContainedAuxiliaryPower": "Self-contained drives use a pseudo self-contained power option for propulsion. Auxiliary module power candidates are Any_General external plants chosen from the minimum additional research cost relative to the drive closure, rather than the latest plant below the drive cumulative research.",
         },
         "categories": categories,
         "subfamilies": subfamilies,

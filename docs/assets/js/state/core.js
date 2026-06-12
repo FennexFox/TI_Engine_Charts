@@ -18,6 +18,8 @@ export let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
 export const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
     if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
 export const POWER_RESEARCH_VIEWS = ["focus", "all", "best"];
+export const CONNECTION_LINE_MODES = ["off", "strict", "lineage", "all"];
+export const DEFAULT_CONNECTION_LINE_MODE = "lineage";
 export const MODULE_EFFECT_SOURCES = ["dryMassCalculator", "manual"];
 export const DEFAULT_MODULE_EFFECT_SOURCE = "dryMassCalculator";
 export const POWER_RESEARCH_VIEW_LABELS = {
@@ -39,6 +41,7 @@ export const state = {
       paretoHighlight: true,
       showImpracticalCandidates: false,
       powerResearchView: "focus",
+      connectionLineMode: DEFAULT_CONNECTION_LINE_MODE,
       moduleEffectsEnabled: false,
       moduleEffectSource: DEFAULT_MODULE_EFFECT_SOURCE,
       moduleEffectModuleIds: [],
@@ -77,6 +80,7 @@ export function chartDefaultState() {
         paretoHighlight: true,
         showImpracticalCandidates: false,
         powerResearchView: "focus",
+        connectionLineMode: DEFAULT_CONNECTION_LINE_MODE,
         moduleEffectsEnabled: false,
         moduleEffectSource: DEFAULT_MODULE_EFFECT_SOURCE,
         moduleEffectModuleIds: [],
@@ -125,6 +129,21 @@ export function localText(ko, en) {
 
 export function normalizePowerResearchView(value) {
       return POWER_RESEARCH_VIEWS.includes(value) ? value : "focus";
+    }
+
+export function normalizeConnectionLineMode(value) {
+      return CONNECTION_LINE_MODES.includes(value) ? value : DEFAULT_CONNECTION_LINE_MODE;
+    }
+
+export function connectionLineModeLabel(value = state.connectionLineMode) {
+      const labels = {
+        off: { ko: "끔", en: "Off" },
+        strict: { ko: "엄격", en: "Strict" },
+        lineage: { ko: "계통", en: "Lineage" },
+        all: { ko: "전체", en: "All" },
+      };
+      const label = labels[normalizeConnectionLineMode(value)] || labels.lineage;
+      return localText(label.ko, label.en);
     }
 
 export function isBandMetricKey(metric = state.metric) {

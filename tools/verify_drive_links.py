@@ -14,9 +14,15 @@ if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
 from build_drive_comparison import (  # noqa: E402
+    DRIVE_FAMILY_LINEAGE_LINK_KIND,
     DRIVE_LINK_KIND,
+    DRIVE_LINK_KINDS,
+    PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND,
+    REACTOR_LINEAGE_LINK_KIND,
     ResearchCostIndex,
     drive_link_candidate_edges,
+    drive_lineage_kind,
+    lineage_candidate_edges,
     load_embedded_page_data,
     transitive_reduced_drive_link_edges,
 )
@@ -28,10 +34,11 @@ def link_sort_key(link: dict[str, Any], row_by_id: dict[str, dict[str, Any]]) ->
     return (
         source.get("familyKey") or "",
         source.get("thrusterCount") or 0,
-        source.get("cumulativeResearch") or 0,
+        source.get("unlockCumulativeResearch") or source.get("cumulativeResearch") or 0,
         str(link["from"]),
-        target.get("cumulativeResearch") or 0,
+        target.get("unlockCumulativeResearch") or target.get("cumulativeResearch") or 0,
         str(link["to"]),
+        str(link.get("kind") or ""),
     )
 
 
@@ -51,8 +58,16 @@ def verify_drive_links(html_path: Path, research_catalog_path: Path) -> None:
     row_by_id = {str(row.get("id")): row for row in drives if isinstance(row, dict) and row.get("id")}
     candidate_edges = drive_link_candidate_edges(drives, research)
     reduced_edges = transitive_reduced_drive_link_edges(candidate_edges)
+    lineage_edges_by_kind = lineage_candidate_edges(drives, reduced_edges)
+    expected_edges_by_kind: dict[str, set[tuple[str, str]]] = {
+        PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND: reduced_edges,
+        REACTOR_LINEAGE_LINK_KIND: lineage_edges_by_kind.get(REACTOR_LINEAGE_LINK_KIND, set()),
+        DRIVE_FAMILY_LINEAGE_LINK_KIND: lineage_edges_by_kind.get(DRIVE_FAMILY_LINEAGE_LINK_KIND, set()),
+    }
+    expected_pairs = {edge for edges in expected_edges_by_kind.values() for edge in edges}
 
     emitted_edges: set[tuple[str, str]] = set()
+    emitted_edges_by_kind: dict[str, set[tuple[str, str]]] = {kind: set() for kind in DRIVE_LINK_KINDS}
     previous_key: tuple[Any, ...] | None = None
     fusion_link_count = 0
     for index, link in enumerate(links):
@@ -67,7 +82,9 @@ def verify_drive_links(html_path: Path, research_catalog_path: Path) -> None:
 
         source = row_by_id[source_id]
         target = row_by_id[target_id]
-        require(link.get("kind") == DRIVE_LINK_KIND, f"{source_id} -> {target_id} has invalid kind")
+        kind = str(link.get("kind") or "")
+        require(kind in DRIVE_LINK_KINDS, f"{source_id} -> {target_id} has invalid kind: {kind}")
+        emitted_edges_by_kind[kind].add(edge)
         require(source.get("thrusterCount") == target.get("thrusterCount"), f"{source_id} -> {target_id} crosses thruster counts")
         require(source.get("familyKey") == target.get("familyKey"), f"{source_id} -> {target_id} crosses families")
         require(source.get("requiredProject"), f"{source_id} -> {target_id} source has no required project")
@@ -76,12 +93,16 @@ def verify_drive_links(html_path: Path, research_catalog_path: Path) -> None:
             source.get("requiredProject") != target.get("requiredProject"),
             f"{source_id} -> {target_id} links variants sharing a required project",
         )
-        require(
-            str(source["requiredProject"]) in research.closure(str(target["requiredProject"])),
-            f"{source_id} -> {target_id} is not backed by target research closure",
-        )
-        require(edge in candidate_edges, f"{source_id} -> {target_id} is not in the projected candidate graph")
-        require(edge in reduced_edges, f"{source_id} -> {target_id} is a transitive shortcut")
+        if kind == PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND:
+            require(
+                str(source["requiredProject"]) in research.closure(str(target["requiredProject"])),
+                f"{source_id} -> {target_id} is not backed by target research closure",
+            )
+            require(edge in candidate_edges, f"{source_id} -> {target_id} is not in the projected candidate graph")
+            require(edge in reduced_edges, f"{source_id} -> {target_id} is a transitive shortcut")
+        else:
+            require(drive_lineage_kind(source) == kind, f"{source_id} -> {target_id} has mismatched lineage kind")
+            require(edge in expected_edges_by_kind[kind], f"{source_id} -> {target_id} is not an expected {kind} link")
         require(link.get("familyKey") == source.get("familyKey"), f"{source_id} -> {target_id} has mismatched familyKey")
         require(link.get("categoryKey") == source.get("categoryKey"), f"{source_id} -> {target_id} has mismatched categoryKey")
         require(link.get("thrusterCount") == source.get("thrusterCount"), f"{source_id} -> {target_id} has mismatched thrusterCount")
@@ -92,13 +113,18 @@ def verify_drive_links(html_path: Path, research_catalog_path: Path) -> None:
         require(previous_key is None or previous_key <= current_key, "driveLinks are not sorted deterministically")
         previous_key = current_key
 
-    missing_edges = reduced_edges - emitted_edges
-    extra_edges = emitted_edges - reduced_edges
-    require(not missing_edges, f"driveLinks missing {len(missing_edges)} reduced projected links")
-    require(not extra_edges, f"driveLinks emitted {len(extra_edges)} links outside reduced projected graph")
+    missing_edges = expected_pairs - emitted_edges
+    extra_edges = emitted_edges - expected_pairs
+    require(not missing_edges, f"driveLinks missing {len(missing_edges)} expected progression links")
+    require(not extra_edges, f"driveLinks emitted {len(extra_edges)} links outside expected progression graph")
+    for kind, expected_edges in expected_edges_by_kind.items():
+        missing_for_kind = expected_edges - emitted_edges_by_kind.get(kind, set())
+        extra_for_kind = emitted_edges_by_kind.get(kind, set()) - expected_edges
+        require(not missing_for_kind, f"driveLinks missing {len(missing_for_kind)} {kind} links")
+        require(not extra_for_kind, f"driveLinks emitted {len(extra_for_kind)} extra {kind} links")
 
     # Validate transitive reduction against the candidate graph, not merely the final emitted list.
-    for source_id, target_id in emitted_edges:
+    for source_id, target_id in emitted_edges_by_kind[PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND]:
         adjacency: dict[str, set[str]] = {}
         for edge_source, edge_target in candidate_edges:
             if (edge_source, edge_target) == (source_id, target_id):
@@ -120,7 +146,10 @@ def verify_drive_links(html_path: Path, research_catalog_path: Path) -> None:
 
     require(fusion_link_count > 0, "No Fusion driveLinks emitted; expected fusion progression links in generated data")
     print(
-        f"Drive link verification passed: {len(links)} links, "
+        f"Drive link verification passed: {len(links)} links "
+        f"({len(emitted_edges_by_kind[PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND])} strict, "
+        f"{len(emitted_edges_by_kind[REACTOR_LINEAGE_LINK_KIND])} reactor lineage, "
+        f"{len(emitted_edges_by_kind[DRIVE_FAMILY_LINEAGE_LINK_KIND])} drive-family), "
         f"{len(candidate_edges)} projected candidates, {fusion_link_count} Fusion links",
     )
 

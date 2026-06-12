@@ -948,10 +948,18 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const currentRowById = () => new Map(currentChartRows.map(row => [row.id, row]));
     const visibleDriveLinkCount = coordinatePredicate => {
       const rows = currentRowById();
+      const visibleForMode = link => {
+        if (state.connectionLineMode === "off") return false;
+        if (state.connectionLineMode === "strict") return link.kind === "projectedResearchDependency";
+        if (state.connectionLineMode === "lineage") {
+          return link.kind === "projectedResearchDependency" || link.kind === "reactorLineageProgression";
+        }
+        return true;
+      };
       return (DATA.driveLinks || []).filter(link => {
         const source = rows.get(link.from);
         const target = rows.get(link.to);
-        return source && target && coordinatePredicate(source) && coordinatePredicate(target);
+        return visibleForMode(link) && source && target && coordinatePredicate(source) && coordinatePredicate(target);
       }).length;
     };
     const finiteBasicMetric = row => {
@@ -983,7 +991,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         renderedLinks: document.querySelectorAll("#chart .drive-link-segment").length,
         fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
         baseLines: document.querySelectorAll("#chart .base-drive-line").length,
-        legendText: document.getElementById("legend")?.textContent || "",
+        guideText: document.getElementById("chartGuide")?.textContent || "",
         ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
         bestLines: document.querySelectorAll("#chart .power-best-line").length,
       };
@@ -999,7 +1007,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     syncUiFromState();
     render();
     const visibleIds = new Set(currentChartRows.map(row => row.id));
-    const linkFamilies = new Set((DATA.driveLinks || [])
+    const originalLinks = DATA.driveLinks;
+    const linkFamilies = new Set((originalLinks || [])
       .filter(link => visibleIds.has(link.from) && visibleIds.has(link.to))
       .map(link => link.familyKey));
     const families = new Map();
@@ -1007,27 +1016,34 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       if (!families.has(row.familyKey)) families.set(row.familyKey, []);
       families.get(row.familyKey).push(row);
     });
-    const familyWithoutLinks = [...families.entries()].find(([family, rows]) => rows.length > 1 && !linkFamilies.has(family));
-    const familyWithoutLinkSegmentCount = familyWithoutLinks
-      ? [...document.querySelectorAll("#chart .drive-link-segment")]
-        .filter(path => path.getAttribute("data-family-key") === familyWithoutLinks[0]).length
-      : 0;
+    const familyForSuppressedLinks = [...families.entries()].find(([family, rows]) => rows.length > 1 && linkFamilies.has(family))
+      || [...families.entries()].find(([, rows]) => rows.length > 1);
+    let suppressedFamily = "";
+    let suppressedFamilyLinkSegmentCount = 0;
+    let suppressedFamilyFallbackLineCount = 0;
+    if (familyForSuppressedLinks) {
+      suppressedFamily = familyForSuppressedLinks[0];
+      DATA.driveLinks = (originalLinks || []).filter(link => link.familyKey !== suppressedFamily);
+      render();
+      suppressedFamilyLinkSegmentCount = [...document.querySelectorAll("#chart .drive-link-segment")]
+        .filter(path => path.getAttribute("data-family-key") === suppressedFamily).length;
+      suppressedFamilyFallbackLineCount = document.querySelectorAll("#chart .family-fallback-line").length;
+    }
 
-    const originalLinks = DATA.driveLinks;
     DATA.driveLinks = [];
     render();
     const emptyArray = {
       baseLines: document.querySelectorAll("#chart .base-drive-line").length,
       renderedLinks: document.querySelectorAll("#chart .drive-link-segment").length,
       fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
-      legendText: document.getElementById("legend")?.textContent || "",
+      guideText: document.getElementById("chartGuide")?.textContent || "",
     };
     delete DATA.driveLinks;
     render();
     const missingDataFallback = {
       baseLines: document.querySelectorAll("#chart .base-drive-line").length,
       fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
-      legendText: document.getElementById("legend")?.textContent || "",
+      guideText: document.getElementById("chartGuide")?.textContent || "",
     };
     DATA.driveLinks = originalLinks;
     render();
@@ -1037,8 +1053,9 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       totalMass,
       allLadders,
       bestAvailable,
-      familyWithoutLinks: familyWithoutLinks ? familyWithoutLinks[0] : "",
-      familyWithoutLinkSegmentCount,
+      suppressedFamily,
+      suppressedFamilyLinkSegmentCount,
+      suppressedFamilyFallbackLineCount,
       emptyArray,
       missingDataFallback,
     };
@@ -1046,18 +1063,19 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(driveLinkRenderingChecks.basic.expectedLinks > 0, `${htmlFile}: no visible generated driveLinks available for basic metric rendering`);
   expect(driveLinkRenderingChecks.basic.renderedLinks === driveLinkRenderingChecks.basic.expectedLinks, `${htmlFile}: basic metric line count is not derived from visible driveLinks`);
   expect(driveLinkRenderingChecks.basic.fallbackLines === 0, `${htmlFile}: family fallback lines rendered even though driveLinks data exists`);
-  expect(/Lines: research progression links/.test(driveLinkRenderingChecks.basic.legendText), `${htmlFile}: legend does not describe research progression links`);
+  expect(/Connection lines/.test(driveLinkRenderingChecks.basic.guideText), `${htmlFile}: chart guide does not expose connection line controls`);
   expect(driveLinkRenderingChecks.totalMass.renderedLinks === driveLinkRenderingChecks.totalMass.expectedLinks, `${htmlFile}: total-mass link line count is not derived from visible driveLinks`);
   expect(driveLinkRenderingChecks.allLadders.renderedLinks === driveLinkRenderingChecks.allLadders.expectedLinks, `${htmlFile}: All Ladders link line count is not derived from visible driveLinks`);
   expect(driveLinkRenderingChecks.allLadders.ladderLines > 0, `${htmlFile}: All Ladders power paths disappeared after link rendering change`);
   expect(driveLinkRenderingChecks.bestAvailable.renderedLinks === driveLinkRenderingChecks.bestAvailable.expectedLinks, `${htmlFile}: Best Available link line count is not derived from visible driveLinks`);
   expect(driveLinkRenderingChecks.bestAvailable.bestLines > 0, `${htmlFile}: Best Available power paths disappeared after link rendering change`);
-  expect(driveLinkRenderingChecks.familyWithoutLinks, `${htmlFile}: no visible multi-drive family without driveLinks was available for family-only line verification`);
-  expect(driveLinkRenderingChecks.familyWithoutLinkSegmentCount === 0, `${htmlFile}: rendered a family-only line for ${driveLinkRenderingChecks.familyWithoutLinks}`);
+  expect(driveLinkRenderingChecks.suppressedFamily, `${htmlFile}: no visible multi-drive family was available for suppressed-link verification`);
+  expect(driveLinkRenderingChecks.suppressedFamilyLinkSegmentCount === 0, `${htmlFile}: rendered a generated link for suppressed family ${driveLinkRenderingChecks.suppressedFamily}`);
+  expect(driveLinkRenderingChecks.suppressedFamilyFallbackLineCount === 0, `${htmlFile}: suppressing links for ${driveLinkRenderingChecks.suppressedFamily} triggered family fallback lines despite driveLinks data existing`);
   expect(driveLinkRenderingChecks.emptyArray.baseLines === 0 && driveLinkRenderingChecks.emptyArray.fallbackLines === 0, `${htmlFile}: empty driveLinks array triggered family fallback lines`);
-  expect(/Lines: research progression links/.test(driveLinkRenderingChecks.emptyArray.legendText), `${htmlFile}: empty driveLinks array was not treated as authoritative link data`);
+  expect(/Connection lines/.test(driveLinkRenderingChecks.emptyArray.guideText), `${htmlFile}: empty driveLinks array did not preserve connection line guide controls`);
   expect(driveLinkRenderingChecks.missingDataFallback.fallbackLines > 0, `${htmlFile}: missing driveLinks data did not trigger compatibility fallback`);
-  expect(/Lines: family trend fallback/.test(driveLinkRenderingChecks.missingDataFallback.legendText), `${htmlFile}: missing driveLinks fallback legend text missing`);
+  expect(driveLinkRenderingChecks.missingDataFallback.guideText.length > 0, `${htmlFile}: missing driveLinks fallback removed chart guide text`);
 
   await page.setViewportSize({ width: 390, height: 900 });
   const chartGuideChecks = await page.evaluate(() => {
@@ -1077,6 +1095,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       })
       : true;
     const englishText = guide?.textContent || "";
+    const englishModeDescriptions = [...(guide?.querySelectorAll('input[name="connectionLineMode"]') || [])]
+      .map(input => ({
+        mode: input.value,
+        title: input.title || input.closest("label")?.title || "",
+      }));
     const englishItemCount = guide?.querySelectorAll(".chart-guide-item").length || 0;
     const englishPowerItems = [...(guide?.querySelectorAll(".chart-guide-item") || [])]
       .filter(item => /Power view/.test(item.textContent || "")).length;
@@ -1088,6 +1111,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       exists: !!guide,
       aria: guide?.getAttribute("aria-label") || "",
       englishText,
+      englishModeDescriptions,
       englishItemCount,
       englishPowerItems,
       childOverflow,
@@ -1096,16 +1120,21 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   expect(chartGuideChecks.exists, `${htmlFile}: compact chart guide is missing`);
-  expect(chartGuideChecks.englishItemCount >= 6, `${htmlFile}: compact chart guide is missing required items`);
-  expect(/Colors: family filters/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain family colors/filters`);
-  expect(/Lines: research progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain research progression lines`);
+  expect(chartGuideChecks.englishItemCount >= 4, `${htmlFile}: compact chart guide is missing required items`);
+  const lineModeDescriptions = new Map(chartGuideChecks.englishModeDescriptions.map(item => [item.mode, item.title]));
+  expect(/Connection lines/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not expose line mode controls`);
+  expect(/Lines: drive progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain progression lines`);
+  expect(/prerequisite-backed drive research/.test(lineModeDescriptions.get("strict") || ""), `${htmlFile}: strict line mode tooltip is missing or incomplete`);
+  expect(/reactor\/power-lineage progression/.test(lineModeDescriptions.get("lineage") || ""), `${htmlFile}: lineage line mode tooltip is missing or incomplete`);
+  expect(/broader family fallback lines/.test(lineModeDescriptions.get("all") || ""), `${htmlFile}: all line mode tooltip is missing or incomplete`);
+  expect(/Hide connection lines/.test(lineModeDescriptions.get("off") || ""), `${htmlFile}: off line mode tooltip is missing or incomplete`);
   expect(/Dim: Pareto-dominated/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain Pareto dimming`);
   expect(/Warning ring: low TWR\/extreme mass/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain low-TWR/impractical markers`);
   expect(/Outline: hover\/select\/pin; click again unpins/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain hover/select/pin and unpin behavior`);
   expect(chartGuideChecks.englishPowerItems === 1, `${htmlFile}: guide does not explain power-view ladder semantics on band metrics`);
   expect(!chartGuideChecks.childOverflow, `${htmlFile}: compact chart guide overflows on mobile`);
   expect(chartGuideChecks.aria === "차트 안내", `${htmlFile}: guide aria label did not localize after Korean switch`);
-  expect(!/Colors: family filters|Warning ring/.test(chartGuideChecks.koreanText), `${htmlFile}: guide text did not switch away from English`);
+  expect(!/Connection lines|Warning ring/.test(chartGuideChecks.koreanText), `${htmlFile}: guide text did not switch away from English`);
 
   const pointVisualSemantics = await page.evaluate(() => {
     const thresholds = [0.0001, 0.001, 0.01, 0.1, 1, 10];
@@ -1152,7 +1181,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
           combinedHasRing: !!ring,
           ringOpacity: ring ? Number(getComputedStyle(ring).opacity || ring.getAttribute("opacity") || 1) : 0,
           ringPointerEvents: ring ? getComputedStyle(ring).pointerEvents : "",
-          legendText: document.getElementById("legend")?.textContent || "",
+          guideText: document.getElementById("chartGuide")?.textContent || "",
         };
         break;
       }
@@ -1169,7 +1198,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       combinedHasRing: false,
       ringOpacity: 0,
       ringPointerEvents: "",
-      legendText: document.getElementById("legend")?.textContent || "",
+      guideText: document.getElementById("chartGuide")?.textContent || "",
     };
   });
   expect(pointVisualSemantics.pointCount > 0, `${htmlFile}: no chart points available for visual-semantic verification`);
@@ -1181,7 +1210,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(pointVisualSemantics.combinedHasRing, `${htmlFile}: combined impractical/Pareto point has no warning ring marker`);
   expect(pointVisualSemantics.ringOpacity >= 0.8, `${htmlFile}: warning ring marker is dimmed along with Pareto opacity`);
   expect(pointVisualSemantics.ringPointerEvents === "none", `${htmlFile}: warning ring marker can intercept point hover/click events`);
-  expect(/Warning ring: below minimum TWR or extreme mass ratio/.test(pointVisualSemantics.legendText), `${htmlFile}: legend does not describe the impractical warning ring`);
+  expect(/Warning ring: low TWR\/extreme mass/.test(pointVisualSemantics.guideText), `${htmlFile}: chart guide does not describe the impractical warning ring`);
 
   const paretoPinnedOverlay = await page.evaluate(() => {
     resetChartStateToDefaults();

@@ -272,11 +272,13 @@ __STYLES__
       </div>
       <div id="chartDiagnostic" class="diagnostic-banner" hidden></div>
       <div class="chart-body">
-        <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
+        <div class="chart-plot-frame">
+          <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
+          <div id="chartGuide" class="chart-guide" aria-label="Chart guide"></div>
+        </div>
         <div id="tooltip" class="tooltip tooltip-empty"><div class="tooltip-placeholder">선택 없음</div></div>
       </div>
-      <div id="legend" class="legend"></div>
-      <div id="chartGuide" class="chart-guide" aria-label="Chart guide"></div>
+      <div id="legend" class="legend" hidden></div>
     </section>
     <section class="table-shell">
       <table>
