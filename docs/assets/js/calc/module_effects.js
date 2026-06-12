@@ -162,6 +162,66 @@ function unsupportedRules(module) {
     .map(rule => ({ rule, category: "unsupported" }));
 }
 
+function moduleGrouping(module) {
+  const grouping = finiteNumber(module && module.grouping);
+  return Number.isInteger(grouping) && grouping >= 0 ? grouping : null;
+}
+
+function diagnosticFields(module, fields = {}) {
+  return {
+    severity: fields.severity || "warning",
+    moduleId: moduleId(module),
+    moduleName: compactModuleName(module),
+    rule: fields.rule || "",
+    category: fields.category || "validation",
+    messageKey: fields.messageKey || "",
+    applied: fields.applied === true,
+    ...fields,
+  };
+}
+
+function mutualExclusionWarnings(modules) {
+  const grouped = new Map();
+  modules.forEach(module => {
+    const grouping = moduleGrouping(module);
+    if (grouping === null) return;
+    if (!grouped.has(grouping)) grouped.set(grouping, []);
+    grouped.get(grouping).push(module);
+  });
+  const warnings = [];
+  grouped.forEach((items, grouping) => {
+    const uniqueItems = Array.from(new Map(items.map(module => [moduleId(module), module])).values());
+    if (uniqueItems.length <= 1) return;
+    const conflictingModuleIds = uniqueItems.map(module => moduleId(module));
+    uniqueItems.forEach(module => {
+      warnings.push(diagnosticFields(module, {
+        severity: "warning",
+        rule: "MutualExclusion",
+        category: "mutualExclusion",
+        messageKey: "moduleEffect.mutualExclusion",
+        applied: false,
+        grouping,
+        conflictingModuleIds,
+      }));
+    });
+  });
+  return warnings;
+}
+
+function unresolvedModuleWarning(item) {
+  const id = String(item && item.id || "");
+  return {
+    severity: "warning",
+    moduleId: id,
+    moduleName: id,
+    rule: "UnresolvedModule",
+    category: "impossibleCombination",
+    messageKey: "moduleEffect.impossible.unresolvedModule",
+    applied: false,
+    index: item && item.index,
+  };
+}
+
 function baseDriveValues(row) {
   const thrustN = finiteNumber(row && row.thrustN);
   const exhaustVelocityKps = finiteNumber(row && row.exhaustVelocityKps);
@@ -173,31 +233,38 @@ function baseDriveValues(row) {
 }
 
 function requirementWarning(module, requirement) {
-  return {
-    moduleId: moduleId(module),
-    moduleName: compactModuleName(module),
+  return diagnosticFields(module, {
+    severity: "warning",
+    rule: requirement.sourceRule || requirement.type,
+    category: "unmetRequirement",
+    messageKey: `moduleEffect.requirement.${requirement.type}`,
+    applied: false,
     requirement: requirement.type,
     sourceRule: requirement.sourceRule || "",
-  };
+  });
 }
 
 function unsupportedRuleWarning(module, rule) {
-  return {
-    moduleId: moduleId(module),
-    moduleName: compactModuleName(module),
+  return diagnosticFields(module, {
+    severity: "info",
     rule: rule.rule,
     category: rule.category || "unsupported",
-  };
+    messageKey: `moduleEffect.unsupportedRule.${rule.category || "unsupported"}`,
+    applied: false,
+  });
 }
 
 function unsupportedEffectWarning(module, effect, reason) {
-  return {
-    moduleId: moduleId(module),
-    moduleName: compactModuleName(module),
+  return diagnosticFields(module, {
+    severity: "warning",
+    rule: String(effect && effect.sourceRule || effect && effect.type || ""),
+    category: "unsupportedEffect",
+    messageKey: `moduleEffect.unsupportedEffect.${reason}`,
+    applied: false,
     type: String(effect && effect.type || ""),
     sourceRule: String(effect && effect.sourceRule || ""),
     reason,
-  };
+  });
 }
 
 function isHeatRuleCategory(category) {
@@ -229,9 +296,13 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
     unsupportedRules: [],
     unsupportedEffects: [],
     skippedEffects: [],
+    mutualExclusions: [],
+    impossibleCombinations: unresolvedModules.map(unresolvedModuleWarning),
     powerWarnings: [],
     heatWarnings: [],
   };
+  diagnostics.mutualExclusions = mutualExclusionWarnings(modules);
+  const blockedModuleIds = new Set(diagnostics.mutualExclusions.map(item => item.moduleId).filter(Boolean));
   const activeEffects = [];
   const powerContributions = [];
   const multipliers = {
@@ -241,8 +312,9 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
   };
 
   modules.forEach(module => {
+    const isBlockedByMutualExclusion = blockedModuleIds.has(moduleId(module));
     const powerContribution = modulePowerContribution(module);
-    if (powerContribution) powerContributions.push(powerContribution);
+    if (powerContribution && !isBlockedByMutualExclusion) powerContributions.push(powerContribution);
 
     unsupportedRules(module).forEach(rule => {
       const warning = unsupportedRuleWarning(module, rule);
@@ -277,8 +349,28 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
         sourceRule: String(effect && effect.sourceRule || ""),
         multiplier,
       };
+      if (isBlockedByMutualExclusion) {
+        diagnostics.skippedEffects.push({
+          ...summary,
+          severity: "warning",
+          rule: summary.sourceRule || summary.type,
+          category: "mutualExclusion",
+          messageKey: "moduleEffect.skipped.mutualExclusion",
+          applied: false,
+          reason: "mutualExclusion",
+        });
+        return;
+      }
       if (unmetRequirements.length) {
-        diagnostics.skippedEffects.push({ ...summary, reason: "unmetRequirement" });
+        diagnostics.skippedEffects.push({
+          ...summary,
+          severity: "warning",
+          rule: summary.sourceRule || summary.type,
+          category: "unmetRequirement",
+          messageKey: "moduleEffect.skipped.unmetRequirement",
+          applied: false,
+          reason: "unmetRequirement",
+        });
         return;
       }
       if (summary.operation !== "multiply" || !Number.isFinite(multiplier)) {

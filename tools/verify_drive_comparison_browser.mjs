@@ -254,6 +254,9 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     state.moduleEffectModuleIds = ["ElectronicCountermeasures1"];
     const unsupported = firstOption(fusionHydrogen);
 
+    state.moduleEffectModuleIds = ["MuonSpiker", "AntimatterSpiker"];
+    const mutuallyExclusive = firstOption(fusionHydrogen);
+
     state.moduleEffectModuleIds = ["LaserEngine"];
     const powerAux = firstOption(fusionHydrogen);
     const powerMetric = metricDefs.powerRequirementGW.value(fusionHydrogen);
@@ -283,6 +286,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && incompatible.moduleEffectDiagnostics.skippedEffects.length > 0,
       unsupportedDiagnosed: !!unsupported
         && unsupported.moduleEffectDiagnostics.unsupportedRules.some(item => item.rule === "ECM"),
+      mutualExclusionSkipped: !!base && !!mutuallyExclusive
+        && Math.abs(mutuallyExclusive.totalMassTons - base.totalMassTons) < 1e-9
+        && Math.abs(mutuallyExclusive.twr - base.twr) < 1e-12
+        && mutuallyExclusive.moduleEffectDiagnostics.mutualExclusions.length >= 2
+        && mutuallyExclusive.moduleEffectDiagnostics.skippedEffects.some(item => item.reason === "mutualExclusion"),
       powerAuxApplied: !!base && !!powerAux
         && Math.abs(powerAux.moduleAuxiliaryPowerGW - 0.005) < 1e-12
         && Math.abs(powerAux.modifiedPowerRequirementGW - (powerAux.basePowerRequirementGW + 0.005)) < 1e-12
@@ -308,6 +316,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectCalculationChecks.evApplied, `${htmlFile}: EV multiplier did not update propellant/total mass/max practical dV`);
   expect(moduleEffectCalculationChecks.incompatibleSkipped, `${htmlFile}: incompatible module effect was not skipped with diagnostics`);
   expect(moduleEffectCalculationChecks.unsupportedDiagnosed, `${htmlFile}: unsupported module rule was not carried as diagnostics`);
+  expect(moduleEffectCalculationChecks.mutualExclusionSkipped, `${htmlFile}: mutually exclusive module effects were not skipped with diagnostics`);
   expect(moduleEffectCalculationChecks.powerAuxApplied, `${htmlFile}: auxiliary module power did not update power demand and mass options`);
   expect(moduleEffectCalculationChecks.heatApplied, `${htmlFile}: waste heat multiplier did not update heat and radiator mass options`);
   expect(moduleEffectCalculationChecks.thrustMetricEffective, `${htmlFile}: thrust metric did not use effective thrust`);
@@ -423,6 +432,21 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     syncUiFromState();
     const unsupportedPanelText = panel?.textContent || "";
 
+    state.moduleEffectModuleIds = ["MuonSpiker", "AntimatterSpiker"];
+    syncUiFromState();
+    const mutualExclusionPanelText = panel?.textContent || "";
+    let mutualExclusionTooltipText = "";
+    if (fusionHydrogen) {
+      const option = chartMassOptions(fusionHydrogen)[0];
+      if (option) {
+        const ref = tooltipRef(fusionHydrogen.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        mutualExclusionTooltipText = document.querySelector("#tooltip")?.textContent || "";
+      }
+    }
+
     state.moduleEffectModuleIds = ["VerifierHeatSink"];
     syncUiFromState();
     const heatPanelText = panel?.textContent || "";
@@ -466,6 +490,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && compatibleTooltipChips > 0,
       incompatibleTooltipWarns: /unmet prerequisite/i.test(incompatibleTooltipText) && /hydrogenPropellant/.test(incompatibleTooltipText),
       unsupportedPanelWarns: /rules not modeled/i.test(unsupportedPanelText) && /LaserPowerBonus/.test(unsupportedPanelText) && /Aux power/i.test(unsupportedPanelText),
+      mutualExclusionPanelWarns: /Mutually exclusive module group/i.test(mutualExclusionPanelText) && /Muon Spiker/i.test(mutualExclusionPanelText) && /Antimatter Spiker/i.test(mutualExclusionPanelText),
+      mutualExclusionTooltipWarns: /mutually exclusive module group/i.test(mutualExclusionTooltipText) && /MuonSpiker|Muon Spiker/.test(mutualExclusionTooltipText) && /AntimatterSpiker|Antimatter Spiker/.test(mutualExclusionTooltipText),
       heatPanelSummarizes: /Waste heat x0.5/.test(heatPanelText),
       heatTooltipShowsModifiedHeat: /Waste heat/i.test(heatTooltipText) && /base/i.test(heatTooltipText) && /heat multiplier x0.5/i.test(heatTooltipText),
       koreanPanelLocalized: !/Apply module performance effects|Source:/.test(koreanPanelText),
@@ -486,6 +512,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectUxChecks.compatibleTooltipShowsEffects, `${htmlFile}: compatible drive tooltip did not show active module effects and base values`);
   expect(moduleEffectUxChecks.incompatibleTooltipWarns, `${htmlFile}: incompatible drive tooltip did not show unmet prerequisite warning`);
   expect(moduleEffectUxChecks.unsupportedPanelWarns, `${htmlFile}: unsupported-only module effect selection was silent`);
+  expect(moduleEffectUxChecks.mutualExclusionPanelWarns, `${htmlFile}: mutually exclusive module selection was not warned in the panel`);
+  expect(moduleEffectUxChecks.mutualExclusionTooltipWarns, `${htmlFile}: mutually exclusive module selection was not warned in the tooltip`);
   expect(moduleEffectUxChecks.heatPanelSummarizes, `${htmlFile}: heat-effect module selection was not summarized in the panel`);
   expect(moduleEffectUxChecks.heatTooltipShowsModifiedHeat, `${htmlFile}: heat-effect tooltip did not show modified waste heat and base value`);
   expect(moduleEffectUxChecks.koreanPanelLocalized, `${htmlFile}: module effects panel did not update when switching to Korean`);

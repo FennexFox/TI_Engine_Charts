@@ -173,6 +173,10 @@ function isHeatRuleCategory(category) {
         || normalized === "radiator";
     }
 
+function uniqueWarningMessages(messages) {
+      return Array.from(new Set(messages.filter(Boolean)));
+    }
+
 export function moduleEffectTooltipHtml(option, effective) {
       const evaluation = effective && effective.moduleEffectEvaluation;
       const activeEffects = option && Array.isArray(option.activeModuleEffects)
@@ -203,6 +207,15 @@ export function moduleEffectTooltipHtml(option, effective) {
       }
       const warnings = [];
       if (diagnostics) {
+        (diagnostics.mutualExclusions || []).forEach(item => {
+          const conflicts = Array.isArray(item.conflictingModuleIds) && item.conflictingModuleIds.length
+            ? ` (${item.conflictingModuleIds.join(", ")})`
+            : "";
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "mutually exclusive module group" : "상호배타 모듈 그룹"}${conflicts}`);
+        });
+        (diagnostics.impossibleCombinations || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "cannot evaluate selected module" : "선택 모듈 평가 불가"} ${item.rule}`);
+        });
         (diagnostics.unmetRequirements || []).forEach(item => {
           warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unmet prerequisite" : "미충족 조건"} ${item.requirement}`);
         });
@@ -227,7 +240,7 @@ export function moduleEffectTooltipHtml(option, effective) {
           <summary>${UI_LANG === "en" ? "Module effects" : "모듈 효과"}</summary>
           <div class="tooltip-section-body">
             ${chips.length ? `<div class="effect-chip-list">${chips.join("")}</div>` : ""}
-            ${warnings.length ? `<div class="module-effects-warnings">${warnings.map(item => `<div class="module-effects-warning">${escapeHtml(item)}</div>`).join("")}</div>` : ""}
+            ${warnings.length ? `<div class="module-effects-warnings">${uniqueWarningMessages(warnings).map(item => `<div class="module-effects-warning">${escapeHtml(item)}</div>`).join("")}</div>` : ""}
           </div>
         </details>
       `;

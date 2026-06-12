@@ -47,6 +47,14 @@ const electricNobleGasDrive = {
   propellant: "NobleGases",
 };
 
+const chemicalHydrogenDrive = {
+  ...fusionHydrogenDrive,
+  id: "fixtureChemicalHydrogen",
+  categoryKey: "Chemical",
+  classification: "Chemical",
+  requiredPowerPlantClass: "None",
+};
+
 const anythingPropellantDrive = {
   ...electricNobleGasDrive,
   id: "fixtureAnythingPropellant",
@@ -56,6 +64,7 @@ const anythingPropellantDrive = {
 const muonSpiker = {
   dataName: "MuonSpiker",
   friendlyName: "Muon Spiker",
+  grouping: 3,
   effects: [{
     type: "thrustMultiplier",
     operation: "multiply",
@@ -75,6 +84,7 @@ const muonSpiker = {
 const hydrogenTankage = {
   dataName: "HydrogenTankage",
   friendlyName: "Hydrogen Tankage",
+  grouping: 4,
   effects: [{
     type: "exhaustVelocityMultiplier",
     operation: "multiply",
@@ -90,6 +100,7 @@ const hydrogenTankage = {
 const hydronTrap = {
   dataName: "HydronTrap",
   friendlyName: "Hydron Trap",
+  grouping: 4,
   effects: [{
     type: "exhaustVelocityMultiplier",
     operation: "multiply",
@@ -107,6 +118,22 @@ const electronicCountermeasures = {
   friendlyName: "Electronic Countermeasures",
   specialRules: ["ECM"],
   specialValue: 0.2,
+};
+
+const antimatterSpiker = {
+  dataName: "AntimatterSpiker",
+  friendlyName: "Antimatter Spiker",
+  grouping: 3,
+  effects: [{
+    type: "thrustMultiplier",
+    operation: "multiply",
+    multiplier: 1.25,
+    sourceRule: "ThrustMultiplier",
+  }],
+  effectRequirements: [{
+    type: "nuclearDrive",
+    sourceRule: "RequiresNuclearDrive",
+  }],
 };
 
 const laserEngine = {
@@ -251,7 +278,11 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
   assertClose(result.effectiveThrustN, 1000, "unmet prerequisite skips thrust multiplier");
   assert.equal(result.activeEffects.length, 0, "unmet prerequisite effect is not active");
   assert.equal(result.diagnostics.unmetRequirements.length, 1, "unmet prerequisite is diagnosed");
+  assert.equal(result.diagnostics.unmetRequirements[0].severity, "warning", "unmet prerequisite has severity");
+  assert.equal(result.diagnostics.unmetRequirements[0].applied, false, "unmet prerequisite is marked not applied");
+  assert.equal(result.diagnostics.unmetRequirements[0].messageKey, "moduleEffect.requirement.fusionDrive");
   assert.equal(result.diagnostics.skippedEffects.length, 1, "skipped effect is diagnosed");
+  assert.equal(result.diagnostics.skippedEffects[0].reason, "unmetRequirement");
 }
 
 {
@@ -261,12 +292,32 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
 }
 
 {
+  const nuclear = evaluateModuleEffectsForDrive(fusionHydrogenDrive, [antimatterSpiker]);
+  const nonNuclear = evaluateModuleEffectsForDrive(chemicalHydrogenDrive, [antimatterSpiker]);
+  assertClose(nuclear.effectiveThrustN, 1250, "nuclear prerequisite allows antimatter spiker on nuclear drives");
+  assertClose(nonNuclear.effectiveThrustN, 1000, "nuclear prerequisite blocks antimatter spiker on non-nuclear drives");
+  assert.equal(nonNuclear.diagnostics.unmetRequirements[0].requirement, "nuclearDrive");
+}
+
+{
+  const result = evaluateModuleEffectsForDrive(fusionHydrogenDrive, [muonSpiker, antimatterSpiker]);
+  assertClose(result.effectiveThrustN, 1000, "mutually exclusive modules do not modify thrust");
+  assert.equal(result.activeEffects.length, 0, "mutually exclusive effects are not active");
+  assert.equal(result.diagnostics.mutualExclusions.length, 2, "mutual exclusion warns for each conflicting module");
+  assert.equal(result.diagnostics.mutualExclusions[0].category, "mutualExclusion");
+  assert.equal(result.diagnostics.mutualExclusions[0].applied, false);
+  assert.equal(result.diagnostics.skippedEffects.filter(item => item.reason === "mutualExclusion").length, 2);
+}
+
+{
   const result = evaluateModuleEffectsForDrive(fusionHydrogenDrive, [electronicCountermeasures]);
   const base = fixtureMassSummary(fusionHydrogenDrive, []);
   const unsupported = fixtureMassSummary(fusionHydrogenDrive, [electronicCountermeasures]);
   assert.equal(result.activeEffects.length, 0, "unsupported rule does not become active");
   assert.equal(result.diagnostics.unsupportedRules.length, 1, "unsupported rule is diagnosed");
   assert.equal(result.diagnostics.unsupportedRules[0].rule, "ECM");
+  assert.equal(result.diagnostics.unsupportedRules[0].severity, "info", "unsupported rule carries severity");
+  assert.equal(result.diagnostics.unsupportedRules[0].applied, false, "unsupported rule is marked not applied");
   assertClose(unsupported.effectiveThrustN, base.effectiveThrustN, "unsupported-only module keeps base thrust");
   assertClose(unsupported.effectiveExhaustVelocityKps, base.effectiveExhaustVelocityKps, "unsupported-only module keeps base exhaust velocity");
   assertClose(unsupported.totalMassTons, base.totalMassTons, "unsupported-only module keeps base total mass");
@@ -323,6 +374,9 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
   const result = evaluateModuleEffectsForDrive(fusionHydrogenDrive, ["MuonSpiker", "MissingModule"], { utilityModules });
   assertClose(result.effectiveThrustN, 1100, "resolved module ID applies effect");
   assert.deepEqual(result.diagnostics.unresolvedModules, [{ id: "MissingModule", index: 1 }]);
+  assert.equal(result.diagnostics.impossibleCombinations.length, 1, "missing module IDs are exposed as impossible combinations");
+  assert.equal(result.diagnostics.impossibleCombinations[0].category, "impossibleCombination");
+  assert.equal(result.diagnostics.impossibleCombinations[0].applied, false);
 }
 
 assert.equal(driveSatisfiesRequirement(fusionHydrogenDrive, "fusionDrive"), true);

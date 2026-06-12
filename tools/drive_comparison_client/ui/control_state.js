@@ -64,6 +64,24 @@ function moduleUnmodeledRules(module) {
     : [];
 }
 
+function moduleGrouping(module) {
+  const grouping = Number(module && module.grouping);
+  return Number.isInteger(grouping) && grouping >= 0 ? grouping : null;
+}
+
+function selectedMutualExclusionGroups(modules) {
+  const grouped = new Map();
+  modules.forEach(module => {
+    const grouping = moduleGrouping(module);
+    if (grouping === null) return;
+    if (!grouped.has(grouping)) grouped.set(grouping, []);
+    grouped.get(grouping).push(module);
+  });
+  return Array.from(grouped.entries())
+    .filter(([, items]) => Array.from(new Set(items.map(module => module && module.dataName))).length > 1)
+    .map(([grouping, items]) => ({ grouping, items }));
+}
+
 function appendChip(container, text, className = "") {
   const chip = document.createElement("span");
   chip.className = `effect-chip${className ? ` ${className}` : ""}`;
@@ -118,6 +136,10 @@ export function updateModuleEffectsPanel() {
     appendWarning(warnings, localText("현재 차트는 기본 드라이브 값을 사용합니다.", "Charts currently use base drive values."));
     return;
   }
+
+  selectedMutualExclusionGroups(modules).forEach(group => {
+    appendWarning(warnings, `${localText("상호배타 모듈 그룹", "Mutually exclusive module group")} ${group.grouping}: ${group.items.map(moduleDisplayName).join(", ")}.`);
+  });
 
   modules.forEach(module => {
     const requirements = moduleRequirementSummaries(module);
