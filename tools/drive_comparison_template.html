@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terra Invicta Drive Comparison</title>
+  <style>
+__STYLES__
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <h1>Terra Invicta 드라이브 비교</h1>
+      <nav class="header-links" aria-label="프로젝트 링크">
+        <a class="header-link" href="https://github.com/FennexFox/TI_Engine_Charts" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="header-link kofi-link" href="https://ko-fi.com/fennexfox" target="_blank" rel="noopener noreferrer">Ko-fi 후원</a>
+        <select id="uiLanguageSelect" class="header-language" aria-label="Language">
+          <option value="ko">한국어</option>
+          <option value="en" selected>English</option>
+        </select>
+      </nav>
+    </div>
+    <div class="header-summary">
+      <div class="subtle">
+        X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.
+      </div>
+    </div>
+  </header>
+  <main>
+    <aside class="controls" id="leftPanelControls">
+      <div class="controls-toolbar">
+        <button id="resetLeftPanelLayout" class="compact-command" type="button">패널 배열 초기화</button>
+      </div>
+      <section class="control-card" data-control-card="display">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">표시</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+        <div class="control-stack">
+          <section class="control-block">
+            <label class="label" for="metric">세로축</label>
+            <select id="metric" data-searchable-select="true">
+              <optgroup label="시뮬레이션(총 질량, 연료질량, TWR)">
+                <option value="totalMassTons">목표 Δv 달성 총질량 (t)</option>
+                <option value="fuelMassTons">목표 Δv 달성 연료질량 (t)</option>
+                <option value="twr">TWR</option>
+              </optgroup>
+              <optgroup label="기본 정보(추력, 효율, 출력)">
+                <option value="thrustMN">추력 (MN)</option>
+                <option value="fuelEfficiency">연료효율 (km/s or s)</option>
+                <option value="powerRequirementGW">출력 요구량 (GW)</option>
+              </optgroup>
+            </select>
+          </section>
+          <section class="control-block">
+            <div id="connectionLineControls" class="connection-line-controls" aria-label="Connection line mode"></div>
+          </section>
+        </div>
+        </div>
+      </section>
+      <section class="control-card" data-control-card="shipDesigner">
+        <div class="control-card-header">
+          <div class="control-card-heading ship-designer-card-heading">
+            <div class="ship-designer-title-row">
+            <button class="control-card-toggle control-card-caret-toggle" data-card-toggle="true" type="button" aria-expanded="true" aria-label="Collapse card" title="Collapse card">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+            </button>
+            <span id="shipDesignerTitle" class="control-card-title">Ship Designer</span>
+            <button id="dryMassCalcButton" class="ship-designer-calc-button" type="button" aria-label="Open Dry Mass Calculator" title="Open Dry Mass Calculator" aria-describedby="shipDesignerTitle">&#x1F9EE;</button>
+            </div>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="Change order">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="Move up" title="Move up">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="Move down" title="Move down">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+        <section id="shipDesignerSection" class="control-block ship-designer-section" aria-labelledby="shipDesignerTitle">
+          <div id="shipDesignerAppliedTemplate" class="ship-designer-status" data-applied-template="false" aria-live="polite">No ship template applied</div>
+          <section id="moduleEffectsControl" class="module-effects-control">
+            <label class="check-row module-effects-toggle">
+              <input id="moduleEffectsEnabled" type="checkbox" checked>
+              <span id="moduleEffectsEnabledLabel">모듈 효과 적용</span>
+            </label>
+            <div id="moduleEffectsSummary" class="module-effects-summary"></div>
+            <details id="moduleEffectsDetails" class="module-effects-details">
+              <summary id="moduleEffectsDetailsSummary">Selected modules</summary>
+              <div id="moduleEffectsChips" class="effect-chip-list" aria-live="polite"></div>
+              <div id="moduleEffectsWarnings" class="module-effects-warnings" aria-live="polite"></div>
+            </details>
+          </section>
+        </section>
+        </div>
+      </section>
+      <section class="control-card" data-control-card="simulation">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">시뮬레이션 조건</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+        <div class="control-stack">
+          <section class="control-block">
+            <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
+            <div class="split">
+              <input id="dryMass" type="range" min="100" max="100000" value="10000" step="100">
+              <input id="dryMassNumber" type="number" min="0" max="1000000" value="10000" step="10">
+            </div>
+          </section>
+          <section class="control-block">
+            <label class="label" for="targetDv">목표 dV (km/s)</label>
+            <div class="split">
+              <input id="targetDv" type="range" min="0" max="2000" value="500" step="5">
+              <input id="targetDvNumber" type="number" min="0" max="100000" value="500" step="1">
+            </div>
+          </section>
+          <section id="minTwrControl" class="control-block">
+            <label class="label" for="minTwrExp">최소 TWR</label>
+            <div class="split">
+              <input id="minTwrExp" type="range" min="-4" max="1" value="-4" step="0.1">
+              <input id="minTwrNumber" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
+            </div>
+            <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.1mg</div>
+          </section>
+          <section class="control-block">
+            <label class="label" for="radiator">라디에이터</label>
+            <select id="radiator" data-searchable-select="true"></select>
+          </section>
+        </div>
+        </div>
+      </section>
+      <section class="control-card" data-control-card="filter">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">필터 및 표시</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+        <section id="bandAnalysisControls" class="control-block">
+          <span class="label">총질량/연료질량/TWR 보조 표시</span>
+          <label id="showTwrInfoRow" class="check-row"><input id="showTwrInfo" type="checkbox" checked> TWR 정보 표시</label>
+          <label id="showMassInfoRow" class="check-row" style="display: none;"><input id="showMassInfo" type="checkbox" checked> 총질량 정보 표시</label>
+          <label class="check-row"><input id="paretoHighlight" type="checkbox" checked> 파레토 후보 강조</label>
+          <label class="check-row"><input id="showImpracticalCandidates" type="checkbox"> 비현실적 후보 표시</label>
+          <div id="minDvControl" style="margin-top: 10px; display: none;">
+            <label class="label" for="minDv">최소 dV (km/s)</label>
+            <div class="split">
+              <input id="minDv" type="range" min="0" max="2000" value="0" step="5">
+              <input id="minDvNumber" type="number" min="0" max="100000" value="0" step="1">
+            </div>
+            <div id="minDvReadout" class="control-hint">표시: dV >= 0 km/s</div>
+          </div>
+        </section>
+        <div class="control-divider"></div>
+        <section class="control-block">
+          <span class="label">축 스케일</span>
+          <div class="control-inline-grid">
+            <label class="check-row"><input id="logX" type="checkbox"> X축 로그</label>
+            <label class="check-row"><input id="logY" type="checkbox" checked> Y축 로그</label>
+          </div>
+        </section>
+        </div>
+      </section>
+      <section class="control-card" data-control-card="driveFilter">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">드라이브 필터</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+        <div class="control-stack">
+          <section class="control-block">
+            <label class="label" for="nameSearch">엔진/프로젝트 검색</label>
+            <input id="nameSearch" type="search" placeholder="드라이브 또는 프로젝트 검색">
+          </section>
+          <section class="control-block">
+            <label class="label" for="thrusters">엔진 수 <span class="inline-help" data-help aria-label="엔진 수 제한이 있는 드라이브는 선택값에 가장 가까운 유효 엔진 수로 표시됩니다." tabindex="0">?</span></label>
+            <div class="split">
+              <input id="thrusters" type="range" min="1" max="6" value="1" step="1">
+              <input id="thrustersNumber" type="number" min="1" max="6" value="1" step="1">
+            </div>
+          </section>
+          <section class="control-block">
+            <span class="label">대분류</span>
+            <div id="categories"></div>
+          </section>
+          <section class="control-block">
+            <span class="label">세부 계열</span>
+            <div class="button-row">
+              <button id="allFamilies" type="button">전체 선택</button>
+              <button id="clearFamilies" type="button">전체 해제</button>
+            </div>
+            <div id="families"></div>
+            <div id="familyWarnings" class="family-warnings"></div>
+          </section>
+        </div>
+        </div>
+      </section>
+    </aside>
+    <section class="chart-shell">
+      <div class="summary-strip">
+        <div class="summary-left">
+          <div id="presetLibrary" class="preset-manager" aria-label="차트 프리셋 라이브러리">
+            <div class="preset-library-row preset-toolbar-row chart-preset-toolbar">
+              <select id="chartPresetSelect" aria-label="차트 프리셋"></select>
+              <div class="preset-button-row">
+                <details class="preset-actions-menu" id="chartPresetActionsMenu">
+                  <summary><span id="chartPresetMoreLabel">프리셋 관리</span></summary>
+                  <div id="presetClipboard" class="preset-menu-panel preset-menu-grouped" aria-label="설정 가져오기/내보내기">
+                    <div class="preset-menu-section">
+                      <div id="chartPresetSelectedGroupLabel" class="preset-menu-heading">선택 프리셋</div>
+                      <div class="preset-menu-actions">
+                        <button id="chartPresetSave" class="compact-command" type="button">저장</button>
+                        <button id="chartPresetRename" class="compact-command" type="button">이름 변경</button>
+                        <button id="chartPresetDelete" class="compact-command" type="button">삭제</button>
+                      </div>
+                    </div>
+                    <div class="preset-menu-section">
+                      <div id="chartPresetDefaultGroupLabel" class="preset-menu-heading">기본 프리셋</div>
+                      <div class="preset-menu-actions preset-menu-actions-two">
+                        <button id="chartPresetSetStartup" class="compact-command" type="button">기본 지정</button>
+                        <button id="chartPresetClearStartup" class="compact-command" type="button">기본 해제</button>
+                      </div>
+                    </div>
+                    <div class="preset-menu-section">
+                      <div id="chartPresetTransferGroupLabel" class="preset-menu-heading">가져오기 / 내보내기</div>
+                      <div class="preset-menu-actions preset-menu-actions-transfer">
+                        <button id="presetExport" class="compact-command" type="button">현재 설정 Export</button>
+                        <button id="presetImport" class="compact-command" type="button">설정 Import</button>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+            <span id="presetStatus" class="preset-status" aria-live="polite"></span>
+          </div>
+          <div><strong id="visibleCount">0</strong>개 드라이브 표시</div>
+        </div>
+        <div class="summary-controls">
+          <div id="chartFuelUnit" class="segmented compact" style="display: none;">
+            <label><input type="radio" name="fuelUnit" value="kps" checked>km/s</label>
+            <label><input type="radio" name="fuelUnit" value="seconds">s</label>
+          </div>
+          <label id="powerResearchViewControl" class="chart-select-control power-view-control" style="display: none;">
+            <span class="chart-toggle-label">전원 보기</span>
+            <select id="powerResearchView" aria-label="전원 보기">
+              <option value="focus">기본</option>
+              <option value="all">전체 사다리</option>
+              <option value="best">최적 가용</option>
+            </select>
+          </label>
+          <button id="resetZoom" class="compact-command" type="button" disabled>보기 초기화</button>
+          <div id="metricHint"></div>
+        </div>
+      </div>
+      <div id="chartDiagnostic" class="diagnostic-banner" hidden></div>
+      <div class="chart-body">
+        <div class="chart-plot-frame">
+          <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
+          <div id="chartGuide" class="chart-guide" aria-label="Chart guide">
+            <details id="chartGuideDetails" class="chart-guide-details">
+              <summary id="chartGuideSummary" class="chart-guide-summary">Chart Guide</summary>
+              <div id="chartGuideContent" class="chart-guide-content"></div>
+            </details>
+          </div>
+        </div>
+        <div class="detail-panel">
+          <div id="tooltip" class="tooltip tooltip-empty"><div class="tooltip-placeholder">선택 없음</div></div>
+        </div>
+      </div>
+      <div id="legend" class="legend" hidden></div>
+    </section>
+    <section class="table-shell">
+      <table>
+        <thead>
+          <tr>
+            <th><button class="sort-button" type="button" data-sort="drive">추진기</button></th>
+            <th><button class="sort-button" type="button" data-sort="family">대분류 / 세부 계열</button></th>
+            <th class="numeric"><button class="sort-button" type="button" data-sort="research">누적 연구력</button></th>
+            <th class="numeric"><button class="sort-button" id="metricColumn" type="button" data-sort="metric">값</button></th>
+            <th><button class="sort-button" type="button" data-sort="reactor">전원 단계</button></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </section>
+    <section class="notes">
+      <p id="calculationNote"><strong>계산 메모.</strong> 총질량은 기본 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 dV에 필요한 추진체 질량을 합산합니다. 기본 드라이브 출력, 드라이브 질량, 전원 질량, 폐열, 라디에이터 질량은 이 저장소의 ship-plan 계산과 같은 항을 사용합니다. 모듈 효과가 켜져 있으면 지원되는 추진, 보조 전력, 폐열 배율이 표시되는 수정값에 반영되고, 지원되지 않는 모듈 규칙은 UI에 표시됩니다.</p>
+      <span id="sourceNote" class="source-note"></span>
+    </section>
+  </main>
+
+  <div id="presetExportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="presetExportTitle">
+    <div class="modal-card export-modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="presetExportTitle" class="modal-title">프리셋 내보내기</h2>
+          <p id="presetExportDescription" class="modal-subtitle">출력 형식을 선택하고 클립보드에 복사하세요.</p>
+        </div>
+        <button id="presetExportClose" class="compact-command" type="button">닫기</button>
+      </div>
+      <div class="export-format-row" role="radiogroup" aria-labelledby="presetExportFormatLabel">
+        <span id="presetExportFormatLabel" class="label">출력 형식</span>
+        <label class="pill-toggle"><input type="radio" name="presetExportFormat" value="compressed" checked> <span id="presetExportFormatCompressedLabel">압축 문자열</span></label>
+        <label class="pill-toggle"><input type="radio" name="presetExportFormat" value="json"> <span id="presetExportFormatJsonLabel">JSON</span></label>
+      </div>
+      <textarea id="presetExportOutput" class="export-output" rows="8" readonly spellcheck="false" aria-labelledby="presetExportTitle" aria-describedby="presetExportDescription"></textarea>
+      <div class="modal-footer export-modal-footer">
+        <span id="presetExportStatus" class="preset-status" aria-live="polite"></span>
+        <div class="modal-actions">
+          <button id="presetExportCopy" class="compact-command" type="button">클립보드에 복사</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="dryMassCalcModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dryMassCalcTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="dryMassCalcTitle" class="modal-title">건조질량 계산기</h2>
+        <button id="dryMassCalcClose" class="compact-command" type="button">닫기</button>
+      </div>
+      <div class="calculator-grid">
+        <section id="dryMassPresetLibrary" class="calculator-panel calculator-panel-wide dry-mass-preset-panel" aria-label="설계 프리셋 라이브러리">
+          <div class="preset-library-row preset-toolbar-row dry-mass-preset-toolbar">
+            <select id="dryMassPresetSelect" aria-label="설계 프리셋" data-searchable-select="true" data-searchable-match="label"></select>
+            <div class="preset-button-row dry-mass-preset-actions">
+              <button id="dryMassPresetSave" class="compact-command" type="button">저장</button>
+              <button id="dryMassPresetSaveAsNew" class="compact-command" type="button">새 이름으로 저장</button>
+              <button id="dryMassPresetRename" class="compact-command" type="button">이름 변경</button>
+              <button id="dryMassPresetDelete" class="compact-command" type="button">삭제</button>
+              <details class="preset-actions-menu" id="dryMassPresetActionsMenu">
+                <summary><span id="dryMassPresetMoreLabel">프리셋 관리</span></summary>
+                <div class="preset-menu-panel preset-menu-grouped dry-mass-transfer-menu">
+                  <div class="preset-menu-section">
+                    <div id="dryMassPresetTransferGroupLabel" class="preset-menu-heading">가져오기 / 내보내기</div>
+                    <div class="preset-menu-actions">
+                      <button id="dryMassPresetExportSelected" class="compact-command" type="button">현재 설정 Export</button>
+                      <button id="dryMassPresetImport" class="compact-command" type="button">Import</button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+          <span id="dryMassPresetStatus" class="preset-status" aria-live="polite"></span>
+        </section>
+        <section class="calculator-panel">
+          <label id="dryMassCalcClassLabel" class="label" for="dryMassCalcClass">함급</label>
+          <select id="dryMassCalcClass" data-searchable-select="true"></select>
+          <div id="dryMassCalcInfo" class="calc-info-grid"></div>
+        </section>
+        <section class="calculator-panel">
+          <div class="label" id="dryMassCalcArmorLabel">장갑</div>
+          <div id="dryMassCalcArmor"></div>
+        </section>
+        <section class="calculator-panel calculator-panel-wide">
+          <div class="label" id="dryMassCalcWeaponsLabel">무장 하드포인트</div>
+          <div id="dryMassCalcWeapons"></div>
+        </section>
+        <section class="calculator-panel calculator-panel-wide">
+          <div class="label" id="dryMassCalcSlotsLabel">내부 유틸리티 모듈</div>
+          <div id="dryMassCalcSlots"></div>
+        </section>
+        <section id="shipPresetSimulationDefaults" class="calculator-panel calculator-panel-wide simulation-defaults-panel" aria-label="시뮬레이션 기본 조건">
+          <div id="shipPresetSimulationDefaultsLabel" class="label">시뮬레이션 기본 조건</div>
+          <div class="simulation-defaults-grid">
+            <label id="shipPresetTargetDvLabel" class="label" for="shipPresetTargetDv">목표 dV (km/s)</label>
+            <input id="shipPresetTargetDv" type="number" min="0" max="100000" step="1">
+            <label id="shipPresetMinTwrLabel" class="label" for="shipPresetMinTwr">최소 TWR (mg)</label>
+            <input id="shipPresetMinTwr" type="number" min="0.1" max="10000" value="0.1" step="0.1">
+            <label id="shipPresetRadiatorLabel" class="label" for="shipPresetRadiator">라디에이터</label>
+            <select id="shipPresetRadiator" data-searchable-select="true"></select>
+          </div>
+        </section>
+        <section class="calculator-panel calculator-panel-wide">
+          <label id="dryMassCalcNotesLabel" class="label" for="dryMassCalcNotes">메모</label>
+          <textarea id="dryMassCalcNotes" class="calc-notes" rows="3" placeholder="선박 설계 가정 메모"></textarea>
+        </section>
+      </div>
+      <div class="modal-footer dry-mass-modal-footer">
+        <section class="calculator-panel dry-mass-summary-card" aria-label="예상 건조질량">
+          <div class="dry-mass-summary-row">
+            <div id="dryMassCalcTotal" class="calc-total"></div>
+            <div id="dryMassCalcBreakdown" class="calc-breakdown"></div>
+          </div>
+        </section>
+        <div class="modal-actions dry-mass-modal-actions dry-mass-footer-actions">
+          <button id="dryMassCalcReset" class="compact-command" type="button">초기화</button>
+          <span class="dry-mass-preset-apply-spacer" aria-hidden="true"></span>
+          <button id="dryMassCalcApply" class="compact-command" type="button">건조질량만 적용</button>
+          <button id="dryMassCalcApplyWithDefaults" class="compact-command primary-command" type="button">건조질량·기본 조건 적용</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script id="ti-data" type="application/json">__DATA_JSON__</script>
+  <script id="ti-static-translations" type="application/json">__STATIC_TRANSLATIONS__</script>
+  <script id="ti-note-html" type="application/json">__NOTE_HTML__</script>
+  <script type="module" src="__CLIENT_ENTRY_SCRIPT__"></script>
+</body>
+</html>

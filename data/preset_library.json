@@ -1,0 +1,329 @@
+{
+  "format": "ti-engine-chart-built-in-presets/v1",
+  "chartPresets": [
+    {
+      "id": "example-preset-1",
+      "name": "Example",
+      "settings": {
+        "format": "ti-engine-chart-preset/v1",
+        "lang": "en",
+        "metric": "totalMassTons",
+        "thrusters": 1,
+        "fuelEfficiencyUnit": "kps",
+        "dryMassTons": 6903.141157222665,
+        "targetDvKps": 15,
+        "radiatorId": "TinDroplet",
+        "logX": false,
+        "logY": true,
+        "showTwrInfo": true,
+        "showMassInfo": true,
+        "paretoHighlight": true,
+        "showImpracticalCandidates": false,
+        "powerResearchView": "focus",
+        "connectionLineMode": "lineage",
+        "moduleEffectsEnabled": true,
+        "moduleEffectSource": "dryMassCalculator",
+        "moduleEffectModuleIds": [],
+        "minTwr": 0.02,
+        "minDvKps": 0,
+        "searchTerm": "",
+        "categories": {
+          "Chemical": false,
+          "Electric": true,
+          "Fission": true,
+          "Fusion": false,
+          "Antimatter": false,
+          "Alien": false
+        },
+        "families": {
+          "Chemical:Chemical": true,
+          "Electric:Electromagnetic": true,
+          "Electric:Electrostatic": true,
+          "Electric:Electrothermal": true,
+          "Fission:Fission_Pulse": true,
+          "Fission:Gas_Core_Fission": true,
+          "Fission:Liquid_Core_Fission": true,
+          "Fission:NuclearSaltWater": true,
+          "Fission:Solid_Core_Fission": true,
+          "Fusion:Electrostatic_Confinement_Fusion": true,
+          "Fusion:Inertial_Confinement_Fusion": true,
+          "Fusion:Hybrid_Confinement_Fusion": true,
+          "Fusion:Mirrored_Magnetic_Confinement_Fusion": true,
+          "Fusion:Toroid_Magnetic_Confinement_Fusion": true,
+          "Fusion:Z_Pinch_Fusion": true,
+          "Antimatter:Antimatter_Beam_Core": true,
+          "Antimatter:Antimatter_Plasma_Core": true,
+          "Alien:Alien": true
+        },
+        "dryMassCalculator": {
+          "classId": "Battleship",
+          "slotModules": [
+            "TargetingComputer3",
+            "ElectronicCountermeasures3",
+            "Magazine",
+            "Magazine",
+            "Magazine",
+            "SalvageBay"
+          ],
+          "weaponModules": {
+            "nose": [
+              "CoilCannonMk2"
+            ],
+            "hull": [
+              "PoseidonTorpedoBay",
+              "PoseidonTorpedoBay",
+              "PoseidonTorpedoBay",
+              "PoseidonTorpedoBay",
+              "PoseidonTorpedoBay",
+              "PoseidonTorpedoBay"
+            ]
+          },
+          "armor": {
+            "tail": {
+              "armorId": "AdamantaneArmor",
+              "points": 3
+            },
+            "hull": {
+              "armorId": "AdamantaneArmor",
+              "points": 1
+            },
+            "nose": {
+              "armorId": "AdamantaneArmor",
+              "points": 30
+            }
+          },
+          "notes": "You can replace two Missile Monitors with this. It's more MC-efficient, a better arrangement of utilities and a fallback weapon. However, it takes longer than building 2 Missile Monitors to build one.",
+          "simulationDefaults": {
+            "targetDvKps": 15,
+            "minTwr": 0.02,
+            "radiatorId": "TinDroplet"
+          }
+        },
+        "selectedDesignPresetId": "built-in-design:design-export-ec02530f-442d-40c3-8dae-2fdbd950a5f9"
+      }
+    }
+  ],
+  "dryMassPresets": [
+    {
+      "format": "ti-engine-chart-design-preset/v1",
+      "id": "design-07c28102-8fee-4087-87f2-042f3d54101b",
+      "name": "Missile Monitor - Early Defense",
+      "dryMassDesign": {
+        "classId": "Monitor",
+        "slotModules": [
+          "TargetingComputer2",
+          "Magazine",
+          "Magazine"
+        ],
+        "weaponModules": {
+          "nose": [],
+          "hull": [
+            "ApolloTorpedoBay",
+            "ApolloTorpedoBay",
+            "ApolloTorpedoBay",
+            "ApolloTorpedoBay"
+          ]
+        },
+        "armor": {
+          "tail": {
+            "armorId": "NanotubeArmor",
+            "points": 1
+          },
+          "hull": {
+            "armorId": "NanotubeArmor",
+            "points": 1
+          },
+          "nose": {
+            "armorId": "NanotubeArmor",
+            "points": 8
+          }
+        },
+        "notes": "Decent orbital defense ship. With enough of these and a slight upgrade, you can secure your orbit. Switch to Viper Missile to saturate enemy PD if you can't afford enough."
+      },
+      "simulationDefaults": {
+        "targetDvKps": 5,
+        "minTwr": 0.02,
+        "radiatorId": "TitaniumArray"
+      },
+      "createdAt": "2026-06-10T22:58:40.574Z",
+      "updatedAt": "2026-06-10T23:04:06.761Z"
+    },
+    {
+      "format": "ti-engine-chart-design-preset/v1",
+      "id": "design-export-a93d33f2-856e-4f8e-a1e5-974865336251",
+      "name": "Missile Escort - Intermediate Defense",
+      "dryMassDesign": {
+        "classId": "Escort",
+        "slotModules": [
+          "TargetingComputer1",
+          "Magazine"
+        ],
+        "weaponModules": {
+          "nose": [],
+          "hull": [
+            "KraitMissileBay",
+            "KraitMissileBay"
+          ]
+        },
+        "armor": {
+          "tail": {
+            "armorId": "SiliconCarbideArmor",
+            "points": 0
+          },
+          "hull": {
+            "armorId": "SiliconCarbideArmor",
+            "points": 0
+          },
+          "nose": {
+            "armorId": "SiliconCarbideArmor",
+            "points": 8
+          }
+        },
+        "notes": "Early orbital defense. If you advance your techs fast or not intend to provoke alien early, you won't need this."
+      },
+      "simulationDefaults": {
+        "targetDvKps": 5,
+        "minTwr": 0.02,
+        "radiatorId": "TitaniumArray"
+      },
+      "createdAt": "2026-06-10T23:05:01.839Z",
+      "updatedAt": "2026-06-10T23:09:40.732Z"
+    },
+    {
+      "format": "ti-engine-chart-design-preset/v1",
+      "id": "design-export-39d5adab-ef8a-4efe-be81-58e77ca0f25c",
+      "name": "Missile Monitor - Advanced Defense",
+      "dryMassDesign": {
+        "classId": "Monitor",
+        "slotModules": [
+          "TargetingComputer3",
+          "Magazine",
+          "Magazine"
+        ],
+        "weaponModules": {
+          "nose": [],
+          "hull": [
+            "PoseidonTorpedoBay",
+            "PoseidonTorpedoBay",
+            "PoseidonTorpedoBay",
+            "PoseidonTorpedoBay"
+          ]
+        },
+        "armor": {
+          "tail": {
+            "armorId": "AdamantaneArmor",
+            "points": 1
+          },
+          "hull": {
+            "armorId": "AdamantaneArmor",
+            "points": 1
+          },
+          "nose": {
+            "armorId": "AdamantaneArmor",
+            "points": 30
+          }
+        },
+        "notes": "Enough of these would be grant you a very secure planetary orbit. If you can build these, consider Missile Battleships too."
+      },
+      "simulationDefaults": {
+        "targetDvKps": 15,
+        "minTwr": 0.02,
+        "radiatorId": "TinDroplet"
+      },
+      "createdAt": "2026-06-10T23:09:06.632Z",
+      "updatedAt": "2026-06-10T23:09:35.139Z"
+    },
+    {
+      "format": "ti-engine-chart-design-preset/v1",
+      "id": "design-export-ec02530f-442d-40c3-8dae-2fdbd950a5f9",
+      "name": "Missile Battleship - Advanced Defense",
+      "dryMassDesign": {
+        "classId": "Battleship",
+        "slotModules": [
+          "TargetingComputer3",
+          "ElectronicCountermeasures3",
+          "Magazine",
+          "Magazine",
+          "Magazine",
+          "SalvageBay"
+        ],
+        "weaponModules": {
+          "nose": [
+            "CoilCannonMk2"
+          ],
+          "hull": [
+            "PoseidonTorpedoBay",
+            "PoseidonTorpedoBay",
+            "PoseidonTorpedoBay",
+            "PoseidonTorpedoBay",
+            "PoseidonTorpedoBay",
+            "PoseidonTorpedoBay"
+          ]
+        },
+        "armor": {
+          "tail": {
+            "armorId": "AdamantaneArmor",
+            "points": 3
+          },
+          "hull": {
+            "armorId": "AdamantaneArmor",
+            "points": 1
+          },
+          "nose": {
+            "armorId": "AdamantaneArmor",
+            "points": 30
+          }
+        },
+        "notes": "You can replace two Missile Monitors with this. It's more MC-efficient, a better arrangement of utilities and a fallback weapon. However, it takes longer than building 2 Missile Monitors to build one."
+      },
+      "simulationDefaults": {
+        "targetDvKps": 15,
+        "minTwr": 0.02,
+        "radiatorId": "TinDroplet"
+      },
+      "createdAt": "2026-06-11T02:23:26.569Z",
+      "updatedAt": "2026-06-12T11:16:43.301Z"
+    },
+    {
+      "format": "ti-engine-chart-design-preset/v1",
+      "id": "design-export-e0439565-1db9-4610-be3a-3a6ff8b5fcdd",
+      "name": "Assault Ship - Early Design",
+      "dryMassDesign": {
+        "classId": "Destroyer",
+        "slotModules": [
+          "MarineAssaultUnit",
+          "MarineAssaultUnit",
+          "FissionOutpostKit",
+          "MobileSpaceScienceLab",
+          "FissionPlatformKit"
+        ],
+        "weaponModules": {
+          "nose": [],
+          "hull": []
+        },
+        "armor": {
+          "tail": {
+            "armorId": "SiliconCarbideArmor",
+            "points": 1
+          },
+          "hull": {
+            "armorId": "SiliconCarbideArmor",
+            "points": 1
+          },
+          "nose": {
+            "armorId": "SiliconCarbideArmor",
+            "points": 1
+          }
+        },
+        "notes": "Early asteroid belt assault ship to raid lightly guarded enemy bases and build a station in orbit to repair, refuel and rearm. Replace the outpost kit with marine module if you're not interested in building your own base."
+      },
+      "simulationDefaults": {
+        "targetDvKps": 150,
+        "minTwr": 0.0001,
+        "radiatorId": "TitaniumArray"
+      },
+      "createdAt": "2026-06-11T02:31:35.838Z",
+      "updatedAt": "2026-06-11T02:49:54.775Z"
+    }
+  ]
+}

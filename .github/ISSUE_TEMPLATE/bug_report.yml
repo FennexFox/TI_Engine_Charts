@@ -1,0 +1,67 @@
+name: Bug report
+description: Report a reproducible bug or incorrect behavior.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for confirmed or reproducible problems in the engine chart dashboard.
+        For early ideas or open-ended design discussion, use Discussions when available.
+  - type: input
+    id: game-version
+    attributes:
+      label: Game version
+      placeholder: e.g. 1.0.32, or the version shown in the page footer
+    validations:
+      required: true
+  - type: input
+    id: site-version
+    attributes:
+      label: Site version / commit
+      placeholder: e.g. GitHub Pages main, local develop, or a commit SHA
+    validations:
+      required: false
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is happening, and why is it wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Load save
+        2. Enable ...
+        3. Wait ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots / evidence
+      description: Paste logs or attach screenshots if available.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - chart-ui
+        - drive-data
+        - ship-designer
+        - dry-mass-calculator
+        - module-effects
+        - presets-storage
+        - build-generated-output
+        - docs-repo-meta
+    validations:
+      required: true

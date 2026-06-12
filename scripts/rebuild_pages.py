@@ -16,12 +16,14 @@ RESEARCH_CATALOG_MARKDOWN = "docs/research_catalog.md"
 SHIP_CATALOG_JSON = "data/ship_catalog.json"
 SHIP_CATALOG_MARKDOWN = "docs/ship_catalog.md"
 DRIVE_COMPARISON_HTML = "docs/index.html"
+DRIVE_COMPARISON_CLIENT_ASSETS = "docs/assets/js"
 GENERATED_PATHS = (
     RESEARCH_CATALOG_JSON,
     RESEARCH_CATALOG_MARKDOWN,
     SHIP_CATALOG_JSON,
     SHIP_CATALOG_MARKDOWN,
     DRIVE_COMPARISON_HTML,
+    DRIVE_COMPARISON_CLIENT_ASSETS,
 )
 
 
@@ -70,43 +72,49 @@ def build_pages(args: argparse.Namespace) -> None:
     python = sys.executable
     npm = "npm.cmd" if os.name == "nt" else "npm"
 
-    research_command = [
-        python,
-        "tools/build_research_catalog.py",
-        "--json-output",
-        RESEARCH_CATALOG_JSON,
-        "--markdown-output",
-        RESEARCH_CATALOG_MARKDOWN,
-        "--markdown-language",
-        "en",
-    ]
-    optional_arg(research_command, "--templates-dir", args.templates_dir)
-    run(research_command)
-
-    ship_catalog_command = [
-        python,
-        "tools/build_ship_catalog.py",
-        "--json-output",
-        SHIP_CATALOG_JSON,
-        "--markdown-output",
-        SHIP_CATALOG_MARKDOWN,
-        "--markdown-language",
-        "en",
-    ]
-    optional_arg(ship_catalog_command, "--templates-dir", args.templates_dir)
-    run(ship_catalog_command)
-
-    common_chart_args = [
-        "--research-catalog",
-        RESEARCH_CATALOG_JSON,
-        "--ship-catalog",
-        SHIP_CATALOG_JSON,
-        "--portable",
-    ]
-    if args.templates_dir:
-        common_chart_args.extend(["--templates-dir", args.templates_dir])
+    common_chart_args = ["--redact-source-paths"]
     if args.game_version:
         common_chart_args.extend(["--game-version", args.game_version])
+    optional_arg(common_chart_args, "--preset-library", args.preset_library)
+
+    if args.ui_only:
+        input_html_data = args.input_html_data or DRIVE_COMPARISON_HTML
+        common_chart_args.extend(["--input-html-data", input_html_data])
+    else:
+        research_command = [
+            python,
+            "tools/build_research_catalog.py",
+            "--json-output",
+            RESEARCH_CATALOG_JSON,
+            "--markdown-output",
+            RESEARCH_CATALOG_MARKDOWN,
+            "--markdown-language",
+            "en",
+        ]
+        optional_arg(research_command, "--templates-dir", args.templates_dir)
+        run(research_command)
+
+        ship_catalog_command = [
+            python,
+            "tools/build_ship_catalog.py",
+            "--json-output",
+            SHIP_CATALOG_JSON,
+            "--markdown-output",
+            SHIP_CATALOG_MARKDOWN,
+            "--markdown-language",
+            "en",
+        ]
+        optional_arg(ship_catalog_command, "--templates-dir", args.templates_dir)
+        run(ship_catalog_command)
+
+        common_chart_args.extend([
+            "--research-catalog",
+            RESEARCH_CATALOG_JSON,
+            "--ship-catalog",
+            SHIP_CATALOG_JSON,
+        ])
+        if args.templates_dir:
+            common_chart_args.extend(["--templates-dir", args.templates_dir])
 
     run([python, "tools/build_drive_comparison.py", *common_chart_args, "--output", DRIVE_COMPARISON_HTML])
 
@@ -115,6 +123,10 @@ def build_pages(args: argparse.Namespace) -> None:
 
 
 def commit_and_push(args: argparse.Namespace) -> None:
+    if args.no_commit and not (ROOT / ".git").exists():
+        print("Skipping generated-file git status because this directory is not a git checkout and --no-commit was passed.")
+        return
+
     if not generated_paths_changed():
         print("No generated page changes.")
         return
@@ -148,6 +160,19 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--templates-dir", help="Path to TerraInvicta_Data/StreamingAssets/Templates.")
     parser.add_argument("--game-version", help="Version label to embed in the generated chart footer.")
+    parser.add_argument(
+        "--preset-library",
+        help="Optional JSON file containing built-in chartPresets and dryMassPresets to embed.",
+    )
+    parser.add_argument(
+        "--ui-only",
+        action="store_true",
+        help="Rebuild docs/index.html from existing embedded page data without regenerating catalogs.",
+    )
+    parser.add_argument(
+        "--input-html-data",
+        help="Existing generated HTML page whose embedded DATA JSON should be reused with --ui-only.",
+    )
     parser.add_argument("--skip-verify", action="store_true", help="Skip Playwright browser verification.")
     parser.add_argument("--no-commit", action="store_true", help="Build and verify without committing generated changes.")
     parser.add_argument("--no-push", action="store_true", help="Do not push after committing generated changes.")

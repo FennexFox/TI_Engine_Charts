@@ -1,0 +1,44 @@
+name: Release checklist
+description: Prepare and verify a release.
+title: "[Release] "
+labels: ["release"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Target version
+      placeholder: e.g. v0.2.0
+    validations:
+      required: true
+  - type: textarea
+    id: changes
+    attributes:
+      label: Included changes
+      description: Summarize the user-facing changes.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Release-gate evidence / validation
+      description: List the validation artifacts that apply to this release scope, including local build output, verification commands, and GitHub Pages deployment checks. If no scoped gate applies, say so explicitly.
+      placeholder: |
+        - build: npm run build
+        - verification: npm run verify
+        - generated output reviewed: docs/index.html, docs/assets/js/**, generated catalogs
+        - GitHub Pages deployment check: pending / passed / not applicable
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: README updated
+        - label: Generated docs/index.html rebuilt
+        - label: Generated docs/assets/js rebuilt
+        - label: npm run build completed successfully
+        - label: npm run verify completed successfully
+        - label: GitHub Pages deployment path confirmed
+        - label: Release notes or release PR body reviewed
+        - label: Tag/version confirmed when applicable
