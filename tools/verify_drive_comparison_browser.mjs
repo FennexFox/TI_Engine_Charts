@@ -201,12 +201,37 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       && (row.powerOptions || row.reactorOptions || []).length
     ));
     const firstOption = row => chartMassOptions(row)[0] || null;
+    const installVerifierHeatModule = () => {
+      const modules = DATA.shipCatalog && Array.isArray(DATA.shipCatalog.utilityModules)
+        ? DATA.shipCatalog.utilityModules
+        : [];
+      if (!modules.some(module => module && module.dataName === "VerifierHeatSink")) {
+        modules.push({
+          dataName: "VerifierHeatSink",
+          friendlyName: "Verifier Heat Sink",
+          displayName: { en: "Verifier Heat Sink", ko: "Verifier Heat Sink" },
+          effects: [{
+            type: "wasteHeatMultiplier",
+            operation: "multiply",
+            multiplier: 0.5,
+            sourceRule: "WasteHeatMultiplier",
+          }],
+        });
+      }
+    };
     if (!fusionHydrogen || !fissionHydrogen) return { missingFixture: true };
+    installVerifierHeatModule();
 
     state.moduleEffectsEnabled = false;
     state.moduleEffectModuleIds = ["MuonSpiker", "HydronTrap"];
     const base = firstOption(fusionHydrogen);
     const disabled = firstOption(fusionHydrogen);
+    const heatFixtureDrive = DATA.drives.find(row => {
+      if (row.openCycleCooling || !(Number(row.powerRequirementGW) > 0)) return false;
+      const option = firstOption(row);
+      return !!option && !option.selfContained && option.wasteHeatGW > 0;
+    });
+    const heatBase = heatFixtureDrive ? firstOption(heatFixtureDrive) : null;
 
     state.moduleEffectsEnabled = true;
     state.moduleEffectModuleIds = ["MuonSpiker"];
@@ -233,6 +258,9 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const powerAux = firstOption(fusionHydrogen);
     const powerMetric = metricDefs.powerRequirementGW.value(fusionHydrogen);
 
+    state.moduleEffectModuleIds = ["VerifierHeatSink"];
+    const heat = heatFixtureDrive ? firstOption(heatFixtureDrive) : null;
+
     return {
       missingFixture: false,
       disabledParity: !!base && !!disabled
@@ -258,9 +286,16 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       powerAuxApplied: !!base && !!powerAux
         && Math.abs(powerAux.moduleAuxiliaryPowerGW - 0.005) < 1e-12
         && Math.abs(powerAux.modifiedPowerRequirementGW - (powerAux.basePowerRequirementGW + 0.005)) < 1e-12
+        && powerAux.modifiedWasteHeatGW > powerAux.baseWasteHeatGW
         && powerAux.powerPlantMassTons > base.powerPlantMassTons
+        && powerAux.radiatorMassTons > powerAux.baseRadiatorMassTons
         && powerAux.wasteHeatGW > base.wasteHeatGW
         && powerAux.moduleEffectDiagnostics.powerWarnings.some(item => item.rule === "LaserPowerBonus"),
+      heatApplied: !!heatBase && !!heat
+        && Math.abs(heat.wasteHeatMultiplier - 0.5) < 1e-12
+        && heat.modifiedWasteHeatGW < heat.baseWasteHeatGW
+        && heat.radiatorMassTons < heat.baseRadiatorMassTons
+        && Math.abs(heat.powerPlantMassTons - heatBase.powerPlantMassTons) < 1e-9,
       thrustMetricEffective: Math.abs(thrustMetric - fusionHydrogen.thrustN * 1.1 / 1e6) < 1e-9,
       evMetricEffective: Math.abs(evMetric - fusionHydrogen.exhaustVelocityKps * 1.5) < 1e-9,
       ispMetricEffective: ispMetric > fusionHydrogen.specificImpulseSeconds * 1.49,
@@ -274,6 +309,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectCalculationChecks.incompatibleSkipped, `${htmlFile}: incompatible module effect was not skipped with diagnostics`);
   expect(moduleEffectCalculationChecks.unsupportedDiagnosed, `${htmlFile}: unsupported module rule was not carried as diagnostics`);
   expect(moduleEffectCalculationChecks.powerAuxApplied, `${htmlFile}: auxiliary module power did not update power demand and mass options`);
+  expect(moduleEffectCalculationChecks.heatApplied, `${htmlFile}: waste heat multiplier did not update heat and radiator mass options`);
   expect(moduleEffectCalculationChecks.thrustMetricEffective, `${htmlFile}: thrust metric did not use effective thrust`);
   expect(moduleEffectCalculationChecks.evMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective exhaust velocity`);
   expect(moduleEffectCalculationChecks.ispMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective specific impulse`);
@@ -290,6 +326,25 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     state.moduleEffectSource = "manual";
     state.moduleEffectModuleIds = ["MuonSpiker", "ArmorStruts"];
     state.moduleEffectsEnabled = false;
+    const installVerifierHeatModule = () => {
+      const modules = DATA.shipCatalog && Array.isArray(DATA.shipCatalog.utilityModules)
+        ? DATA.shipCatalog.utilityModules
+        : [];
+      if (!modules.some(module => module && module.dataName === "VerifierHeatSink")) {
+        modules.push({
+          dataName: "VerifierHeatSink",
+          friendlyName: "Verifier Heat Sink",
+          displayName: { en: "Verifier Heat Sink", ko: "Verifier Heat Sink" },
+          effects: [{
+            type: "wasteHeatMultiplier",
+            operation: "multiply",
+            multiplier: 0.5,
+            sourceRule: "WasteHeatMultiplier",
+          }],
+        });
+      }
+    };
+    installVerifierHeatModule();
     syncUiFromState();
 
     const panel = document.getElementById("moduleEffectsControl");
@@ -324,6 +379,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       row.propellant !== "Hydrogen"
       && (row.powerOptions || row.reactorOptions || []).length
     ));
+    const heatFixtureDrive = currentChartRows.find(row => {
+      if (row.openCycleCooling || !(Number(row.powerRequirementGW) > 0)) return false;
+      const option = chartMassOptions(row)[0] || null;
+      return !!option && !option.selfContained && option.wasteHeatGW > 0;
+    });
 
     let compatibleTooltipText = "";
     let compatibleTooltipChips = 0;
@@ -363,6 +423,21 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     syncUiFromState();
     const unsupportedPanelText = panel?.textContent || "";
 
+    state.moduleEffectModuleIds = ["VerifierHeatSink"];
+    syncUiFromState();
+    const heatPanelText = panel?.textContent || "";
+    let heatTooltipText = "";
+    if (heatFixtureDrive) {
+      const option = chartMassOptions(heatFixtureDrive)[0];
+      if (option) {
+        const ref = tooltipRef(heatFixtureDrive.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        heatTooltipText = document.querySelector("#tooltip")?.textContent || "";
+      }
+    }
+
     setLanguage("ko", { rerender: false });
     syncUiFromState();
     const koreanPanelText = panel?.textContent || "";
@@ -391,6 +466,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && compatibleTooltipChips > 0,
       incompatibleTooltipWarns: /unmet prerequisite/i.test(incompatibleTooltipText) && /hydrogenPropellant/.test(incompatibleTooltipText),
       unsupportedPanelWarns: /rules not modeled/i.test(unsupportedPanelText) && /LaserPowerBonus/.test(unsupportedPanelText) && /Aux power/i.test(unsupportedPanelText),
+      heatPanelSummarizes: /Waste heat x0.5/.test(heatPanelText),
+      heatTooltipShowsModifiedHeat: /Waste heat/i.test(heatTooltipText) && /base/i.test(heatTooltipText) && /heat multiplier x0.5/i.test(heatTooltipText),
       koreanPanelLocalized: !/Apply module performance effects|Source:/.test(koreanPanelText),
     };
   });
@@ -409,6 +486,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectUxChecks.compatibleTooltipShowsEffects, `${htmlFile}: compatible drive tooltip did not show active module effects and base values`);
   expect(moduleEffectUxChecks.incompatibleTooltipWarns, `${htmlFile}: incompatible drive tooltip did not show unmet prerequisite warning`);
   expect(moduleEffectUxChecks.unsupportedPanelWarns, `${htmlFile}: unsupported-only module effect selection was silent`);
+  expect(moduleEffectUxChecks.heatPanelSummarizes, `${htmlFile}: heat-effect module selection was not summarized in the panel`);
+  expect(moduleEffectUxChecks.heatTooltipShowsModifiedHeat, `${htmlFile}: heat-effect tooltip did not show modified waste heat and base value`);
   expect(moduleEffectUxChecks.koreanPanelLocalized, `${htmlFile}: module effects panel did not update when switching to Korean`);
 
   await page.setViewportSize({ width: 390, height: 900 });

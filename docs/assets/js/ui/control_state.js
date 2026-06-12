@@ -26,6 +26,7 @@ function effectSummary(effect) {
   const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
   if (effect && effect.type === "thrustMultiplier") return `${localText("추력", "Thrust")} ${value}`.trim();
   if (effect && effect.type === "exhaustVelocityMultiplier") return `${localText("EV/Isp", "EV/Isp")} ${value}`.trim();
+  if (effect && effect.type === "wasteHeatMultiplier") return `${localText("폐열", "Waste heat")} ${value}`.trim();
   return effect && effect.type ? `${effect.type} ${value}`.trim() : "";
 }
 
@@ -129,7 +130,7 @@ export function updateModuleEffectsPanel() {
     }
   });
   if (effectModules.length) {
-    appendWarning(warnings, localText("전력 요구량, 폐열, 라디에이터 질량은 아직 기본값으로 유지됩니다.", "Power demand, waste heat, and radiator mass remain base values for now."));
+    appendWarning(warnings, localText("지원되는 모듈의 추진, 전력, 폐열 효과가 차트 계산에 반영됩니다.", "Supported module drive, power, and heat effects are reflected in chart calculations."));
   }
 }
 

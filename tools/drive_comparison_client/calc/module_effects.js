@@ -3,6 +3,7 @@ const STANDARD_GRAVITY_MPS2 = 9.80665;
 const RAW_EFFECT_RULES = {
   ThrustMultiplier: "thrustMultiplier",
   EVMultiplier: "exhaustVelocityMultiplier",
+  WasteHeatMultiplier: "wasteHeatMultiplier",
 };
 
 const RAW_REQUIREMENT_RULES = {
@@ -199,6 +200,14 @@ function unsupportedEffectWarning(module, effect, reason) {
   };
 }
 
+function isHeatRuleCategory(category) {
+  const normalized = normalizeToken(category);
+  return normalized === "heat"
+    || normalized === "wasteheat"
+    || normalized === "thermal"
+    || normalized === "radiator";
+}
+
 function modulePowerContribution(module) {
   const powerRequirementMW = finiteNumber(module && module.powerRequirementMW, 0);
   if (!Number.isFinite(powerRequirementMW) || powerRequirementMW <= 0) return null;
@@ -221,12 +230,14 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
     unsupportedEffects: [],
     skippedEffects: [],
     powerWarnings: [],
+    heatWarnings: [],
   };
   const activeEffects = [];
   const powerContributions = [];
   const multipliers = {
     thrust: 1,
     exhaustVelocity: 1,
+    wasteHeat: 1,
   };
 
   modules.forEach(module => {
@@ -240,6 +251,12 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
         diagnostics.powerWarnings.push({
           ...warning,
           reason: "unsupportedPowerRule",
+        });
+      }
+      if (isHeatRuleCategory(warning.category)) {
+        diagnostics.heatWarnings.push({
+          ...warning,
+          reason: "unsupportedHeatRule",
         });
       }
     });
@@ -283,6 +300,11 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
         activeEffects.push({ ...summary, field: "exhaustVelocityKps", before, after: effective.exhaustVelocityKps });
         return;
       }
+      if (summary.type === "wasteHeatMultiplier") {
+        multipliers.wasteHeat *= multiplier;
+        activeEffects.push({ ...summary, field: "wasteHeatGW" });
+        return;
+      }
       diagnostics.unsupportedEffects.push(unsupportedEffectWarning(module, effect, "unsupportedEffectType"));
     });
   });
@@ -306,6 +328,9 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
     modifiedPowerRequirementGW: effective.powerRequirementGW,
     moduleAuxiliaryPowerGW,
     powerContributions,
+    baseWasteHeatGW: null,
+    modifiedWasteHeatGW: null,
+    wasteHeatMultiplier: multipliers.wasteHeat,
     multipliers,
     activeEffects,
     diagnostics,

@@ -212,6 +212,7 @@ export function effectiveDriveValues(row) {
           powerRequirementGW: row.powerRequirementGW,
           basePowerRequirementGW: row.powerRequirementGW,
           moduleAuxiliaryPowerGW: 0,
+          wasteHeatMultiplier: 1,
           moduleEffectEvaluation: null,
         };
       }
@@ -222,6 +223,7 @@ export function effectiveDriveValues(row) {
         powerRequirementGW: evaluation.modifiedPowerRequirementGW,
         basePowerRequirementGW: evaluation.basePowerRequirementGW,
         moduleAuxiliaryPowerGW: evaluation.moduleAuxiliaryPowerGW,
+        wasteHeatMultiplier: evaluation.wasteHeatMultiplier,
         moduleEffectEvaluation: evaluation,
       };
     }
@@ -241,11 +243,17 @@ export function massOptions(row) {
         const basePowerRequirementGW = Number.isFinite(Number(effective.basePowerRequirementGW)) ? Number(effective.basePowerRequirementGW) : row.powerRequirementGW;
         const modifiedPowerRequirementGW = Number.isFinite(Number(effective.powerRequirementGW)) ? Number(effective.powerRequirementGW) : basePowerRequirementGW;
         const moduleAuxiliaryPowerGW = Number.isFinite(Number(effective.moduleAuxiliaryPowerGW)) ? Number(effective.moduleAuxiliaryPowerGW) : 0;
+        const wasteHeatMultiplier = Number.isFinite(Number(effective.wasteHeatMultiplier)) ? Number(effective.wasteHeatMultiplier) : 1;
+        const baseSelfContained = !!option.selfContained || basePowerRequirementGW <= 0;
         const selfContained = !!option.selfContained || modifiedPowerRequirementGW <= 0;
         const powerPlantMassTons = selfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * modifiedPowerRequirementGW);
-        const wasteHeatGW = selfContained || row.openCycleCooling ? 0 : modifiedPowerRequirementGW * (1 - option.efficiency);
+        const baseWasteHeatGW = baseSelfContained || row.openCycleCooling ? 0 : basePowerRequirementGW * (1 - option.efficiency);
+        const modifiedWasteHeatGW = selfContained || row.openCycleCooling ? 0 : Math.max(0, modifiedPowerRequirementGW * (1 - option.efficiency) * wasteHeatMultiplier);
+        const baseRadiatorMassTons = !baseSelfContained && radiatorSpecificPower > 0
+          ? Math.max(0, baseWasteHeatGW * 1_000_000 / radiatorSpecificPower / 1000)
+          : 0;
         const radiatorMassTons = !selfContained && radiatorSpecificPower > 0
-          ? Math.max(0, wasteHeatGW * 1_000_000 / radiatorSpecificPower / 1000)
+          ? Math.max(0, modifiedWasteHeatGW * 1_000_000 / radiatorSpecificPower / 1000)
           : 0;
         const hardwareMassTons = row.driveMassTons + powerPlantMassTons + radiatorMassTons;
         const dryWithHardwareTons = baseDryTons + hardwareMassTons;
@@ -262,6 +270,7 @@ export function massOptions(row) {
           activeModuleEffects: effectEvaluation.activeEffects,
           powerContributions: effectEvaluation.powerContributions,
           moduleAuxiliaryPowerGW: effectEvaluation.moduleAuxiliaryPowerGW,
+          wasteHeatMultiplier: effectEvaluation.wasteHeatMultiplier,
           moduleEffectDiagnostics: {
             ...effectEvaluation.diagnostics,
           },
@@ -273,8 +282,12 @@ export function massOptions(row) {
           basePowerRequirementGW,
           modifiedPowerRequirementGW,
           moduleAuxiliaryPowerGW,
+          baseWasteHeatGW,
+          modifiedWasteHeatGW,
+          wasteHeatMultiplier,
+          baseRadiatorMassTons,
           radiatorMassTons,
-          wasteHeatGW,
+          wasteHeatGW: modifiedWasteHeatGW,
           hardwareMassTons,
           baseDryTons,
           dryWithHardwareTons,

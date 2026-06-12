@@ -161,7 +161,16 @@ export function modifiedMetricText(effectiveValue, baseValue, suffix) {
 export function effectTypeLabel(type) {
       if (type === "thrustMultiplier") return UI_LANG === "en" ? "Thrust" : "추력";
       if (type === "exhaustVelocityMultiplier") return UI_LANG === "en" ? "EV/Isp" : "EV/Isp";
+      if (type === "wasteHeatMultiplier") return UI_LANG === "en" ? "Waste heat" : "폐열";
       return type || "";
+    }
+
+function isHeatRuleCategory(category) {
+      const normalized = String(category || "").toLowerCase();
+      return normalized === "heat"
+        || normalized === "wasteheat"
+        || normalized === "thermal"
+        || normalized === "radiator";
     }
 
 export function moduleEffectTooltipHtml(option, effective) {
@@ -199,6 +208,7 @@ export function moduleEffectTooltipHtml(option, effective) {
         });
         (diagnostics.unsupportedRules || []).forEach(item => {
           if (item.category === "powerDemand") return;
+          if (isHeatRuleCategory(item.category)) return;
           warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unsupported rule" : "미지원 규칙"} ${item.rule}`);
         });
         (diagnostics.unsupportedEffects || []).forEach(item => {
@@ -206,6 +216,9 @@ export function moduleEffectTooltipHtml(option, effective) {
         });
         (diagnostics.powerWarnings || []).forEach(item => {
           warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "power rule not modeled" : "전력 규칙 미모델링"} ${item.rule}`);
+        });
+        (diagnostics.heatWarnings || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "heat rule not modeled" : "폐열 규칙 미모델링"} ${item.rule}`);
         });
       }
       if (!chips.length && !warnings.length) return "";
@@ -222,19 +235,33 @@ export function moduleEffectTooltipHtml(option, effective) {
 
 export function tooltipBreakdownHtml(row, option) {
       const totalLabel = UI_LANG === "en" ? "Total mass" : "총질량";
+      const radiatorText = modifiedMetricText(
+        Number(option.radiatorMassTons),
+        Number(option.baseRadiatorMassTons),
+        " t",
+      );
+      const wasteHeatText = modifiedMetricText(
+        Number(option.modifiedWasteHeatGW ?? option.wasteHeatGW),
+        Number(option.baseWasteHeatGW),
+        " GW",
+      );
+      const wasteHeatMultiplier = Number(option.wasteHeatMultiplier);
+      const heatMultiplierText = Number.isFinite(wasteHeatMultiplier) && Math.abs(wasteHeatMultiplier - 1) > 1e-9
+        ? ` · ${UI_LANG === "en" ? "heat multiplier" : "폐열 배율"} x${Number(wasteHeatMultiplier.toPrecision(3))}`
+        : "";
       const components = [
-        [UI_LANG === "en" ? "Hull" : "선체", option.baseDryTons, "stack-hull"],
-        [UI_LANG === "en" ? "Drive" : "드라이브", row.driveMassTons, "stack-drive"],
-        [UI_LANG === "en" ? "Power plant" : "전원", option.powerPlantMassTons, "stack-reactor"],
-        [UI_LANG === "en" ? "Radiator" : "라디에이터", option.radiatorMassTons, "stack-radiator"],
-        [UI_LANG === "en" ? "Propellant" : "추진체", option.propellantTons, "stack-propellant"],
+        [UI_LANG === "en" ? "Hull" : "선체", option.baseDryTons, "stack-hull", formatNumber(option.baseDryTons, " t")],
+        [UI_LANG === "en" ? "Drive" : "드라이브", row.driveMassTons, "stack-drive", formatNumber(row.driveMassTons, " t")],
+        [UI_LANG === "en" ? "Power plant" : "전원", option.powerPlantMassTons, "stack-reactor", formatNumber(option.powerPlantMassTons, " t")],
+        [UI_LANG === "en" ? "Radiator" : "라디에이터", option.radiatorMassTons, "stack-radiator", radiatorText],
+        [UI_LANG === "en" ? "Propellant" : "추진체", option.propellantTons, "stack-propellant", formatNumber(option.propellantTons, " t")],
       ];
       const total = Math.max(option.totalMassTons, 1e-9);
       const impracticalNote = isImpracticalOption(option)
         ? `<div class="warning">${UI_LANG === "en" ? "Shown as an impractical candidate under the current scenario." : "현재 시나리오에서 비현실적 후보로 표시 중입니다."}</div>`
         : "";
-      const componentRows = components.map(([label, value]) => `
-            <span>${label}</span><strong>${formatNumber(value, " t")}</strong>
+      const componentRows = components.map(([label, value, className, displayValue]) => `
+            <span>${label}</span><strong>${displayValue}</strong>
       `).join("");
       const componentSegments = components.map(([label, value, className]) => {
         const share = clamp(value / total * 100, 0, 100);
@@ -252,7 +279,7 @@ export function tooltipBreakdownHtml(row, option) {
             <div class="tooltip-stack" aria-hidden="true">
               ${componentSegments}
             </div>
-            <div class="muted">${UI_LANG === "en" ? "Waste heat" : "폐열"}: ${formatNumber(option.wasteHeatGW, " GW")}</div>
+            <div class="muted">${UI_LANG === "en" ? "Waste heat" : "폐열"}: ${wasteHeatText}${heatMultiplierText}</div>
           </div>
         </details>
       `;

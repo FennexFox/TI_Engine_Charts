@@ -15,8 +15,8 @@ from typing import Any
 
 ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     (
-        "<strong>계산 메모.</strong> 총질량은 기준 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 dV에 필요한 추진체 질량을 합산합니다. 드라이브 출력 요구량, 드라이브 질량, 전원 질량, 라디에이터 질량은 이 저장소의 기존 ship-plan 계산식과 같은 항을 사용하며, 무장/유틸리티 전력은 제외해 드라이브-전원-라디에이터 비교만 분리했습니다.",
-        "<strong>Calculation note.</strong> Total mass adds the base hull dry mass, drive mass, power plant mass, selected radiator mass, and propellant mass required for the target dV. Drive power requirement, drive mass, power plant mass, and radiator mass use the same terms as this repository's ship-plan calculation, with weapon and utility power excluded to isolate the drive-power-radiator comparison.",
+        "<strong>계산 메모.</strong> 총질량은 기본 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 dV에 필요한 추진체 질량을 합산합니다. 기본 드라이브 출력, 드라이브 질량, 전원 질량, 폐열, 라디에이터 질량은 이 저장소의 ship-plan 계산과 같은 항을 사용합니다. 모듈 효과가 켜져 있으면 지원되는 추진, 보조 전력, 폐열 배율이 표시되는 수정값에 반영되고, 지원되지 않는 모듈 규칙은 UI에 표시됩니다.",
+        "<strong>Calculation note.</strong> Total mass adds the base hull dry mass, drive mass, power plant mass, selected radiator mass, and propellant mass required for the target dV. Base drive power, drive mass, power plant mass, waste heat, and radiator mass use the same terms as this repository's ship-plan calculation. When module effects are enabled, supported drive, auxiliary-power, and waste-heat modifiers are folded into the displayed modified values; unsupported module rules are listed in the UI.",
     ),
     (
         "총질량 = 기준 건조질량 + 드라이브 + 전원 + 라디에이터 + 추진체",

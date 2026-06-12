@@ -27,6 +27,7 @@ const fusionHydrogenDrive = {
   thrustN: 1000,
   exhaustVelocityKps: 100,
   specificImpulseSeconds: specificImpulseSecondsFromExhaustVelocityKps(100),
+  powerRequirementGW: 1,
 };
 
 const fissionHydrogenDrive = {
@@ -119,6 +120,26 @@ const laserEngine = {
   }],
 };
 
+const thermalSink = {
+  dataName: "ThermalSink",
+  friendlyName: "Thermal Sink",
+  effects: [{
+    type: "wasteHeatMultiplier",
+    operation: "multiply",
+    multiplier: 0.75,
+    sourceRule: "WasteHeatMultiplier",
+  }],
+};
+
+const unsupportedHeatSink = {
+  dataName: "UnsupportedHeatSink",
+  friendlyName: "Unsupported Heat Sink",
+  unmodeledRules: [{
+    rule: "HeatSinkBonus",
+    category: "thermal",
+  }],
+};
+
 const rawNeutroniumSpiker = {
   dataName: "RawNeutroniumSpiker",
   friendlyName: "Raw Neutronium Spiker",
@@ -136,7 +157,8 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
     : evaluateModuleEffectsForDrive(row, []);
   const massRatio = Math.exp(FIXTURE_TARGET_DV_KPS / evaluation.effectiveExhaustVelocityKps);
   const powerPlantMassTons = evaluation.modifiedPowerRequirementGW * 20;
-  const wasteHeatGW = evaluation.modifiedPowerRequirementGW * 0.5;
+  const baseWasteHeatGW = evaluation.modifiedPowerRequirementGW * 0.5;
+  const wasteHeatGW = baseWasteHeatGW * evaluation.wasteHeatMultiplier;
   const radiatorMassTons = wasteHeatGW * 10;
   const dryWithHardwareTons = FIXTURE_DRY_WITH_HARDWARE_TONS + powerPlantMassTons + radiatorMassTons;
   const propellantTons = dryWithHardwareTons * (massRatio - 1);
@@ -146,6 +168,7 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
     ...evaluation,
     massRatio,
     powerPlantMassTons,
+    baseWasteHeatGW,
     wasteHeatGW,
     radiatorMassTons,
     propellantTons,
@@ -261,6 +284,28 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
   assert.ok(powered.wasteHeatGW > base.wasteHeatGW, "auxiliary power increases waste heat fixture");
   assert.ok(powered.radiatorMassTons > base.radiatorMassTons, "auxiliary power increases radiator mass fixture");
   assert.ok(powered.totalMassTons > base.totalMassTons, "auxiliary power increases total mass fixture");
+}
+
+{
+  const result = evaluateModuleEffectsForDrive(fusionHydrogenDrive, [thermalSink]);
+  const base = fixtureMassSummary(fusionHydrogenDrive, []);
+  const heat = fixtureMassSummary(fusionHydrogenDrive, [thermalSink]);
+  assertClose(result.wasteHeatMultiplier, 0.75, "waste heat multiplier is tracked");
+  assert.equal(result.activeEffects.length, 1, "waste heat multiplier is summarized");
+  assert.equal(result.activeEffects[0].field, "wasteHeatGW");
+  assertClose(heat.powerPlantMassTons, base.powerPlantMassTons, "heat-only multiplier keeps power plant mass");
+  assert.ok(heat.wasteHeatGW < base.wasteHeatGW, "heat multiplier lowers waste heat fixture");
+  assert.ok(heat.radiatorMassTons < base.radiatorMassTons, "heat multiplier lowers radiator mass fixture");
+  assert.ok(heat.totalMassTons < base.totalMassTons, "heat multiplier lowers total mass fixture");
+}
+
+{
+  const result = evaluateModuleEffectsForDrive(fusionHydrogenDrive, [unsupportedHeatSink]);
+  const base = fixtureMassSummary(fusionHydrogenDrive, []);
+  const unsupported = fixtureMassSummary(fusionHydrogenDrive, [unsupportedHeatSink]);
+  assert.equal(result.diagnostics.heatWarnings.length, 1, "unsupported heat-like rule is diagnosed separately");
+  assert.equal(result.diagnostics.heatWarnings[0].rule, "HeatSinkBonus");
+  assertClose(unsupported.totalMassTons, base.totalMassTons, "unsupported heat-only module keeps base total mass");
 }
 
 {

@@ -65,6 +65,12 @@ MODULE_EFFECT_RULES = {
         "valueKey": "multiplier",
         "category": "drivePerformance",
     },
+    "WasteHeatMultiplier": {
+        "type": "wasteHeatMultiplier",
+        "operation": "multiply",
+        "valueKey": "multiplier",
+        "category": "thermal",
+    },
 }
 MODULE_REQUIREMENT_RULES = {
     "RequiresFissionDrive": "fissionDrive",

@@ -83,6 +83,7 @@ export function moduleEffectSummaries(module) {
         const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
         if (effect && effect.type === "thrustMultiplier") return `${localText("추력", "Thrust")} ${value}`.trim();
         if (effect && effect.type === "exhaustVelocityMultiplier") return `${localText("EV/Isp", "EV/Isp")} ${value}`.trim();
+        if (effect && effect.type === "wasteHeatMultiplier") return `${localText("폐열", "Waste heat")} ${value}`.trim();
         return effect && effect.type ? `${effect.type} ${value}`.trim() : "";
       }).filter(Boolean);
       const powerMW = Number(module.powerRequirementMW);

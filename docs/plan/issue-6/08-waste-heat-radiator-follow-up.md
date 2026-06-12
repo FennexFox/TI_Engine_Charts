@@ -90,7 +90,21 @@ npm run verify
 
 ## Progress
 
-- [ ] Not started.
+- [x] Confirmed current generated utility-module data has no explicit heat/radiator special rule beyond Phase 07 auxiliary power draw.
+- [x] Added normalized `WasteHeatMultiplier` contract support in catalog generation for future data compatibility.
+- [x] Added evaluator output for `wasteHeatMultiplier`, heat warnings, and base/modified heat placeholders.
+- [x] Updated `massOptions()` to compute base and modified waste heat/radiator mass with self-contained and open-cycle exceptions preserved.
+- [x] Updated tooltip and module-effect UI summaries to show waste-heat modifiers, modified waste heat, base values, and heat warnings.
+- [x] Updated calculation note and generated method metadata for module heat assumptions.
+- [x] Added deterministic and browser fixture coverage for supported heat multipliers and unsupported heat-like rules.
+- [x] Rebuilt generated UI assets.
+- [x] Validation completed:
+  - `node tools/verify_module_effects.mjs`
+  - `node tools/verify_drive_comparison_browser.mjs docs/index.html`
+  - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
+  - `npm run verify`
+  - Conditional metadata validation: `npm run build:fast`
+- [x] Manual smoke completed for radiator switching, supported heat modifier radiator changes, open-cycle/self-contained zero-heat exceptions, and export/import restoration.
 
 ## Decision Log
 
@@ -98,7 +112,25 @@ npm run verify
   Reason: Waste heat is derived from power demand and reactor efficiency in the current model.
 - Decision: Keep radiator formula centralized in `massOptions()`.
   Reason: Chart, table, and tooltip all consume this option shape.
+- Decision: Add `WasteHeatMultiplier` as a normalized effect contract even though current generated data does not contain that rule.
+  Reason: Phase 08 needs a stable evaluator/mass-option contract for heat effects, and fixture coverage can prove the path without inventing production data.
+- Decision: Treat selected module auxiliary power as increasing modified waste heat through the existing power-demand formula.
+  Reason: Phase 07 already changed modified drive power; radiator mass should derive from the same modified power input.
+- Decision: Preserve self-contained and open-cycle behavior after heat multipliers.
+  Reason: Those exceptions are part of the existing drive/power option semantics and should override module heat changes.
+- Decision: Keep unsupported heat-like rules visible through `heatWarnings` instead of applying them.
+  Reason: No current catalog rule maps to a validated heat formula, and unknown thermal semantics should not silently affect chart values.
 
 ## Outcomes
 
-- Pending.
+- Module-effect evaluation now tracks `wasteHeatMultiplier` and `heatWarnings`.
+- Runtime mass options now expose `baseWasteHeatGW`, `modifiedWasteHeatGW`, `baseRadiatorMassTons`, and `wasteHeatMultiplier` while preserving `wasteHeatGW`/`radiatorMassTons` as the modified values consumed by existing chart code.
+- Tooltip mass breakdown now shows modified radiator mass and waste heat with base values when they differ.
+- The calculation note and method metadata now describe supported module drive, auxiliary-power, and heat effects.
+- Verifiers cover supported heat multiplier behavior, unsupported heat warnings, radiator switching, open-cycle/self-contained exceptions, and export/import restoration.
+
+## Retrospective
+
+- What worked: Adding the heat contract at the evaluator boundary kept rendering changes small and left radiator math centralized.
+- What to watch: The production catalog currently lacks heat-specific module rules, so this phase relies on verifier fixtures for supported heat multiplier coverage.
+- Follow-up scope: If future data adds multiple heat-effect operations, extend the normalized effect schema before adding more ad hoc runtime branches.
