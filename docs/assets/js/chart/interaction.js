@@ -7,7 +7,7 @@ import { updateChartControls } from "../ui/control_state.js";
 import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip } from "../ui/tooltip_table.js";
 import { axisSpaceValue, buildAxisTickPlan, makeScale, normalizeAxisDomain, valueFromAxisSpace } from "./axis.js";
 import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows, setChartHitTargets, setChartLadderHitTargets, setChartViewport, setCurrentChartRows, setCurrentDiagnostics } from "./context.js";
-import { baseChartResearchValues, chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawTotalMassBands, mergePinnedTooltipRefs, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
+import { baseChartResearchValues, chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawTotalMassBands, mergePinnedFocusTooltipRefs, mergePinnedTooltipRefs, pinnedFocusTooltipRefs, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
 
 export function render() {
       const diagnostics = computeDriveDiagnostics();
@@ -241,9 +241,9 @@ export function renderChart(rows) {
       setCurrentChartRows(rows);
       setChartHitTargets([]);
       setChartLadderHitTargets([]);
-      state.hoverPoints = state.tooltipPinned
-        ? dedupeTooltipRefs(state.lastTooltipItems)
-        : (powerResearchActive() ? mergePinnedTooltipRefs(state.hoverPoints) : pinnedTooltipRefs());
+      state.hoverPoints = powerResearchActive()
+        ? mergePinnedFocusTooltipRefs(state.hoverPoints)
+        : pinnedFocusTooltipRefs();
       chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
       chart.setAttribute("preserveAspectRatio", "xMidYMid meet");
       chart.innerHTML = "";
@@ -358,10 +358,13 @@ export function handleChartPointerMove(event) {
     }
 
 export function handleChartPointerLeave() {
-      if (state.tooltipPinned) return;
       state.hoverHitSignature = "";
       state.dismissedTooltipKeys.clear();
-      const pinned = pinnedTooltipRefs();
+      const pinned = state.tooltipPinned ? pinnedFocusTooltipRefs() : pinnedTooltipRefs();
+      if (state.tooltipPinned) {
+        setHoverPoints(pinned);
+        return;
+      }
       if (!pinned.length) {
         clearTooltip({ keepPinned: true });
         return;
@@ -468,8 +471,11 @@ export function clampPointToPlot(point) {
     }
 
 export function updateHoverFromPointer(event) {
-      if (state.tooltipPinned) return;
       if (!chartViewport || !chartHitTargets.length) return;
+      if (state.tooltipPinned) {
+        updatePinnedTooltipHoverFocus(event);
+        return;
+      }
       const point = svgPointFromEvent(event);
       if (!pointInPlot(point)) {
         state.hoverHitSignature = "";
@@ -529,6 +535,42 @@ export function updateHoverFromPointer(event) {
         state.lastTooltipItems = nextRefs;
         refreshTooltip(currentChartRows);
       }
+    }
+
+export function updatePinnedTooltipHoverFocus(event) {
+      const pinned = pinnedFocusTooltipRefs();
+      const point = svgPointFromEvent(event);
+      if (!pointInPlot(point)) {
+        state.hoverHitSignature = "";
+        state.dismissedTooltipKeys.clear();
+        setHoverPoints(pinned);
+        return;
+      }
+
+      const hits = hitTargetsAt(point);
+      if (!hits.length) {
+        const ladderHits = ladderHitTargetsAt(point);
+        if (ladderHits.length) {
+          const signature = ladderHits.map(hit => `ladder:${hit.key}`).join("|");
+          if (signature !== state.hoverHitSignature) {
+            state.hoverHitSignature = signature;
+            state.dismissedTooltipKeys.clear();
+          }
+          setHoverPoints(mergePinnedFocusTooltipRefs(resolveLadderHoverRefs(ladderHits)));
+          return;
+        }
+        state.hoverHitSignature = "";
+        state.dismissedTooltipKeys.clear();
+        setHoverPoints(pinned);
+        return;
+      }
+
+      const signature = hits.map(hit => hit.key).join("|");
+      if (signature !== state.hoverHitSignature) {
+        state.hoverHitSignature = signature;
+        state.dismissedTooltipKeys.clear();
+      }
+      setHoverPoints(mergePinnedFocusTooltipRefs(hits.filter(hit => !state.dismissedTooltipKeys.has(hit.key))));
     }
 
 export function handleChartClick(point) {

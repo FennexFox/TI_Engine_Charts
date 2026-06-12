@@ -2,7 +2,7 @@ import { chartMassOptions, chartSummaryMassOptions, effectiveDriveValues, isImpr
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
 import { currentChartRows, currentDiagnostics } from "../chart/context.js";
-import { dedupeTooltipRefs, defaultTooltipOption, isPinnedTooltipKey, mergePinnedTooltipRefs, optionAdditionalResearchValue, optionPowerResearchDelta, pinnedTooltipRefs, pointKey, powerResearchFocusSignature, redrawPowerResearchFocusIfChanged, resolveTooltipRow, setHoverPoints, syncPinnedTooltipOrder, tooltipRef, updateHoverStyles } from "../chart/rendering.js";
+import { dedupeTooltipRefs, defaultTooltipOption, isPinnedTooltipKey, mergePinnedFocusTooltipRefs, mergePinnedTooltipRefs, optionAdditionalResearchValue, optionPowerResearchDelta, pinnedTooltipRefs, pointKey, powerResearchFocusSignature, redrawPowerResearchFocusIfChanged, resolveTooltipRow, setHoverPoints, syncPinnedTooltipOrder, tooltipRef, updateHoverStyles } from "../chart/rendering.js";
 import { localLabel } from "../presets/library.js";
 import { UI_LANG, metricDefs, state, tooltip } from "../state/core.js";
 import { backgroundStyle, escapeHtml, formatAxisTick, formatCompact, formatNumber, formatPercent, formatTick, formatTwr, formatTwrDynamicUnit, paintStyle, trim } from "./formatting.js";
@@ -422,11 +422,11 @@ export function tooltipPowerStepsHtml(row, selectedOption = null) {
       `;
     }
 
-export function resolveTooltipItems(rows) {
+export function resolveTooltipItems(rows, refs = state.lastTooltipItems) {
       const rowById = new Map(rows.map(row => [row.id, row]));
       const resolved = [];
       const seen = new Set();
-      state.lastTooltipItems.forEach(item => {
+      dedupeTooltipRefs(refs).forEach(item => {
         const ref = tooltipRef(item);
         const row = resolveTooltipRow(ref, rowById, rows);
         if (!row) return;
@@ -456,14 +456,20 @@ export function refreshTooltip(rows = currentChartRows) {
       }
       const pinnedKeys = new Set(state.pinnedTooltipItems.map(item => item.key));
       const hoverKeys = new Set(state.hoverPoints.map(item => item.key));
+      const resolvedHoverRefs = state.tooltipPinned
+        ? resolveTooltipItems(rows, state.hoverPoints).map(item => tooltipRef(item.rowId, item.powerOptionId))
+        : [];
       state.lastTooltipItems = resolved.map(item => tooltipRef(item.rowId, item.powerOptionId));
       state.pinnedTooltipItems = resolved
         .filter(item => pinnedKeys.has(item.sourceKey) || pinnedKeys.has(item.key))
         .map(item => tooltipRef(item.rowId, item.powerOptionId));
       const nextPinnedKeys = new Set(state.pinnedTooltipItems.map(item => item.key));
-      state.hoverPoints = resolved
+      const tooltipHoverRefs = resolved
         .filter(item => hoverKeys.has(item.sourceKey) || hoverKeys.has(item.key) || nextPinnedKeys.has(item.key))
         .map(item => tooltipRef(item.rowId, item.powerOptionId));
+      state.hoverPoints = state.tooltipPinned
+        ? mergePinnedFocusTooltipRefs(resolvedHoverRefs)
+        : tooltipHoverRefs;
       tooltip.innerHTML = tooltipPanelHtml(resolved);
       tooltip.classList.remove("tooltip-empty");
       tooltip.classList.remove("has-diagnostic");

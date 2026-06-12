@@ -708,6 +708,29 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       powerStepText: document.querySelector("#tooltip .tooltip-power-steps")?.textContent || "",
     };
 
+    const pinnedHoverTargets = currentChartRows
+      .filter(row => chartMassOptions(row).length > 1)
+      .slice(0, 3);
+    let pinnedHoverFocus = { checked: false };
+    if (pinnedHoverTargets.length >= 3) {
+      const refs = pinnedHoverTargets.map(row => tooltipRef(row.id, chartMassOptions(row)[0].id));
+      state.powerResearchView = "focus";
+      state.tooltipPinned = true;
+      state.lastTooltipItems = refs.slice(0, 2);
+      state.pinnedTooltipItems = refs.slice(0, 2);
+      state.hoverPoints = [refs[2]];
+      syncUiFromState();
+      render();
+      const focusedLineDriveIds = new Set([...document.querySelectorAll("#chart .power-ladder-line.is-focused")]
+        .map(path => path.getAttribute("data-row-id")));
+      pinnedHoverFocus = {
+        checked: true,
+        focusedDriveCount: focusedLineDriveIds.size,
+        includesPinnedAndHover: pinnedHoverTargets.every(row => focusedLineDriveIds.has(row.id)),
+        hoverPointPreserved: state.hoverPoints.some(ref => ref.rowId === pinnedHoverTargets[2].id),
+      };
+    }
+
     state.powerResearchView = "all";
     state.hoverPoints = [];
     state.lastTooltipItems = [];
@@ -769,7 +792,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     setLanguage("ko", { rerender: false });
     syncUiFromState();
     render();
-    return { defaultMode, legacyMigration, hasMultiOptionTarget: !!target, focusIdle, focusActive, allMode, bestMode, nonPowerMetric };
+    return { defaultMode, legacyMigration, hasMultiOptionTarget: !!target, focusIdle, focusActive, pinnedHoverFocus, allMode, bestMode, nonPowerMetric };
   });
   expect(powerViewChecks.defaultMode.controlVisible, `${htmlFile}: Power view control is hidden on band metric`);
   expect(powerViewChecks.defaultMode.selected === "focus", `${htmlFile}: Base is not the default Power view`);
@@ -798,6 +821,10 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(powerViewChecks.focusActive.focusedLines > 0, `${htmlFile}: active Base mode did not render focused dashed lines`);
   expect(powerViewChecks.focusActive.powerStepRows > 1, `${htmlFile}: Power steps table did not include multiple power options`);
   expect(/Wet mass/.test(powerViewChecks.focusActive.powerStepText) && /TWR/.test(powerViewChecks.focusActive.powerStepText), `${htmlFile}: Power steps table missing key columns`);
+  expect(powerViewChecks.pinnedHoverFocus.checked, `${htmlFile}: not enough multi-power-option drives for pinned-plus-hover ladder verification`);
+  expect(powerViewChecks.pinnedHoverFocus.focusedDriveCount >= 3, `${htmlFile}: Base mode did not focus every pinned drive plus hovered drive`);
+  expect(powerViewChecks.pinnedHoverFocus.includesPinnedAndHover, `${htmlFile}: Base mode focused ladders did not include every pinned and hovered drive`);
+  expect(powerViewChecks.pinnedHoverFocus.hoverPointPreserved, `${htmlFile}: redraw dropped the hovered drive while tooltip cards were pinned`);
   expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All ladders Power view did not select all mode`);
   expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All ladders mode did not render extra points`);
   expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All ladders mode did not apply subdued point styling`);
