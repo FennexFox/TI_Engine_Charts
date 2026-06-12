@@ -64,7 +64,6 @@ export function unpinTooltipItemByKey(key) {
 export function tooltipHtml(row, option = null, key = "", index = 0, itemCount = 1) {
       const metrics = tooltipMetricsHtml(row, option);
       const selected = option ? tooltipBreakdownHtml(row, option) : "";
-      const powerSteps = isBandMetric() ? tooltipPowerStepsHtml(row, option) : "";
       const powerName = option ? option.displayName : (UI_LANG === "en" ? "No power plant candidate" : "전원 후보 없음");
       const pinned = isPinnedTooltipKey(key);
       const pinLabel = UI_LANG === "en" ? (pinned ? "Unpin this card" : "Pin this card") : (pinned ? "이 카드 고정 해제" : "이 카드 고정");
@@ -82,7 +81,6 @@ export function tooltipHtml(row, option = null, key = "", index = 0, itemCount =
           <div class="muted">${escapeHtml(rowCategoryLabel(row))} / ${escapeHtml(rowFamilyLabel(row))} · ${escapeHtml(rowProjectLabel(row))}</div>
           ${metrics}
           ${selected}
-          ${powerSteps}
         </section>
       `;
     }
@@ -392,20 +390,56 @@ export function tooltipBreakdownHtml(row, option) {
       `;
     }
 
-export function tooltipPowerStepsHtml(row, selectedOption = null) {
+export function tablePowerStepPinnedRefs() {
+      if (state.tooltipPinned) {
+        return dedupeTooltipRefs([...state.lastTooltipItems, ...state.pinnedTooltipItems]);
+      }
+      return dedupeTooltipRefs(state.pinnedTooltipItems);
+    }
+
+export function tablePowerStepSelectionByRow() {
+      const byRow = new Map();
+      tablePowerStepPinnedRefs().forEach(ref => {
+        if (!ref.rowId) return;
+        if (!byRow.has(ref.rowId)) byRow.set(ref.rowId, new Set());
+        if (ref.powerOptionId) byRow.get(ref.rowId).add(ref.powerOptionId);
+      });
+      return byRow;
+    }
+
+export function syncTablePowerStepDetails() {
+      const selectedByRow = tablePowerStepSelectionByRow();
+      document.querySelectorAll(".table-power-steps-details").forEach(details => {
+        const rowId = details.getAttribute("data-row-id") || "";
+        const selectedIds = selectedByRow.get(rowId) || new Set();
+        if (selectedIds.size) {
+          details.open = true;
+          details.dataset.autoOpened = "true";
+        } else if (details.dataset.autoOpened === "true") {
+          details.open = false;
+          delete details.dataset.autoOpened;
+        }
+        details.querySelectorAll("tbody tr[data-power-option-id]").forEach(tr => {
+          tr.classList.toggle("is-selected", selectedIds.has(tr.getAttribute("data-power-option-id") || ""));
+        });
+      });
+    }
+
+export function tablePowerStepsDetailsHtml(row, selectedPowerOptionIds = new Set()) {
       const options = chartMassOptions(row);
-      if (!options.length) return "";
+      if (!isBandMetric() || !options.length) return "";
+      const selectedIds = selectedPowerOptionIds instanceof Set ? selectedPowerOptionIds : new Set();
+      const open = selectedIds.size > 0;
       const baseCombined = optionAdditionalResearchValue(row, options[0]);
-      const selectedId = selectedOption ? selectedOption.id : options[0].id;
       const headers = UI_LANG === "en"
         ? ["Power plant", "+Research", "Combined", "Wet mass", "TWR", "Plant", "Radiator"]
         : ["전원", "+연구", "합산", "습질량", "TWR", "전원", "방열기"];
       const rows = options.map(option => {
         const combined = optionAdditionalResearchValue(row, option);
         const delta = Math.max(0, combined - baseCombined);
-        const selected = option.id === selectedId;
+        const selected = selectedIds.has(option.id);
         return `
-          <tr${selected ? " class=\"is-selected\"" : ""}>
+          <tr data-power-option-id="${escapeHtml(option.id || "")}"${selected ? ' class="is-selected"' : ""}>
             <td>${escapeHtml(option.displayName || option.id || "-")}</td>
             <td class="numeric">${escapeHtml(formatResearch(delta))}</td>
             <td class="numeric">${escapeHtml(formatResearch(combined))}</td>
@@ -417,17 +451,18 @@ export function tooltipPowerStepsHtml(row, selectedOption = null) {
         `;
       }).join("");
       return `
-        <details class="tooltip-section tooltip-power-steps" open>
-          <summary>${UI_LANG === "en" ? "Power steps" : "전원 단계"}</summary>
-          <div class="tooltip-section-body">
-            <div class="power-steps-table-wrap">
-              <table class="power-steps-table">
-                <thead>
-                  <tr>${headers.map(label => `<th>${escapeHtml(label)}</th>`).join("")}</tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </div>
+        <details class="table-power-steps-details" data-row-id="${escapeHtml(row.id)}"${open ? ' open data-auto-opened="true"' : ""}>
+          <summary>
+            <span>${UI_LANG === "en" ? "Power steps" : "전원 단계"}</span>
+            <span class="table-power-steps-hint">${UI_LANG === "en" ? "opens when pinned" : "핀하면 자동 펼침"}</span>
+          </summary>
+          <div class="power-steps-table-wrap">
+            <table class="power-steps-table">
+              <thead>
+                <tr>${headers.map(label => `<th>${escapeHtml(label)}</th>`).join("")}</tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
           </div>
         </details>
       `;
@@ -485,6 +520,7 @@ export function refreshTooltip(rows = currentChartRows) {
       tooltip.classList.remove("tooltip-empty");
       tooltip.classList.remove("has-diagnostic");
       tooltip.classList.remove("has-panel");
+      syncTablePowerStepDetails();
       if (!redrawPowerResearchFocusIfChanged(previousSignature)) {
         updateHoverStyles();
       }
@@ -572,6 +608,7 @@ export function clearTooltip(options = {}) {
       } else {
         renderEmptyTooltip();
       }
+      syncTablePowerStepDetails();
       if (!redrawPowerResearchFocusIfChanged(previousSignature)) {
         updateHoverStyles();
       }
@@ -681,12 +718,14 @@ export function renderTable(rows) {
       tbody.innerHTML = "";
       const maxResearch = Math.max(...rows.map(rowUnlockResearchValue).filter(Number.isFinite), 1);
       const metricDomain = tableMetricDomain(rows);
+      const selectedPowerIdsByRow = tablePowerStepSelectionByRow();
       const sorted = sortRows(rows);
       sorted.forEach(row => {
         const tr = document.createElement("tr");
         const powerOptions = isBandMetric() ? chartSummaryMassOptions(row) : massOptions(row);
+        const selectedPowerIds = selectedPowerIdsByRow.get(row.id) || new Set();
         const powerCell = powerOptions.length
-          ? reactorBandLabel(powerOptions)
+          ? `${reactorBandLabel(powerOptions)}${tablePowerStepsDetailsHtml(row, selectedPowerIds)}`
           : `<span class="warning">없음</span>`;
         tr.innerHTML = `
           <td><div class="drive-name">${escapeHtml(row.displayName)}</div><div class="project-name">${escapeHtml(rowProjectLabel(row))}</div></td>
@@ -697,6 +736,7 @@ export function renderTable(rows) {
         `;
         tbody.appendChild(tr);
       });
+      syncTablePowerStepDetails();
     }
 
 export function sortRows(rows) {

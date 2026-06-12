@@ -29,6 +29,8 @@ ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 
 ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ('<html lang="ko">', '<html lang="en">'),
+    ("함선 설계", "Ship Designer"),
+    ("설계 열기", "Open Designer"),
     ("새 이름으로 저장", "Save as New"),
     ("전원 보기", "Power view"),
     ("시뮬레이션 기본 조건", "Simulation defaults"),

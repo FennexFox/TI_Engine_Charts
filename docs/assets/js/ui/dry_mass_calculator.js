@@ -244,7 +244,7 @@ export function renderDryMassCalcModal() {
       const minTwrInput = document.getElementById("shipPresetMinTwr");
       const radiatorLabel = document.getElementById("shipPresetRadiatorLabel");
       const radiatorSelect = document.getElementById("shipPresetRadiator");
-      const button = document.getElementById("dryMassCalcButton");
+      const button = document.getElementById("dryMassCalcButton") || document.getElementById("shipDesignerTitle");
 
       if (button) {
         const label = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
@@ -358,7 +358,7 @@ export function renderDryMassCalcModal() {
 
 export function setupDryMassCalculator({ render = () => {} } = {}) {
       const modal = document.getElementById("dryMassCalcModal");
-      const button = document.getElementById("dryMassCalcButton");
+      const button = document.getElementById("dryMassCalcButton") || document.getElementById("shipDesignerTitle");
       const classSelect = document.getElementById("dryMassCalcClass");
       const slots = document.getElementById("dryMassCalcSlots");
       const weapons = document.getElementById("dryMassCalcWeapons");

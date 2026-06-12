@@ -114,13 +114,12 @@ function appliedTemplateDisplayName(template) {
 export function updateShipDesignerPanel() {
   const title = document.getElementById("shipDesignerTitle");
   const status = document.getElementById("shipDesignerAppliedTemplate");
-  const button = document.getElementById("dryMassCalcButton");
-  if (title) title.textContent = localText("함선 설계", "Ship Designer");
-  if (button) {
-    const label = localText("함선 설계 편집", "Edit Ship Design");
-    button.textContent = label;
-    button.setAttribute("aria-label", label);
-    button.title = label;
+  if (title) {
+    const label = localText("함선 설계", "Ship Designer");
+    const openLabel = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
+    title.textContent = label;
+    title.setAttribute("aria-label", openLabel);
+    title.title = openLabel;
   }
   if (!status) return;
   const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
@@ -139,11 +138,14 @@ export function updateModuleEffectsPanel() {
   const summary = document.getElementById("moduleEffectsSummary");
   const chips = document.getElementById("moduleEffectsChips");
   const warnings = document.getElementById("moduleEffectsWarnings");
+  const details = document.getElementById("moduleEffectsDetails");
+  const detailsSummary = document.getElementById("moduleEffectsDetailsSummary");
   if (!checkbox || !label || !summary || !chips || !warnings) return;
 
   const assumptions = currentModuleEffectAssumptions();
   checkbox.checked = !!assumptions.moduleEffectsEnabled;
   label.textContent = localText("모듈 성능 효과 적용", "Apply module performance effects");
+  if (detailsSummary) detailsSummary.textContent = localText("선택 모듈 목록", "Selected modules");
   chips.innerHTML = "";
   warnings.innerHTML = "";
 

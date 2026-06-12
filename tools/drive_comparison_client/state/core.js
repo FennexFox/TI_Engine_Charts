@@ -42,7 +42,7 @@ export const state = {
       showImpracticalCandidates: false,
       powerResearchView: "focus",
       connectionLineMode: DEFAULT_CONNECTION_LINE_MODE,
-      moduleEffectsEnabled: false,
+      moduleEffectsEnabled: true,
       moduleEffectSource: DEFAULT_MODULE_EFFECT_SOURCE,
       moduleEffectModuleIds: [],
       appliedShipTemplate: null,
@@ -81,7 +81,7 @@ export function chartDefaultState() {
         showImpracticalCandidates: false,
         powerResearchView: "focus",
         connectionLineMode: DEFAULT_CONNECTION_LINE_MODE,
-        moduleEffectsEnabled: false,
+        moduleEffectsEnabled: true,
         moduleEffectSource: DEFAULT_MODULE_EFFECT_SOURCE,
         moduleEffectModuleIds: [],
         appliedShipTemplate: null,
@@ -160,7 +160,7 @@ export function powerResearchActive() {
     }
 
 export const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
-export const LEFT_PANEL_DEFAULT_ORDER = ["display", "simulation", "filter", "driveFilter"];
+export const LEFT_PANEL_DEFAULT_ORDER = ["display", "shipDesigner", "simulation", "filter", "driveFilter"];
 export const CHART_PRESET_STORAGE_KEY = "tiEngineChartNamedPresets";
 export const CHART_PRESET_STARTUP_STORAGE_KEY = "tiEngineChartStartupPresetId";
 export const DRY_MASS_PRESET_STORAGE_KEY = "tiEngineChartDryMassPresets";
@@ -215,7 +215,18 @@ export function metricSelectLabel() {
 
 export function leftPanelCardSummary(key) {
       if (key === "display") {
-        return metricSelectLabel();
+        return `${metricSelectLabel()} · ${localText("연결선", "Lines")} ${connectionLineModeLabel()}`;
+      }
+      if (key === "shipDesigner") {
+        const templateName = state.appliedShipTemplate?.name || "";
+        const assumptions = currentModuleEffectAssumptions();
+        const parts = [
+          templateName ? localText("함선 적용됨", "Ship applied") : localText("함선 미적용", "No ship applied"),
+          assumptions.moduleEffectsEnabled
+            ? `${localText("모듈 효과", "Module effects")} ${assumptions.activeModuleIds.length}`
+            : localText("모듈 효과 꺼짐", "Module effects off"),
+        ];
+        return parts.join(" · ");
       }
       if (key === "simulation") {
         const radiator = DATA.radiators.find(item => item.id === state.radiatorId);

@@ -187,11 +187,16 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     setLanguage("en", { rerender: false });
     syncUiFromState();
     const section = document.getElementById("shipDesignerSection");
+    const shipDesignerCard = document.querySelector('.control-card[data-control-card="shipDesigner"]');
+    const simulationCard = document.querySelector('.control-card[data-control-card="simulation"]');
+    const shipDesignerHeader = shipDesignerCard?.querySelector(".control-card-header");
     const modulePanel = document.getElementById("moduleEffectsControl");
-    const button = document.getElementById("dryMassCalcButton");
+    const moduleEffectsCheckbox = document.getElementById("moduleEffectsEnabled");
+    const button = document.getElementById("shipDesignerTitle");
     const status = document.getElementById("shipDesignerAppliedTemplate");
     const select = document.getElementById("dryMassPresetSelect");
     const initialStatus = status?.textContent.trim() || "";
+    const buttonStyle = button ? getComputedStyle(button) : null;
     if (select && select.options.length > 1) {
       select.selectedIndex = 1;
       select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -199,19 +204,35 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const statusAfterUnappliedSelection = status?.textContent.trim() || "";
     return {
       sectionExists: !!section,
+      cardExists: !!shipDesignerCard,
+      sectionInsideShipDesignerCard: !!(section && shipDesignerCard && shipDesignerCard.contains(section)),
+      sectionOutsideSimulationCard: !!(section && simulationCard && !simulationCard.contains(section)),
+      titleButtonInsideHeader: !!(button && shipDesignerHeader && shipDesignerHeader.contains(button)),
+      bodyHasOpenDesignerButton: !!section?.querySelector("button.ship-designer-title-button"),
       modulePanelInside: !!section && !!modulePanel && section.contains(modulePanel),
+      moduleEffectsCheckedByDefault: moduleEffectsCheckbox?.checked === true && state.moduleEffectsEnabled === true,
       buttonText: button?.textContent.trim() || "",
       buttonIsTextCommand: !!button && !button.classList.contains("icon-button"),
+      buttonLooksClickable: !!buttonStyle
+        && buttonStyle.borderTopWidth !== "0px"
+        && buttonStyle.backgroundColor !== "rgba(0, 0, 0, 0)",
       defaultStatus: initialStatus,
       defaultAppliedFlag: status?.dataset.appliedTemplate || "",
       statusAfterUnappliedSelection,
       unappliedSelectionPreservedStatus: statusAfterUnappliedSelection === initialStatus,
     };
   });
-  expect(shipDesignerInitial.sectionExists, `${htmlFile}: Ship Designer section missing from Simulation Conditions`);
+  expect(shipDesignerInitial.sectionExists, `${htmlFile}: Ship Designer section missing`);
+  expect(shipDesignerInitial.cardExists, `${htmlFile}: Ship Designer card missing`);
+  expect(shipDesignerInitial.sectionInsideShipDesignerCard, `${htmlFile}: Ship Designer controls are not inside the Ship Designer card`);
+  expect(shipDesignerInitial.sectionOutsideSimulationCard, `${htmlFile}: Ship Designer controls should not remain inside Simulation Conditions`);
+  expect(shipDesignerInitial.titleButtonInsideHeader, `${htmlFile}: Ship Designer title button should be in the card header`);
+  expect(!shipDesignerInitial.bodyHasOpenDesignerButton, `${htmlFile}: separate Open Designer body button should be removed`);
   expect(shipDesignerInitial.modulePanelInside, `${htmlFile}: module effects controls are not grouped inside Ship Designer`);
-  expect(/Dry Mass Calculator|Ship Design/.test(shipDesignerInitial.buttonText), `${htmlFile}: dry-mass calculator button is not a clear text command`);
+  expect(shipDesignerInitial.moduleEffectsCheckedByDefault, `${htmlFile}: module performance effects should be enabled by default`);
+  expect(/Ship Designer|Dry Mass Calculator|Ship Design/.test(shipDesignerInitial.buttonText), `${htmlFile}: dry-mass calculator button is not a clear text command`);
   expect(shipDesignerInitial.buttonIsTextCommand, `${htmlFile}: dry-mass calculator still uses icon-only button styling`);
+  expect(shipDesignerInitial.buttonLooksClickable, `${htmlFile}: Ship Designer title should be visibly styled as a button`);
   expect(/No ship template applied/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should say no template is applied`);
   expect(shipDesignerInitial.defaultAppliedFlag === "false", `${htmlFile}: default Ship Designer applied flag should be false`);
   expect(shipDesignerInitial.unappliedSelectionPreservedStatus, `${htmlFile}: selecting a design preset falsely changed the applied-template status`);
@@ -232,7 +253,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/No ship template applied/.test(shipDesignerPresetFixture.statusText), `${htmlFile}: saving/selecting a design preset falsely changed the applied-template status`);
   expect(shipDesignerPresetFixture.appliedFlag === "false", `${htmlFile}: saving/selecting a design preset should not mark it applied`);
 
-  await page.locator("#dryMassCalcButton").click();
+  await page.locator("#shipDesignerTitle").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
   const dryMassButtonFocusCheck = await page.evaluate(() => ({
     modalOpen: !!document.querySelector("#dryMassCalcModal.is-open"),
@@ -802,8 +823,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       focusedExtraPoints: document.querySelectorAll("#chart .power-extra-point.is-focused").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
       focusedLines: document.querySelectorAll("#chart .power-ladder-line.is-focused").length,
-      powerStepRows: document.querySelectorAll("#tooltip .power-steps-table tbody tr").length,
-      powerStepText: document.querySelector("#tooltip .tooltip-power-steps")?.textContent || "",
+      powerStepRows: document.querySelectorAll(".table-power-steps-details .power-steps-table tbody tr").length,
+      powerStepText: document.querySelector(".table-power-steps-details")?.textContent || "",
     };
 
     const pinnedHoverTargets = currentChartRows
@@ -873,7 +894,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
       bandSurfaces: document.querySelectorAll("#chart [data-band-pair-step], #chart [data-band-step]").length,
-      powerStepText: document.querySelector("#tooltip .tooltip-power-steps")?.textContent || "",
+      powerStepText: document.querySelector(".table-power-steps-details")?.textContent || "",
       selectedPowerText: document.querySelector("#tooltip .tooltip-title-power")?.textContent || "",
     };
 
@@ -939,7 +960,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(powerViewChecks.bestMode.subduedBestPoints > 0, `${htmlFile}: Best Available did not apply subdued point styling`);
   expect(powerViewChecks.bestMode.extraPoints === powerViewChecks.bestMode.bestPoints && powerViewChecks.bestMode.ladderLines === 0, `${htmlFile}: Best Available rendered unexpected ladder extras`);
   expect(powerViewChecks.bestMode.bandSurfaces === 0, `${htmlFile}: Best Available rendered old power band surfaces`);
-  expect(/Wet mass/.test(powerViewChecks.bestMode.powerStepText) && /TWR/.test(powerViewChecks.bestMode.powerStepText), `${htmlFile}: Best Available tooltip missing power step details`);
+  expect(/Wet mass/.test(powerViewChecks.bestMode.powerStepText) && /TWR/.test(powerViewChecks.bestMode.powerStepText), `${htmlFile}: Best Available table missing power step details`);
   expect(powerViewChecks.bestMode.selectedPowerText.trim().length > 0, `${htmlFile}: Best Available tooltip did not identify the selected power plant`);
   expect(!powerViewChecks.nonPowerMetric.controlVisible, `${htmlFile}: Power view control is visible on a non-power-comparison metric`);
   expect(powerViewChecks.nonPowerMetric.bestLines === 0 && powerViewChecks.nonPowerMetric.ladderLines === 0, `${htmlFile}: Power view rendered on a non-power-comparison metric`);
@@ -992,6 +1013,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
         baseLines: document.querySelectorAll("#chart .base-drive-line").length,
         guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
         ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
         bestLines: document.querySelectorAll("#chart .power-best-line").length,
       };
@@ -1037,6 +1059,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       renderedLinks: document.querySelectorAll("#chart .drive-link-segment").length,
       fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
       guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
     };
     delete DATA.driveLinks;
     render();
@@ -1044,6 +1067,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       baseLines: document.querySelectorAll("#chart .base-drive-line").length,
       fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
       guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
     };
     DATA.driveLinks = originalLinks;
     render();
@@ -1063,7 +1087,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(driveLinkRenderingChecks.basic.expectedLinks > 0, `${htmlFile}: no visible generated driveLinks available for basic metric rendering`);
   expect(driveLinkRenderingChecks.basic.renderedLinks === driveLinkRenderingChecks.basic.expectedLinks, `${htmlFile}: basic metric line count is not derived from visible driveLinks`);
   expect(driveLinkRenderingChecks.basic.fallbackLines === 0, `${htmlFile}: family fallback lines rendered even though driveLinks data exists`);
-  expect(/Connection lines/.test(driveLinkRenderingChecks.basic.guideText), `${htmlFile}: chart guide does not expose connection line controls`);
+  expect(/Connection lines/.test(driveLinkRenderingChecks.basic.controlsText), `${htmlFile}: connection line controls are missing`);
   expect(driveLinkRenderingChecks.totalMass.renderedLinks === driveLinkRenderingChecks.totalMass.expectedLinks, `${htmlFile}: total-mass link line count is not derived from visible driveLinks`);
   expect(driveLinkRenderingChecks.allLadders.renderedLinks === driveLinkRenderingChecks.allLadders.expectedLinks, `${htmlFile}: All Ladders link line count is not derived from visible driveLinks`);
   expect(driveLinkRenderingChecks.allLadders.ladderLines > 0, `${htmlFile}: All Ladders power paths disappeared after link rendering change`);
@@ -1073,7 +1097,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(driveLinkRenderingChecks.suppressedFamilyLinkSegmentCount === 0, `${htmlFile}: rendered a generated link for suppressed family ${driveLinkRenderingChecks.suppressedFamily}`);
   expect(driveLinkRenderingChecks.suppressedFamilyFallbackLineCount === 0, `${htmlFile}: suppressing links for ${driveLinkRenderingChecks.suppressedFamily} triggered family fallback lines despite driveLinks data existing`);
   expect(driveLinkRenderingChecks.emptyArray.baseLines === 0 && driveLinkRenderingChecks.emptyArray.fallbackLines === 0, `${htmlFile}: empty driveLinks array triggered family fallback lines`);
-  expect(/Connection lines/.test(driveLinkRenderingChecks.emptyArray.guideText), `${htmlFile}: empty driveLinks array did not preserve connection line guide controls`);
+  expect(/Connection lines/.test(driveLinkRenderingChecks.emptyArray.controlsText), `${htmlFile}: empty driveLinks array did not preserve connection line controls`);
   expect(driveLinkRenderingChecks.missingDataFallback.fallbackLines > 0, `${htmlFile}: missing driveLinks data did not trigger compatibility fallback`);
   expect(driveLinkRenderingChecks.missingDataFallback.guideText.length > 0, `${htmlFile}: missing driveLinks fallback removed chart guide text`);
 
@@ -1087,19 +1111,34 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     syncUiFromState();
     render();
     const guide = document.getElementById("chartGuide");
+    const guideDetails = document.getElementById("chartGuideDetails");
+    const lineControls = document.getElementById("connectionLineControls");
+    const displayCard = document.querySelector('.control-card[data-control-card="display"]');
+    const plotFrame = document.querySelector(".chart-plot-frame");
     const guideBox = guide?.getBoundingClientRect();
+    const plotFrameBox = plotFrame?.getBoundingClientRect();
     const childOverflow = guide && guideBox
       ? [...guide.children].some(child => {
         const box = child.getBoundingClientRect();
         return box.left < guideBox.left - 1 || box.right > guideBox.right + 1;
       })
       : true;
+    const floatingInPlotCorner = !!(guideBox && plotFrameBox)
+      && guideBox.left >= plotFrameBox.left - 1
+      && guideBox.right <= plotFrameBox.right + 1
+      && guideBox.top >= plotFrameBox.top - 1
+      && guideBox.top <= plotFrameBox.top + 24
+      && guideBox.right >= plotFrameBox.right - 24;
     const englishText = guide?.textContent || "";
-    const englishModeDescriptions = [...(guide?.querySelectorAll('input[name="connectionLineMode"]') || [])]
+    const englishModeDescriptions = [...(lineControls?.querySelectorAll('input[name="connectionLineMode"]') || [])]
       .map(input => ({
         mode: input.value,
         title: input.title || input.closest("label")?.title || "",
       }));
+    const lineModeBoxes = [...(lineControls?.querySelectorAll(".connection-line-mode > label") || [])]
+      .map(label => label.getBoundingClientRect());
+    const lineModeSingleRow = lineModeBoxes.length === 4
+      && lineModeBoxes.every(box => Math.abs(box.top - lineModeBoxes[0].top) <= 1);
     const englishItemCount = guide?.querySelectorAll(".chart-guide-item").length || 0;
     const englishPowerItems = [...(guide?.querySelectorAll(".chart-guide-item") || [])]
       .filter(item => /Power view/.test(item.textContent || "")).length;
@@ -1110,6 +1149,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     return {
       exists: !!guide,
       aria: guide?.getAttribute("aria-label") || "",
+      guideInsidePlot: !!(guide && plotFrame && plotFrame.contains(guide)),
+      lineControlsInsideDisplayCard: !!(displayCard && lineControls && displayCard.contains(lineControls)),
+      lineControlsOutsideGuide: !!(guide && lineControls && !guide.contains(lineControls)),
+      guideDetailsCollapsed: !!guideDetails && !guideDetails.open,
+      floatingInPlotCorner,
+      lineModeSingleRow,
       englishText,
       englishModeDescriptions,
       englishItemCount,
@@ -1120,10 +1165,15 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   expect(chartGuideChecks.exists, `${htmlFile}: compact chart guide is missing`);
+  expect(chartGuideChecks.guideInsidePlot, `${htmlFile}: compact chart guide should be inside the chart plot frame`);
+  expect(chartGuideChecks.lineControlsInsideDisplayCard, `${htmlFile}: connection line controls should be inside the Display card`);
+  expect(chartGuideChecks.lineControlsOutsideGuide, `${htmlFile}: chart guide card should not contain connection line controls`);
+  expect(chartGuideChecks.guideDetailsCollapsed, `${htmlFile}: chart guide details should be collapsed by default`);
+  expect(chartGuideChecks.floatingInPlotCorner, `${htmlFile}: chart guide card should float in the chart plot's top-right corner`);
+  expect(chartGuideChecks.lineModeSingleRow, `${htmlFile}: connection line mode buttons should stay on one row`);
   expect(chartGuideChecks.englishItemCount >= 4, `${htmlFile}: compact chart guide is missing required items`);
   const lineModeDescriptions = new Map(chartGuideChecks.englishModeDescriptions.map(item => [item.mode, item.title]));
-  expect(/Connection lines/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not expose line mode controls`);
-  expect(/Lines: drive progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain progression lines`);
+    expect(/Lines: drive progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain progression lines`);
   expect(/prerequisite-backed drive research/.test(lineModeDescriptions.get("strict") || ""), `${htmlFile}: strict line mode tooltip is missing or incomplete`);
   expect(/reactor\/power-lineage progression/.test(lineModeDescriptions.get("lineage") || ""), `${htmlFile}: lineage line mode tooltip is missing or incomplete`);
   expect(/broader family fallback lines/.test(lineModeDescriptions.get("all") || ""), `${htmlFile}: all line mode tooltip is missing or incomplete`);
@@ -1182,6 +1232,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
           ringOpacity: ring ? Number(getComputedStyle(ring).opacity || ring.getAttribute("opacity") || 1) : 0,
           ringPointerEvents: ring ? getComputedStyle(ring).pointerEvents : "",
           guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
         };
         break;
       }
@@ -1199,6 +1250,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       ringOpacity: 0,
       ringPointerEvents: "",
       guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
     };
   });
   expect(pointVisualSemantics.pointCount > 0, `${htmlFile}: no chart points available for visual-semantic verification`);
@@ -1251,7 +1303,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(paretoPinnedOverlay.overlayOpacity > paretoPinnedOverlay.pointOpacity, `${htmlFile}: pinned overlay is not more prominent than the dimmed Pareto point`);
   expect(paretoPinnedOverlay.overlayPointerEvents === "none", `${htmlFile}: pinned overlay can intercept chart hit testing`);
 
-  await page.locator("#dryMassCalcButton").click();
+  await page.locator("#shipDesignerTitle").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
   const dryMassManageSizing = await page.evaluate(() => {
     const manage = document.querySelector("#dryMassPresetActionsMenu > summary")?.getBoundingClientRect();
@@ -1963,38 +2015,42 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 const dryMassActionLayout = await page.evaluate(() => {
     const library = document.getElementById("dryMassPresetLibrary");
     const toolbar = library?.querySelector(".dry-mass-preset-toolbar");
-    const actions = library?.querySelector(".dry-mass-preset-apply-actions");
     const status = document.getElementById("dryMassPresetStatus");
 
     const footer = document.querySelector("#dryMassCalcModal .dry-mass-modal-footer");
     const summary = footer?.querySelector(".dry-mass-summary-row");
+    const actions = footer?.querySelector(".dry-mass-footer-actions");
+    const simulationDefaults = document.getElementById("shipPresetSimulationDefaults");
+    const notesPanel = document.getElementById("dryMassCalcNotes")?.closest(".calculator-panel");
     const total = document.getElementById("dryMassCalcTotal");
     const breakdown = document.getElementById("dryMassCalcBreakdown");
-    if (!library || !toolbar || !actions || !status || !footer || !summary || !total || !breakdown) return null;
-    const libraryBox = library.getBoundingClientRect();
-    const toolbarBox = toolbar.getBoundingClientRect();
-    const actionsBox = actions.getBoundingClientRect();
-    const statusBox = status.getBoundingClientRect();
+    if (!library || !toolbar || !actions || !status || !footer || !summary || !simulationDefaults || !notesPanel || !total || !breakdown) return null;
     const footerBox = footer.getBoundingClientRect();
     const summaryBox = summary.getBoundingClientRect();
+    const actionsBox = actions.getBoundingClientRect();
+    const defaultsBox = simulationDefaults.getBoundingClientRect();
+    const notesBox = notesPanel.getBoundingClientRect();
+    const statusBox = status.getBoundingClientRect();
     const totalBox = total.getBoundingClientRect();
     const breakdownBox = breakdown.getBoundingClientRect();
     return {
-      actionsInsidePresetPanel: actions.parentElement === library,
-      actionsBelowToolbar: actionsBox.top >= toolbarBox.bottom - 1,
-      actionsAboveStatus: actionsBox.bottom <= statusBox.top + 1,
-      footerHasNoActions: !footer.querySelector(".dry-mass-modal-actions"),
+      actionsInsideFooter: actions.parentElement === footer,
+      presetPanelHasNoActions: !library.querySelector(".dry-mass-footer-actions, .dry-mass-preset-apply-actions"),
+      actionsBelowSummary: actionsBox.top >= summaryBox.bottom - 1,
+      statusAboveFooter: statusBox.bottom <= footerBox.top + 1,
+      defaultsAboveNotes: defaultsBox.bottom <= notesBox.top + 1,
       totalAndCapsulesSameRow: Math.abs(totalBox.top - breakdownBox.top) < 8,
       capsulesRightAligned: Math.abs(breakdownBox.right - summaryBox.right) < 2,
-      noHorizontalOverflow: summaryBox.right <= footerBox.right + 1 && actionsBox.right <= libraryBox.right + 1,
+      noHorizontalOverflow: summaryBox.right <= footerBox.right + 1 && actionsBox.right <= footerBox.right + 1,
     };
   });
   expect(!!dryMassActionLayout, `${htmlFile}: dry-mass modal layout elements missing`);
   if (dryMassActionLayout) {
-    expect(dryMassActionLayout.actionsInsidePresetPanel, `${htmlFile}: dry-mass actions should be inside the preset panel`);
-    expect(dryMassActionLayout.actionsBelowToolbar, `${htmlFile}: dry-mass actions should render directly below the preset toolbar`);
-    expect(dryMassActionLayout.actionsAboveStatus, `${htmlFile}: dry-mass status should stay below the action row`);
-    expect(dryMassActionLayout.footerHasNoActions, `${htmlFile}: dry-mass modal footer should only contain the summary`);
+    expect(dryMassActionLayout.actionsInsideFooter, `${htmlFile}: dry-mass actions should be inside the modal footer`);
+    expect(dryMassActionLayout.presetPanelHasNoActions, `${htmlFile}: dry-mass actions should not remain inside the preset panel`);
+    expect(dryMassActionLayout.actionsBelowSummary, `${htmlFile}: dry-mass actions should render below the footer summary`);
+    expect(dryMassActionLayout.statusAboveFooter, `${htmlFile}: dry-mass preset status should stay above the footer`);
+    expect(dryMassActionLayout.defaultsAboveNotes, `${htmlFile}: simulation defaults should render directly above notes`);
     expect(dryMassActionLayout.totalAndCapsulesSameRow, `${htmlFile}: dry-mass total and breakdown capsules should share a summary row`);
     expect(dryMassActionLayout.capsulesRightAligned, `${htmlFile}: dry-mass breakdown capsules should align to the right`);
     expect(dryMassActionLayout.noHorizontalOverflow, `${htmlFile}: dry-mass modal layout overflows horizontally`);
@@ -2025,7 +2081,7 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
   const minTwrAppliedFromDesignDefaults = await page.evaluate(() => Math.abs(state.minTwr - 0.37) < 1e-9);
   expect(minTwrAppliedFromDesignDefaults, `${htmlFile}: dry-mass Apply with defaults did not apply minimum TWR`);
-  await page.locator("#dryMassCalcButton").click();
+  await page.locator("#shipDesignerTitle").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
   const notesBox = await page.locator("#dryMassCalcNotes").boundingBox();
   expect(!!notesBox, `${htmlFile}: dry-mass notes field was not measurable`);

@@ -21,6 +21,7 @@ export function render() {
       renderFamilyDiagnostics(diagnostics);
       renderChartDiagnostic(diagnostics);
       renderLegend(rows);
+      renderConnectionLineControls();
       renderChartGuide();
       renderChart(rows);
       renderTable(rows);
@@ -166,46 +167,75 @@ function connectionLineModeDescription(mode) {
       return localText(description.ko, description.en);
     }
 
-export function renderChartGuide() {
-      const guide = document.getElementById("chartGuide");
-      if (!guide) return;
-      guide.innerHTML = "";
-      guide.setAttribute("aria-label", localText("차트 안내", "Chart guide"));
+function connectionLineModeHelpText(mode) {
+      const value = normalizeConnectionLineMode(mode);
+      if (value === "off") {
+        return localText("연결선을 숨깁니다.", "Hide connection lines.");
+      }
+      if (value === "strict") {
+        return localText(
+          "드라이브 연구 선후관계가 확인되는 연결선만 표시합니다.",
+          "Show only prerequisite-backed drive research links.",
+        );
+      }
+      if (value === "all") {
+        return localText(
+          "전기/펄스 추진기 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다.",
+          "Show all available progression lines, including electric and pulse-drive family aids.",
+        );
+      }
+      return localText(
+        "드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다.",
+        "Show drive research links plus reactor/power-lineage progression.",
+      );
+    }
 
-      const title = document.createElement("div");
-      title.className = "chart-guide-title";
-      title.textContent = localText("차트 안내", "Chart Guide");
-      guide.appendChild(title);
+export function renderConnectionLineControls() {
+      const root = document.getElementById("connectionLineControls");
+      if (!root) return;
+      root.innerHTML = "";
+      root.setAttribute("aria-label", localText("연결선 표시", "Connection line mode"));
 
-      const modeRow = document.createElement("div");
-      modeRow.className = "chart-guide-mode-row";
-      const modeLabel = document.createElement("span");
-      modeLabel.className = "chart-guide-mode-label";
+      const modeLabel = document.createElement("div");
+      modeLabel.className = "connection-line-mode-label";
       modeLabel.textContent = localText("연결선", "Connection lines");
       const modeGroup = document.createElement("div");
-      modeGroup.className = "segmented compact chart-guide-line-mode";
+      modeGroup.className = "segmented compact connection-line-mode";
       modeGroup.setAttribute("role", "radiogroup");
       modeGroup.setAttribute("aria-label", localText("연결선 표시", "Connection line mode"));
       CONNECTION_LINE_MODES.forEach(mode => {
         const label = document.createElement("label");
-        const description = connectionLineModeDescription(mode);
-        label.title = description;
         const input = document.createElement("input");
+        const labelText = connectionLineModeLabel(mode);
+        const helpText = connectionLineModeDescription(mode);
         input.type = "radio";
         input.name = "connectionLineMode";
         input.value = mode;
-        input.title = description;
         input.checked = normalizeConnectionLineMode(state.connectionLineMode) === mode;
+        input.title = helpText;
+        label.title = helpText;
+        label.setAttribute("aria-label", `${labelText}: ${helpText}`);
         input.addEventListener("change", () => {
+          if (!input.checked) return;
           state.connectionLineMode = normalizeConnectionLineMode(input.value);
           state.preserveViewportOnce = true;
           render();
         });
-        label.append(input, document.createTextNode(connectionLineModeLabel(mode)));
+        label.append(input, document.createTextNode(labelText));
         modeGroup.appendChild(label);
       });
-      modeRow.append(modeLabel, modeGroup);
-      guide.appendChild(modeRow);
+      root.append(modeLabel, modeGroup);
+    }
+
+
+export function renderChartGuide() {
+      const details = document.getElementById("chartGuide");
+      const guide = document.getElementById("chartGuideContent") || details;
+      if (!guide) return;
+      guide.innerHTML = "";
+      if (details) details.setAttribute("aria-label", localText("차트 안내", "Chart guide"));
+      const summary = document.getElementById("chartGuideSummary");
+      if (summary) summary.textContent = localText("차트 안내", "Chart Guide");
 
       const appendItem = (symbolClass, text) => {
         const item = document.createElement("span");
