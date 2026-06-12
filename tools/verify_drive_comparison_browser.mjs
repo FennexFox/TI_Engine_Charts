@@ -311,15 +311,17 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && powerAux.radiatorMassTons > powerAux.baseRadiatorMassTons
         && powerAux.wasteHeatGW > base.wasteHeatGW
         && powerAux.moduleEffectDiagnostics.powerWarnings.some(item => item.rule === "LaserPowerBonus"),
-      selfContainedAuxIgnored: !!selfContainedBase && !!selfContainedAux
-        && Math.abs(selfContainedAux.moduleAuxiliaryPowerGW) < 1e-12
-        && Math.abs(selfContainedAux.modifiedPowerRequirementGW - selfContainedAux.basePowerRequirementGW) < 1e-12
-        && Math.abs(selfContainedPowerMetric - selfContainedDrive.powerRequirementGW) < 1e-12
-        && Math.abs(selfContainedAux.powerPlantMassTons - selfContainedBase.powerPlantMassTons) < 1e-9
-        && Math.abs(selfContainedAux.radiatorMassTons - selfContainedBase.radiatorMassTons) < 1e-9
-        && Math.abs(selfContainedAux.totalMassTons - selfContainedBase.totalMassTons) < 1e-9
-        && Math.abs(selfContainedAux.twr - selfContainedBase.twr) < 1e-12
-        && selfContainedAux.moduleEffectDiagnostics.powerWarnings.some(item => item.reason === "selfContainedDriveAuxiliaryPower"),
+      selfContainedAuxModeled: !!selfContainedBase && !!selfContainedAux
+        && selfContainedBase.selfContained === true
+        && selfContainedAux.selfContained !== true
+        && selfContainedAux.moduleAuxiliaryPowerGW > 0
+        && Math.abs(selfContainedAux.modifiedPowerRequirementGW - (selfContainedAux.basePowerRequirementGW + selfContainedAux.moduleAuxiliaryPowerGW)) < 1e-12
+        && Math.abs(selfContainedPowerMetric - selfContainedAux.modifiedPowerRequirementGW) < 1e-12
+        && selfContainedAux.powerPlantMassTons > selfContainedBase.powerPlantMassTons
+        && selfContainedAux.radiatorMassTons > selfContainedBase.radiatorMassTons
+        && selfContainedAux.totalMassTons > selfContainedBase.totalMassTons
+        && selfContainedAux.twr < selfContainedBase.twr
+        && !selfContainedAux.moduleEffectDiagnostics.powerWarnings.some(item => item.reason === "selfContainedDriveAuxiliaryPower"),
       heatApplied: !!heatBase && !!heat
         && Math.abs(heat.wasteHeatMultiplier - 0.5) < 1e-12
         && heat.modifiedWasteHeatGW < heat.baseWasteHeatGW
@@ -339,7 +341,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectCalculationChecks.outOfScopeUnsupportedSuppressed, `${htmlFile}: out-of-scope unsupported module rule was carried as chart diagnostics`);
   expect(moduleEffectCalculationChecks.mutualExclusionSkipped, `${htmlFile}: mutually exclusive module effects were not skipped with diagnostics`);
   expect(moduleEffectCalculationChecks.powerAuxApplied, `${htmlFile}: auxiliary module power did not update power demand and mass options`);
-  expect(moduleEffectCalculationChecks.selfContainedAuxIgnored, `${htmlFile}: self-contained drive auxiliary power was not explicitly ignored with stable mass/TWR`);
+  expect(moduleEffectCalculationChecks.selfContainedAuxModeled, `${htmlFile}: self-contained drive auxiliary power did not use external power-plant mass/TWR modeling`);
   expect(moduleEffectCalculationChecks.heatApplied, `${htmlFile}: waste heat multiplier did not update heat and radiator mass options`);
   expect(moduleEffectCalculationChecks.thrustMetricEffective, `${htmlFile}: thrust metric did not use effective thrust`);
   expect(moduleEffectCalculationChecks.evMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective exhaust velocity`);

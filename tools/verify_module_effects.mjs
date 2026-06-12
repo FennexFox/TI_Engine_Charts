@@ -347,15 +347,15 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
   const result = evaluateModuleEffectsForDrive(selfContainedDrive, [laserEngine]);
   const base = fixtureMassSummary(selfContainedDrive, []);
   const powered = fixtureMassSummary(selfContainedDrive, [laserEngine]);
-  assertClose(result.moduleAuxiliaryPowerGW, 0, "self-contained drive ignores auxiliary module power");
-  assertClose(result.modifiedPowerRequirementGW, 0, "self-contained drive keeps base power demand");
-  assert.equal(result.powerContributions.length, 0, "ignored auxiliary power is not exposed as an applied contribution");
+  assertClose(result.moduleAuxiliaryPowerGW, 0.005, "self-contained drive keeps auxiliary module power");
+  assertClose(result.modifiedPowerRequirementGW, 0.005, "self-contained drive exposes auxiliary power demand");
+  assert.equal(result.powerContributions.length, 1, "auxiliary power remains an applied contribution");
   assert.ok(
-    result.diagnostics.powerWarnings.some(item => item.reason === "selfContainedDriveAuxiliaryPower" && item.rule === "AuxiliaryPower"),
-    "self-contained auxiliary power emits an explicit diagnostic",
+    !result.diagnostics.powerWarnings.some(item => item.reason === "selfContainedDriveAuxiliaryPower"),
+    "self-contained auxiliary power is modeled rather than warned away",
   );
-  assertClose(powered.totalMassTons, base.totalMassTons, "ignored auxiliary power keeps self-contained total mass");
-  assertClose(powered.twr, base.twr, "ignored auxiliary power keeps self-contained TWR");
+  assert.ok(powered.totalMassTons > base.totalMassTons, "auxiliary power increases self-contained total mass fixture");
+  assert.ok(powered.twr < base.twr, "auxiliary power lowers self-contained TWR fixture");
 }
 
 {

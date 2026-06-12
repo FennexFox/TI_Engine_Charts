@@ -470,29 +470,38 @@ def compatible_power_sequence(
     power_plants: list[dict[str, Any]],
     unlock_closure: frozenset[str],
     drive_cumulative: float,
+    power_requirement_gw: float | None = None,
+    required_power_plant_class: str | None = None,
+    include_self_contained: bool = True,
+    prune_frontier: bool = True,
 ) -> list[dict[str, Any]]:
-    if as_float(drive.get("powerRequirementGW"), 0.0) <= 0.0:
+    power_requirement = as_float(
+        drive.get("powerRequirementGW") if power_requirement_gw is None else power_requirement_gw,
+        0.0,
+    )
+    if power_requirement <= 0.0 and include_self_contained:
         return [self_contained_power_option(drive_cumulative)]
+    required_class = str(required_power_plant_class if required_power_plant_class is not None else drive["requiredPowerPlantClass"] or "")
     drive_alien = bool(drive["alien"])
     compatible = [
         plant
         for plant in power_plants
         if bool(plant["alien"]) == drive_alien
         and ship_plan_power_plant_class_compatible(
-            str(drive["requiredPowerPlantClass"] or ""),
+            required_class,
             str(plant["powerPlantClass"] or ""),
         )
-        and as_float(plant["maxOutputGW"], 0.0) >= as_float(drive["powerRequirementGW"], 0.0)
+        and as_float(plant["maxOutputGW"], 0.0) >= power_requirement
     ]
     if not compatible and drive_alien:
         compatible = [
             plant
             for plant in power_plants
             if ship_plan_power_plant_class_compatible(
-                str(drive["requiredPowerPlantClass"] or ""),
+                required_class,
                 str(plant["powerPlantClass"] or ""),
             )
-            and as_float(plant["maxOutputGW"], 0.0) >= as_float(drive["powerRequirementGW"], 0.0)
+            and as_float(plant["maxOutputGW"], 0.0) >= power_requirement
         ]
     compatible = sorted(
         compatible,
@@ -526,7 +535,13 @@ def compatible_power_sequence(
         for plant in compatible
         if as_float(plant["cumulativeResearch"], 0.0) >= lower_cost
     ]
-    sequence = prune_efficiency_frontier(drive, sequence)
+    if prune_frontier:
+        sequence_drive = {
+            **drive,
+            "powerRequirementGW": power_requirement,
+            "requiredPowerPlantClass": required_class,
+        }
+        sequence = prune_efficiency_frontier(sequence_drive, sequence)
     for index, plant in enumerate(sequence):
         plant["sequenceIndex"] = index
         plant["sequenceLabel"] = "unlock power plant" if index == 0 else f"+{index} power step"
@@ -604,6 +619,10 @@ def build_data(
         (row for row in radiators if row.get("id") == "DustyPlasma"),
         max(radiators, key=lambda row: as_float(row["specificPowerKWPerKg"], 0.0), default=None),
     )
+    max_auxiliary_power_gw = sum(
+        max(0.0, as_float(module.get("powerRequirementMW"), 0.0))
+        for module in ship_catalog.get("utilityModules", [])
+    ) / 1000.0
 
     drive_rows: list[dict[str, Any]] = []
     for template in drive_templates.values():
@@ -674,6 +693,21 @@ def build_data(
             "powerOptions": [],
         }
         row["powerOptions"] = compatible_power_sequence(row, power_plants, closure, cumulative)
+        if power_requirement_gw <= 0.0:
+            row["auxiliaryPowerOptions"] = compatible_power_sequence(
+                row,
+                power_plants,
+                closure,
+                cumulative,
+                power_requirement_gw=max_auxiliary_power_gw,
+                required_power_plant_class="Any_General",
+                include_self_contained=False,
+            )
+            for option in row["auxiliaryPowerOptions"]:
+                option["combinedCumulativeResearch"] = research.combined_cumulative_cost(
+                    project,
+                    str(option.get("requiredProject") or "") or None,
+                )
         for option in row["powerOptions"]:
             option["combinedCumulativeResearch"] = research.combined_cumulative_cost(
                 project,
@@ -766,8 +800,8 @@ def build_data(
             "cumulativeResearch": "Minimal research closure from data/research_catalog.json. all branches are unioned, any branches choose the lowest total research closure, and shared prerequisites are counted once.",
             "drivePowerRequirementGW": "thrust_N * EV_kps * 0.5 / 1,000,000 / efficiency, matching tools/ti_save_parser.py.",
             "driveMassTons": "flatMass_tons + thrustPowerGW * specificPower_kgMW, matching the local ship-plan simulation.",
-            "powerPlantMassTons": "zero for self-contained drives, otherwise max(1, powerPlant specificPower_tGW * drivePowerRequirementGW), matching the local ship-plan simulation's power-plant mass term.",
-            "radiatorMassTons": "zero for self-contained or open-cycle cooling drives, otherwise wasteHeatGW * 1,000,000 / radiator specificPower_2s_KWkg / 1000, with base wasteHeatGW = drivePowerRequirementGW * (1 - powerPlantEfficiency). Runtime module effects may add selected utility auxiliary power to drivePowerRequirementGW and apply supported waste-heat multipliers before radiator mass is calculated.",
+            "powerPlantMassTons": "zero for self-contained drives with no auxiliary module load, otherwise max(1, powerPlant specificPower_tGW * effectivePowerRequirementGW), matching the local ship-plan simulation's power-plant mass term. Runtime auxiliary-power modules on self-contained drives use separately generated general power-plant candidates for the auxiliary load only.",
+            "radiatorMassTons": "zero for self-contained drives with no auxiliary module load or for open-cycle cooling drives, otherwise wasteHeatGW * 1,000,000 / radiator specificPower_2s_KWkg / 1000, with base wasteHeatGW = drivePowerRequirementGW * (1 - powerPlantEfficiency). Runtime module effects may add selected utility auxiliary power and apply supported waste-heat multipliers before radiator mass is calculated.",
             "moduleEffects": "disabled by default. When enabled, supported drive-performance, auxiliary-power, and waste-heat effects are applied to modified chart values; unsupported module rules are preserved as visible diagnostics.",
             "totalMass": "baseDryMass + drive mass + power plant mass + radiator mass + propellant mass, where propellantMass = dryMassWithHardware * (exp(targetDvKps / exhaustVelocityKps) - 1). The dashboard slider is the base dry mass before adding the selected drive, power plant, and radiator.",
         },

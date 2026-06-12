@@ -238,18 +238,25 @@ export function massOptions(row) {
       const massRatioMinusOne = Math.exp(targetDv / effective.exhaustVelocityKps) - 1;
       if (!Number.isFinite(massRatioMinusOne) || massRatioMinusOne < 0) return [];
       const massRatio = massRatioMinusOne + 1;
-      const options = row.powerOptions || row.reactorOptions || [];
+      const baseOptions = row.powerOptions || row.reactorOptions || [];
+      const auxiliaryPowerOptions = Array.isArray(row.auxiliaryPowerOptions) ? row.auxiliaryPowerOptions : [];
+      const moduleAuxiliaryPowerGW = Number.isFinite(Number(effective.moduleAuxiliaryPowerGW)) ? Number(effective.moduleAuxiliaryPowerGW) : 0;
+      const options = row.powerRequirementGW <= 0 && moduleAuxiliaryPowerGW > 0 && auxiliaryPowerOptions.length
+        ? auxiliaryPowerOptions.filter(option => Number(option.maxOutputGW) >= moduleAuxiliaryPowerGW)
+        : baseOptions;
       const computed = options.map(option => {
         const basePowerRequirementGW = Number.isFinite(Number(effective.basePowerRequirementGW)) ? Number(effective.basePowerRequirementGW) : row.powerRequirementGW;
         const modifiedPowerRequirementGW = Number.isFinite(Number(effective.powerRequirementGW)) ? Number(effective.powerRequirementGW) : basePowerRequirementGW;
-        const moduleAuxiliaryPowerGW = Number.isFinite(Number(effective.moduleAuxiliaryPowerGW)) ? Number(effective.moduleAuxiliaryPowerGW) : 0;
         const wasteHeatMultiplier = Number.isFinite(Number(effective.wasteHeatMultiplier)) ? Number(effective.wasteHeatMultiplier) : 1;
         const baseSelfContained = !!option.selfContained || basePowerRequirementGW <= 0;
-        const selfContained = !!option.selfContained || modifiedPowerRequirementGW <= 0;
+        const modifiedExternalPowerRequirementGW = baseSelfContained ? moduleAuxiliaryPowerGW : modifiedPowerRequirementGW;
+        const selfContained = modifiedExternalPowerRequirementGW <= 0;
         const basePowerPlantMassTons = baseSelfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * basePowerRequirementGW);
-        const powerPlantMassTons = selfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * modifiedPowerRequirementGW);
+        const powerPlantMassTons = selfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * modifiedExternalPowerRequirementGW);
         const baseWasteHeatGW = baseSelfContained || row.openCycleCooling ? 0 : basePowerRequirementGW * (1 - option.efficiency);
-        const modifiedWasteHeatGW = selfContained || row.openCycleCooling ? 0 : Math.max(0, modifiedPowerRequirementGW * (1 - option.efficiency) * wasteHeatMultiplier);
+        const auxiliaryWasteHeatGW = moduleAuxiliaryPowerGW > 0 ? moduleAuxiliaryPowerGW * (1 - option.efficiency) : 0;
+        const modifiedDriveWasteHeatGW = baseSelfContained || row.openCycleCooling ? 0 : basePowerRequirementGW * (1 - option.efficiency);
+        const modifiedWasteHeatGW = selfContained ? 0 : Math.max(0, (modifiedDriveWasteHeatGW + auxiliaryWasteHeatGW) * wasteHeatMultiplier);
         const baseRadiatorMassTons = !baseSelfContained && radiatorSpecificPower > 0
           ? Math.max(0, baseWasteHeatGW * 1_000_000 / radiatorSpecificPower / 1000)
           : 0;
