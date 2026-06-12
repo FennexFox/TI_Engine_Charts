@@ -5,12 +5,12 @@
     "techTemplate": {
       "file": "TITechTemplate.json",
       "size": 52365,
-      "mtime_ns": 1777337300290927400
+      "mtime_ns": 1776893041602093100
     },
     "projectTemplate": {
       "file": "TIProjectTemplate.json",
       "size": 444414,
-      "mtime_ns": 1777336008237866200
+      "mtime_ns": 1776892833391078300
     },
     "localizationLanguages": [
       "kor",
