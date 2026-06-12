@@ -67,6 +67,10 @@ python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no
 9. [Phase 09 - Compatibility Validation Follow-Up](./09-compatibility-validation-follow-up.md)
 10. [Phase 10 - Ship Design Import and Advanced Workflows](./10-ship-design-import-and-advanced-workflows.md)
 
+Post-implementation audit:
+
+- [Issue 6 Post-Implementation Audit and Follow-Up Plan](./11-post-implementation-audit-and-follow-up.md)
+
 ## MVP Definition
 
 The MVP is complete after phases 01 through 06:
