@@ -1151,7 +1151,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const englishItemCount = guide?.querySelectorAll(".chart-guide-item").length || 0;
     const englishPowerItems = [...(guide?.querySelectorAll(".chart-guide-item") || [])]
       .filter(item => /Power view|Hover a point/.test(item.textContent || "")).length;
-    const paretoHelp = guide?.querySelector(".chart-guide-help");
+    const paretoHelp = guide?.querySelector(".chart-guide-item .chart-guide-symbol.is-pareto + .chart-guide-help") || null;
     setLanguage("ko", { rerender: false });
     syncUiFromState();
     render();
@@ -1166,15 +1166,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       floatingInPlotCorner,
       lineModeSingleRow,
       englishText,
-      paretoHelpText: (() => {
-        const help = guide.querySelector(".chart-guide-item .chart-guide-symbol.is-pareto + .chart-guide-help");
-        return help?.dataset.help || help?.getAttribute("aria-label") || "";
-      })(),
-      paretoHelpHasNativeTitle: !!guide.querySelector(".chart-guide-item .chart-guide-symbol.is-pareto + .chart-guide-help")?.getAttribute("title"),
+      paretoHelpText: paretoHelp?.dataset.help || paretoHelp?.getAttribute("aria-label") || "",
+      paretoHelpHasNativeTitle: !!paretoHelp?.getAttribute("title"),
       englishModeDescriptions,
       englishItemCount,
       englishPowerItems,
-      paretoHelpText: paretoHelp?.title || paretoHelp?.getAttribute("aria-label") || "",
       childOverflow,
       koreanText,
     };
@@ -1196,6 +1192,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/Hide connection lines/.test(lineModeDescriptions.get("off") || ""), `${htmlFile}: off line mode tooltip is missing or incomplete`);
   expect(chartGuideChecks.englishText.includes("Transparency: low TWR / high mass"), `${htmlFile}: guide does not explain secondary opacity encoding`);
   expect(chartGuideChecks.englishText.includes("×: Pareto-dominated"), `${htmlFile}: guide does not explain Pareto-dominated markers`);
+  expect(/no more research/.test(chartGuideChecks.paretoHelpText || ""), `${htmlFile}: Pareto help tooltip is missing or incomplete`);
+  expect(!chartGuideChecks.paretoHelpHasNativeTitle, `${htmlFile}: Pareto help should not use a native title tooltip in addition to the custom tooltip`);
   expect(/Warning ring: low TWR\/extreme mass/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain low-TWR/impractical markers`);
   expect(/Outline: hover\/select\/pin; click again unpins/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain hover/select/pin and unpin behavior`);
   expect(chartGuideChecks.englishPowerItems === 0, `${htmlFile}: guide should omit power-view and hover-a-point helper text`);
