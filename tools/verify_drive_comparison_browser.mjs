@@ -182,6 +182,110 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
 
+  const shipDesignerInitial = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    const section = document.getElementById("shipDesignerSection");
+    const shipDesignerCard = document.querySelector('.control-card[data-control-card="shipDesigner"]');
+    const simulationCard = document.querySelector('.control-card[data-control-card="simulation"]');
+    const shipDesignerHeader = shipDesignerCard?.querySelector(".control-card-header");
+    const modulePanel = document.getElementById("moduleEffectsControl");
+    const moduleEffectsCheckbox = document.getElementById("moduleEffectsEnabled");
+    const title = document.getElementById("shipDesignerTitle");
+    const calcButton = document.getElementById("dryMassCalcButton");
+    const status = document.getElementById("shipDesignerAppliedTemplate");
+    const select = document.getElementById("dryMassPresetSelect");
+    const initialStatus = status?.textContent.trim() || "";
+    const calcButtonStyle = calcButton ? getComputedStyle(calcButton) : null;
+    if (select && select.options.length > 1) {
+      select.selectedIndex = 1;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    const statusAfterUnappliedSelection = status?.textContent.trim() || "";
+    return {
+      sectionExists: !!section,
+      cardExists: !!shipDesignerCard,
+      sectionInsideShipDesignerCard: !!(section && shipDesignerCard && shipDesignerCard.contains(section)),
+      sectionOutsideSimulationCard: !!(section && simulationCard && !simulationCard.contains(section)),
+      titleInsideHeader: !!(title && shipDesignerHeader && shipDesignerHeader.contains(title)),
+      titleIsPlainText: title?.tagName === "SPAN",
+      calcButtonInsideHeader: !!(calcButton && shipDesignerHeader && shipDesignerHeader.contains(calcButton)),
+      bodyHasOpenDesignerButton: !!section?.querySelector("button.ship-designer-title-button, button#shipDesignerTitle"),
+      modulePanelInside: !!section && !!modulePanel && section.contains(modulePanel),
+      moduleEffectsCheckedByDefault: moduleEffectsCheckbox?.checked === true && state.moduleEffectsEnabled === true,
+      titleText: title?.textContent.trim() || "",
+      calcButtonText: calcButton?.textContent.trim() || "",
+      calcButtonLabel: calcButton?.getAttribute("aria-label") || "",
+      calcButtonLooksClickable: !!calcButtonStyle
+        && calcButtonStyle.borderTopWidth !== "0px"
+        && calcButtonStyle.backgroundColor !== "rgba(0, 0, 0, 0)",
+      calcButtonIsCompact: !!calcButtonStyle && Number.parseFloat(calcButtonStyle.width) <= 32,
+      defaultStatus: initialStatus,
+      defaultAppliedFlag: status?.dataset.appliedTemplate || "",
+      statusAfterUnappliedSelection,
+      unappliedSelectionPreservedStatus: statusAfterUnappliedSelection === initialStatus,
+    };
+  });
+  expect(shipDesignerInitial.sectionExists, `${htmlFile}: Ship Designer section missing`);
+  expect(shipDesignerInitial.cardExists, `${htmlFile}: Ship Designer card missing`);
+  expect(shipDesignerInitial.sectionInsideShipDesignerCard, `${htmlFile}: Ship Designer controls are not inside the Ship Designer card`);
+  expect(shipDesignerInitial.sectionOutsideSimulationCard, `${htmlFile}: Ship Designer controls should not remain inside Simulation Conditions`);
+  expect(shipDesignerInitial.titleInsideHeader, `${htmlFile}: Ship Designer title should be in the card header`);
+  expect(shipDesignerInitial.titleIsPlainText, `${htmlFile}: Ship Designer title should be plain header text, not a button`);
+  expect(shipDesignerInitial.calcButtonInsideHeader, `${htmlFile}: dry-mass calculator button should sit beside the Ship Designer title`);
+  expect(!shipDesignerInitial.bodyHasOpenDesignerButton, `${htmlFile}: separate Open Designer body button should be removed`);
+  expect(shipDesignerInitial.modulePanelInside, `${htmlFile}: module effects controls are not grouped inside Ship Designer`);
+  expect(shipDesignerInitial.moduleEffectsCheckedByDefault, `${htmlFile}: module performance effects should be enabled by default`);
+  expect(/Ship Designer/.test(shipDesignerInitial.titleText), `${htmlFile}: Ship Designer title text missing`);
+  expect(/Dry Mass Calculator/.test(shipDesignerInitial.calcButtonLabel), `${htmlFile}: dry-mass calculator icon button should expose an accessible label`);
+  expect(shipDesignerInitial.calcButtonText.length > 0, `${htmlFile}: dry-mass calculator icon button should show an icon glyph`);
+  expect(shipDesignerInitial.calcButtonLooksClickable, `${htmlFile}: dry-mass calculator icon button should be visibly styled as a button`);
+  expect(shipDesignerInitial.calcButtonIsCompact, `${htmlFile}: dry-mass calculator button should remain compact beside the title`);
+  expect(/No ship template applied/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should say no template is applied`);
+  expect(shipDesignerInitial.defaultAppliedFlag === "false", `${htmlFile}: default Ship Designer applied flag should be false`);
+  expect(shipDesignerInitial.unappliedSelectionPreservedStatus, `${htmlFile}: selecting a design preset falsely changed the applied-template status`);
+
+  const shipDesignerPresetFixture = await page.evaluate(() => {
+    const entry = saveDryMassPresetFromCalculator("Verifier Ship Design", exportedDryMassCalculatorPreset());
+    if (entry) renderDryMassPresetControls(entry.id);
+    const status = document.getElementById("shipDesignerAppliedTemplate");
+    return {
+      saved: !!entry,
+      selected: document.getElementById("dryMassPresetSelect")?.value === entry?.id,
+      statusText: status?.textContent.trim() || "",
+      appliedFlag: status?.dataset.appliedTemplate || "",
+    };
+  });
+  expect(shipDesignerPresetFixture.saved, `${htmlFile}: could not create dry-mass design preset fixture for Ship Designer applied-template check`);
+  expect(shipDesignerPresetFixture.selected, `${htmlFile}: dry-mass design preset fixture was not selected`);
+  expect(/No ship template applied/.test(shipDesignerPresetFixture.statusText), `${htmlFile}: saving/selecting a design preset falsely changed the applied-template status`);
+  expect(shipDesignerPresetFixture.appliedFlag === "false", `${htmlFile}: saving/selecting a design preset should not mark it applied`);
+
+  await page.locator("#dryMassCalcButton").click();
+  await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
+  const dryMassButtonFocusCheck = await page.evaluate(() => ({
+    modalOpen: !!document.querySelector("#dryMassCalcModal.is-open"),
+    activeInsideModal: !!document.activeElement?.closest("#dryMassCalcModal"),
+    hasDesignPreset: !!document.getElementById("dryMassPresetSelect")?.value,
+  }));
+  expect(dryMassButtonFocusCheck.modalOpen, `${htmlFile}: Ship Designer dry-mass button did not open the modal`);
+  expect(dryMassButtonFocusCheck.activeInsideModal, `${htmlFile}: Ship Designer dry-mass button did not focus a modal control`);
+  await page.locator("#dryMassCalcApply").click();
+  await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
+  const shipDesignerApplied = await page.evaluate(() => {
+    const status = document.getElementById("shipDesignerAppliedTemplate");
+    return {
+      text: status?.textContent.trim() || "",
+      appliedFlag: status?.dataset.appliedTemplate || "",
+      stateTemplateName: state.appliedShipTemplate?.name || "",
+    };
+  });
+  expect(dryMassButtonFocusCheck.hasDesignPreset, `${htmlFile}: dry-mass design preset fixture missing for Ship Designer applied-template check`);
+  expect(shipDesignerApplied.appliedFlag === "true", `${htmlFile}: applying a named design did not mark Ship Designer status as applied`);
+  expect(shipDesignerApplied.stateTemplateName.trim().length > 0, `${htmlFile}: applied ship template state did not store a named design`);
+  expect(shipDesignerApplied.text === shipDesignerApplied.stateTemplateName, `${htmlFile}: applied Ship Designer status should show only the template name`);
+
   const moduleEffectCalculationChecks = await page.evaluate(() => {
     resetChartStateToDefaults();
     state.metric = "totalMassTons";
@@ -728,8 +832,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       focusedExtraPoints: document.querySelectorAll("#chart .power-extra-point.is-focused").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
       focusedLines: document.querySelectorAll("#chart .power-ladder-line.is-focused").length,
-      powerStepRows: document.querySelectorAll("#tooltip .power-steps-table tbody tr").length,
-      powerStepText: document.querySelector("#tooltip .tooltip-power-steps")?.textContent || "",
+      powerStepRows: document.querySelectorAll(".table-power-steps-details .power-steps-table tbody tr").length,
+      powerStepText: document.querySelector(".table-power-steps-details")?.textContent || "",
     };
 
     const pinnedHoverTargets = currentChartRows
@@ -799,7 +903,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       extraPoints: document.querySelectorAll("#chart .power-extra-point").length,
       ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
       bandSurfaces: document.querySelectorAll("#chart [data-band-pair-step], #chart [data-band-step]").length,
-      powerStepText: document.querySelector("#tooltip .tooltip-power-steps")?.textContent || "",
+      powerStepText: document.querySelector(".table-power-steps-details")?.textContent || "",
       selectedPowerText: document.querySelector("#tooltip .tooltip-title-power")?.textContent || "",
     };
 
@@ -825,7 +929,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: Power view options are not exactly focus/all/best`,
   );
   expect(
-    JSON.stringify(powerViewChecks.defaultMode.options.map(option => option.label)) === JSON.stringify(["Base", "All ladders", "Best Available"]),
+    JSON.stringify(powerViewChecks.defaultMode.options.map(option => option.label)) === JSON.stringify(["Base power", "All compatible power", "Best available power"]),
     `${htmlFile}: Power view labels are not exactly the expected English labels`,
   );
   expect(!powerViewChecks.defaultMode.options.some(option => /envelope/i.test(option.label) || option.value === "off" || option.value === "envelope"), `${htmlFile}: removed Power view option still appears`);
@@ -849,14 +953,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(powerViewChecks.pinnedHoverFocus.focusedDriveCount >= 3, `${htmlFile}: Base mode did not focus every pinned drive plus hovered drive`);
   expect(powerViewChecks.pinnedHoverFocus.includesPinnedAndHover, `${htmlFile}: Base mode focused ladders did not include every pinned and hovered drive`);
   expect(powerViewChecks.pinnedHoverFocus.hoverPointPreserved, `${htmlFile}: redraw dropped the hovered drive while tooltip cards were pinned`);
-  expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All ladders Power view did not select all mode`);
-  expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All ladders mode did not render extra points`);
-  expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All ladders mode did not apply subdued point styling`);
-  expect(powerViewChecks.allMode.ladderLines > 0 && powerViewChecks.allMode.subduedLines > 0, `${htmlFile}: All ladders mode did not render subdued ladder lines`);
-  expect(powerViewChecks.allMode.dashedLines === powerViewChecks.allMode.ladderLines, `${htmlFile}: All ladders mode did not render dashed ladder lines`);
-  expect(powerViewChecks.allMode.bandSurfaces === 0, `${htmlFile}: All ladders mode rendered old power band surfaces`);
-  expect(nearlySameDomain(powerViewChecks.allMode.xDomain, powerViewChecks.focusIdle.xDomain), `${htmlFile}: All ladders mode changed the default X viewport instead of fitting base points`);
-  expect(nearlySameDomain(powerViewChecks.allMode.yDomain, powerViewChecks.focusIdle.yDomain), `${htmlFile}: All ladders mode changed the default Y viewport instead of fitting base points`);
+  expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All compatible power view did not select all mode`);
+  expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All compatible power mode did not render extra points`);
+  expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All compatible power mode did not apply subdued point styling`);
+  expect(powerViewChecks.allMode.ladderLines > 0 && powerViewChecks.allMode.subduedLines > 0, `${htmlFile}: All compatible power mode did not render subdued ladder lines`);
+  expect(powerViewChecks.allMode.dashedLines === powerViewChecks.allMode.ladderLines, `${htmlFile}: All compatible power mode did not render dashed ladder lines`);
+  expect(powerViewChecks.allMode.bandSurfaces === 0, `${htmlFile}: All compatible power mode rendered old power band surfaces`);
+  expect(nearlySameDomain(powerViewChecks.allMode.xDomain, powerViewChecks.focusIdle.xDomain), `${htmlFile}: All compatible power mode changed the default X viewport instead of fitting base points`);
+  expect(nearlySameDomain(powerViewChecks.allMode.yDomain, powerViewChecks.focusIdle.yDomain), `${htmlFile}: All compatible power mode changed the default Y viewport instead of fitting base points`);
   expect(powerViewChecks.bestMode.selected === "best", `${htmlFile}: Best Available Power view did not select best mode`);
   expect(powerViewChecks.bestMode.basePoints > 0, `${htmlFile}: Best Available did not preserve first-compatible baseline points`);
   expect(powerViewChecks.bestMode.bestPoints > 0 && powerViewChecks.bestMode.bestLines > 1, `${htmlFile}: Best Available did not render best points and lines for multiple drives`);
@@ -865,10 +969,351 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(powerViewChecks.bestMode.subduedBestPoints > 0, `${htmlFile}: Best Available did not apply subdued point styling`);
   expect(powerViewChecks.bestMode.extraPoints === powerViewChecks.bestMode.bestPoints && powerViewChecks.bestMode.ladderLines === 0, `${htmlFile}: Best Available rendered unexpected ladder extras`);
   expect(powerViewChecks.bestMode.bandSurfaces === 0, `${htmlFile}: Best Available rendered old power band surfaces`);
-  expect(/Wet mass/.test(powerViewChecks.bestMode.powerStepText) && /TWR/.test(powerViewChecks.bestMode.powerStepText), `${htmlFile}: Best Available tooltip missing power step details`);
+  expect(/Wet mass/.test(powerViewChecks.bestMode.powerStepText) && /TWR/.test(powerViewChecks.bestMode.powerStepText), `${htmlFile}: Best Available table missing power step details`);
   expect(powerViewChecks.bestMode.selectedPowerText.trim().length > 0, `${htmlFile}: Best Available tooltip did not identify the selected power plant`);
   expect(!powerViewChecks.nonPowerMetric.controlVisible, `${htmlFile}: Power view control is visible on a non-power-comparison metric`);
   expect(powerViewChecks.nonPowerMetric.bestLines === 0 && powerViewChecks.nonPowerMetric.ladderLines === 0, `${htmlFile}: Power view rendered on a non-power-comparison metric`);
+
+  const driveLinkRenderingChecks = await page.evaluate(() => {
+    const currentRowById = () => new Map(currentChartRows.map(row => [row.id, row]));
+    const visibleDriveLinkCount = coordinatePredicate => {
+      const rows = currentRowById();
+      const visibleForMode = link => {
+        if (state.connectionLineMode === "off") return false;
+        if (state.connectionLineMode === "strict") return link.kind === "projectedResearchDependency";
+        if (state.connectionLineMode === "lineage") {
+          return link.kind === "projectedResearchDependency" || link.kind === "reactorLineageProgression";
+        }
+        return true;
+      };
+      return (DATA.driveLinks || []).filter(link => {
+        const source = rows.get(link.from);
+        const target = rows.get(link.to);
+        return visibleForMode(link) && source && target && coordinatePredicate(source) && coordinatePredicate(target);
+      }).length;
+    };
+    const finiteBasicMetric = row => {
+      const value = metricDefs[state.metric].value(row);
+      const research = Number(row.unlockCumulativeResearch || row.cumulativeResearch);
+      return Number.isFinite(value) && value > 0 && Number.isFinite(research) && research > 0;
+    };
+    const finiteBaseMassOption = row => {
+      const option = chartMassOptions(row)[0];
+      const research = Number(option?.combinedCumulativeResearch || row.unlockCumulativeResearch || row.cumulativeResearch);
+      return !!option
+        && Number.isFinite(research)
+        && research > 0
+        && Number.isFinite(Number(option.totalMassTons))
+        && Number(option.totalMassTons) > 0;
+    };
+    const snapshot = (metric, powerView = "focus") => {
+      resetChartStateToDefaults();
+      setLanguage("en", { rerender: false });
+      state.metric = metric;
+      state.powerResearchView = powerView;
+      syncUiFromState();
+      render();
+      const coordinatePredicate = metric === "totalMassTons" ? finiteBaseMassOption : finiteBasicMetric;
+      return {
+        metric,
+        powerView,
+        expectedLinks: visibleDriveLinkCount(coordinatePredicate),
+        renderedLinks: document.querySelectorAll("#chart .drive-link-segment").length,
+        fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
+        baseLines: document.querySelectorAll("#chart .base-drive-line").length,
+        guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
+        ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
+        bestLines: document.querySelectorAll("#chart .power-best-line").length,
+      };
+    };
+    const basic = snapshot("thrustMN");
+    const totalMass = snapshot("totalMassTons", "focus");
+    const allLadders = snapshot("totalMassTons", "all");
+    const bestAvailable = snapshot("totalMassTons", "best");
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    syncUiFromState();
+    render();
+    const visibleIds = new Set(currentChartRows.map(row => row.id));
+    const originalLinks = DATA.driveLinks;
+    const linkFamilies = new Set((originalLinks || [])
+      .filter(link => visibleIds.has(link.from) && visibleIds.has(link.to))
+      .map(link => link.familyKey));
+    const families = new Map();
+    currentChartRows.forEach(row => {
+      if (!families.has(row.familyKey)) families.set(row.familyKey, []);
+      families.get(row.familyKey).push(row);
+    });
+    const familyForSuppressedLinks = [...families.entries()].find(([family, rows]) => rows.length > 1 && linkFamilies.has(family))
+      || [...families.entries()].find(([, rows]) => rows.length > 1);
+    let suppressedFamily = "";
+    let suppressedFamilyLinkSegmentCount = 0;
+    let suppressedFamilyFallbackLineCount = 0;
+    if (familyForSuppressedLinks) {
+      suppressedFamily = familyForSuppressedLinks[0];
+      DATA.driveLinks = (originalLinks || []).filter(link => link.familyKey !== suppressedFamily);
+      render();
+      suppressedFamilyLinkSegmentCount = [...document.querySelectorAll("#chart .drive-link-segment")]
+        .filter(path => path.getAttribute("data-family-key") === suppressedFamily).length;
+      suppressedFamilyFallbackLineCount = document.querySelectorAll("#chart .family-fallback-line").length;
+    }
+
+    DATA.driveLinks = [];
+    render();
+    const emptyArray = {
+      baseLines: document.querySelectorAll("#chart .base-drive-line").length,
+      renderedLinks: document.querySelectorAll("#chart .drive-link-segment").length,
+      fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
+      guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
+    };
+    delete DATA.driveLinks;
+    render();
+    const missingDataFallback = {
+      baseLines: document.querySelectorAll("#chart .base-drive-line").length,
+      fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
+      guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
+    };
+    DATA.driveLinks = originalLinks;
+    render();
+
+    return {
+      basic,
+      totalMass,
+      allLadders,
+      bestAvailable,
+      suppressedFamily,
+      suppressedFamilyLinkSegmentCount,
+      suppressedFamilyFallbackLineCount,
+      emptyArray,
+      missingDataFallback,
+    };
+  });
+  expect(driveLinkRenderingChecks.basic.expectedLinks > 0, `${htmlFile}: no visible generated driveLinks available for basic metric rendering`);
+  expect(driveLinkRenderingChecks.basic.renderedLinks === driveLinkRenderingChecks.basic.expectedLinks, `${htmlFile}: basic metric line count is not derived from visible driveLinks`);
+  expect(driveLinkRenderingChecks.basic.fallbackLines === 0, `${htmlFile}: family fallback lines rendered even though driveLinks data exists`);
+  expect(/Connection lines/.test(driveLinkRenderingChecks.basic.controlsText), `${htmlFile}: connection line controls are missing`);
+  expect(driveLinkRenderingChecks.totalMass.renderedLinks === driveLinkRenderingChecks.totalMass.expectedLinks, `${htmlFile}: total-mass link line count is not derived from visible driveLinks`);
+  expect(driveLinkRenderingChecks.allLadders.renderedLinks === driveLinkRenderingChecks.allLadders.expectedLinks, `${htmlFile}: All Ladders link line count is not derived from visible driveLinks`);
+  expect(driveLinkRenderingChecks.allLadders.ladderLines > 0, `${htmlFile}: All Ladders power paths disappeared after link rendering change`);
+  expect(driveLinkRenderingChecks.bestAvailable.renderedLinks === driveLinkRenderingChecks.bestAvailable.expectedLinks, `${htmlFile}: Best Available link line count is not derived from visible driveLinks`);
+  expect(driveLinkRenderingChecks.bestAvailable.bestLines > 0, `${htmlFile}: Best Available power paths disappeared after link rendering change`);
+  expect(driveLinkRenderingChecks.suppressedFamily, `${htmlFile}: no visible multi-drive family was available for suppressed-link verification`);
+  expect(driveLinkRenderingChecks.suppressedFamilyLinkSegmentCount === 0, `${htmlFile}: rendered a generated link for suppressed family ${driveLinkRenderingChecks.suppressedFamily}`);
+  expect(driveLinkRenderingChecks.suppressedFamilyFallbackLineCount === 0, `${htmlFile}: suppressing links for ${driveLinkRenderingChecks.suppressedFamily} triggered family fallback lines despite driveLinks data existing`);
+  expect(driveLinkRenderingChecks.emptyArray.baseLines === 0 && driveLinkRenderingChecks.emptyArray.fallbackLines === 0, `${htmlFile}: empty driveLinks array triggered family fallback lines`);
+  expect(/Connection lines/.test(driveLinkRenderingChecks.emptyArray.controlsText), `${htmlFile}: empty driveLinks array did not preserve connection line controls`);
+  expect(driveLinkRenderingChecks.missingDataFallback.fallbackLines > 0, `${htmlFile}: missing driveLinks data did not trigger compatibility fallback`);
+  expect(driveLinkRenderingChecks.missingDataFallback.guideText.length > 0, `${htmlFile}: missing driveLinks fallback removed chart guide text`);
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  const chartGuideChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    state.showImpracticalCandidates = true;
+    state.paretoHighlight = true;
+    syncUiFromState();
+    render();
+    const guide = document.getElementById("chartGuide");
+    const guideDetails = document.getElementById("chartGuideDetails");
+    const lineControls = document.getElementById("connectionLineControls");
+    const displayCard = document.querySelector('.control-card[data-control-card="display"]');
+    const plotFrame = document.querySelector(".chart-plot-frame");
+    const guideBox = guide?.getBoundingClientRect();
+    const plotFrameBox = plotFrame?.getBoundingClientRect();
+    const childOverflow = guide && guideBox
+      ? [...guide.children].some(child => {
+        const box = child.getBoundingClientRect();
+        return box.left < guideBox.left - 1 || box.right > guideBox.right + 1;
+      })
+      : true;
+    const floatingInPlotCorner = !!(guideBox && plotFrameBox)
+      && guideBox.left >= plotFrameBox.left - 1
+      && guideBox.right <= plotFrameBox.right + 1
+      && guideBox.top >= plotFrameBox.top - 1
+      && guideBox.top <= plotFrameBox.top + 24
+      && guideBox.right >= plotFrameBox.right - 24;
+    const englishText = guide?.textContent || "";
+    const englishModeDescriptions = [...(lineControls?.querySelectorAll('input[name="connectionLineMode"]') || [])]
+      .map(input => ({
+        mode: input.value,
+        title: input.title || input.closest("label")?.title || "",
+      }));
+    const lineModeBoxes = [...(lineControls?.querySelectorAll(".connection-line-mode > label") || [])]
+      .map(label => label.getBoundingClientRect());
+    const lineModeSingleRow = lineModeBoxes.length === 4
+      && lineModeBoxes.every(box => Math.abs(box.top - lineModeBoxes[0].top) <= 1);
+    const englishItemCount = guide?.querySelectorAll(".chart-guide-item").length || 0;
+    const englishPowerItems = [...(guide?.querySelectorAll(".chart-guide-item") || [])]
+      .filter(item => /Power view|Hover a point/.test(item.textContent || "")).length;
+    const paretoHelp = guide?.querySelector(".chart-guide-help");
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    render();
+    const koreanText = guide?.textContent || "";
+    return {
+      exists: !!guide,
+      aria: guide?.getAttribute("aria-label") || "",
+      guideInsidePlot: !!(guide && plotFrame && plotFrame.contains(guide)),
+      lineControlsInsideDisplayCard: !!(displayCard && lineControls && displayCard.contains(lineControls)),
+      lineControlsOutsideGuide: !!(guide && lineControls && !guide.contains(lineControls)),
+      guideDetailsCollapsed: !!guideDetails && !guideDetails.open,
+      floatingInPlotCorner,
+      lineModeSingleRow,
+      englishText,
+      englishModeDescriptions,
+      englishItemCount,
+      englishPowerItems,
+      paretoHelpText: paretoHelp?.title || paretoHelp?.getAttribute("aria-label") || "",
+      childOverflow,
+      koreanText,
+    };
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  expect(chartGuideChecks.exists, `${htmlFile}: compact chart guide is missing`);
+  expect(chartGuideChecks.guideInsidePlot, `${htmlFile}: compact chart guide should be inside the chart plot frame`);
+  expect(chartGuideChecks.lineControlsInsideDisplayCard, `${htmlFile}: connection line controls should be inside the Display card`);
+  expect(chartGuideChecks.lineControlsOutsideGuide, `${htmlFile}: chart guide card should not contain connection line controls`);
+  expect(chartGuideChecks.guideDetailsCollapsed, `${htmlFile}: chart guide details should be collapsed by default`);
+  expect(chartGuideChecks.floatingInPlotCorner, `${htmlFile}: chart guide card should float in the chart plot's top-right corner`);
+  expect(chartGuideChecks.lineModeSingleRow, `${htmlFile}: connection line mode buttons should stay on one row`);
+  expect(chartGuideChecks.englishItemCount >= 4, `${htmlFile}: compact chart guide is missing required items`);
+  const lineModeDescriptions = new Map(chartGuideChecks.englishModeDescriptions.map(item => [item.mode, item.title]));
+    expect(/Lines: drive progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain progression lines`);
+  expect(/prerequisite-backed drive research/.test(lineModeDescriptions.get("strict") || ""), `${htmlFile}: strict line mode tooltip is missing or incomplete`);
+  expect(/reactor\/power-lineage progression/.test(lineModeDescriptions.get("lineage") || ""), `${htmlFile}: lineage line mode tooltip is missing or incomplete`);
+  expect(/broader family fallback lines/.test(lineModeDescriptions.get("all") || ""), `${htmlFile}: all line mode tooltip is missing or incomplete`);
+  expect(/Hide connection lines/.test(lineModeDescriptions.get("off") || ""), `${htmlFile}: off line mode tooltip is missing or incomplete`);
+  expect(/Dim: Pareto-dominated/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain Pareto dimming`);
+  expect(/Warning ring: low TWR\/extreme mass/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain low-TWR/impractical markers`);
+  expect(/Outline: hover\/select\/pin; click again unpins/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain hover/select/pin and unpin behavior`);
+  expect(chartGuideChecks.englishPowerItems === 0, `${htmlFile}: guide should omit power-view and hover-a-point helper text`);
+  expect(/no more research/.test(chartGuideChecks.paretoHelpText), `${htmlFile}: Pareto help tooltip is missing or incomplete`);
+  expect(!chartGuideChecks.childOverflow, `${htmlFile}: compact chart guide overflows on mobile`);
+  expect(chartGuideChecks.aria === "차트 안내", `${htmlFile}: guide aria label did not localize after Korean switch`);
+  expect(!/Connection lines|Warning ring/.test(chartGuideChecks.koreanText), `${htmlFile}: guide text did not switch away from English`);
+
+  const pointVisualSemantics = await page.evaluate(() => {
+    const thresholds = [0.0001, 0.001, 0.01, 0.1, 1, 10];
+    const views = ["focus", "all", "best"];
+    let result = null;
+    for (const view of views) {
+      for (const threshold of thresholds) {
+        resetChartStateToDefaults();
+        setLanguage("en", { rerender: false });
+        state.metric = "totalMassTons";
+        state.showImpracticalCandidates = true;
+        state.paretoHighlight = true;
+        state.minTwr = threshold;
+        state.powerResearchView = view;
+        syncUiFromState();
+        render();
+        const points = [...document.querySelectorAll("#chart .data-point")];
+        const rings = [...document.querySelectorAll("#chart .impractical-point-ring")];
+        const combined = points.find(point => (
+          point.getAttribute("data-impractical") === "true"
+          && point.getAttribute("data-pareto-dominated") === "true"
+        ));
+        if (!combined) continue;
+        const rowId = combined.getAttribute("data-row-id") || "";
+        const optionId = combined.getAttribute("data-power-option-id") || "";
+        const ring = rings.find(item => (
+          item.getAttribute("data-row-id") === rowId
+          && item.getAttribute("data-power-option-id") === optionId
+          && item.getAttribute("data-pareto-dominated") === "true"
+        ));
+        result = {
+          view,
+          threshold,
+          pointCount: points.length,
+          impracticalCount: points.filter(point => point.getAttribute("data-impractical") === "true").length,
+          paretoDominatedCount: points.filter(point => point.getAttribute("data-pareto-dominated") === "true").length,
+          combinedCount: points.filter(point => (
+            point.getAttribute("data-impractical") === "true"
+            && point.getAttribute("data-pareto-dominated") === "true"
+          )).length,
+          combinedClasses: combined.getAttribute("class") || "",
+          combinedOpacity: Number(combined.getAttribute("opacity")),
+          ringCount: rings.length,
+          combinedHasRing: !!ring,
+          ringOpacity: ring ? Number(getComputedStyle(ring).opacity || ring.getAttribute("opacity") || 1) : 0,
+          ringPointerEvents: ring ? getComputedStyle(ring).pointerEvents : "",
+          guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
+        };
+        break;
+      }
+      if (result) break;
+    }
+    return result || {
+      pointCount: document.querySelectorAll("#chart .data-point").length,
+      impracticalCount: document.querySelectorAll('#chart .data-point[data-impractical="true"]').length,
+      paretoDominatedCount: document.querySelectorAll('#chart .data-point[data-pareto-dominated="true"]').length,
+      combinedCount: 0,
+      combinedClasses: "",
+      combinedOpacity: NaN,
+      ringCount: document.querySelectorAll("#chart .impractical-point-ring").length,
+      combinedHasRing: false,
+      ringOpacity: 0,
+      ringPointerEvents: "",
+      guideText: document.getElementById("chartGuide")?.textContent || "",
+      controlsText: document.getElementById("connectionLineControls")?.textContent || "",
+    };
+  });
+  expect(pointVisualSemantics.pointCount > 0, `${htmlFile}: no chart points available for visual-semantic verification`);
+  expect(pointVisualSemantics.impracticalCount > 0, `${htmlFile}: no impractical points exposed data-impractical=true`);
+  expect(pointVisualSemantics.paretoDominatedCount > 0, `${htmlFile}: no Pareto-dominated points exposed data-pareto-dominated=true`);
+  expect(pointVisualSemantics.combinedCount > 0, `${htmlFile}: no combined impractical and Pareto-dominated point was found`);
+  expect(/is-impractical/.test(pointVisualSemantics.combinedClasses), `${htmlFile}: combined point is missing is-impractical class`);
+  expect(/is-pareto-dominated/.test(pointVisualSemantics.combinedClasses), `${htmlFile}: combined point is missing is-pareto-dominated class`);
+  expect(pointVisualSemantics.combinedHasRing, `${htmlFile}: combined impractical/Pareto point has no warning ring marker`);
+  expect(pointVisualSemantics.ringOpacity >= 0.8, `${htmlFile}: warning ring marker is dimmed along with Pareto opacity`);
+  expect(pointVisualSemantics.ringPointerEvents === "none", `${htmlFile}: warning ring marker can intercept point hover/click events`);
+  expect(/Warning ring: low TWR\/extreme mass/.test(pointVisualSemantics.guideText), `${htmlFile}: chart guide does not describe the impractical warning ring`);
+
+  const paretoPinnedOverlay = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    state.showImpracticalCandidates = true;
+    state.paretoHighlight = true;
+    state.minTwr = 0.001;
+    syncUiFromState();
+    render();
+    const point = document.querySelector('#chart .data-point[data-pareto-dominated="true"]');
+    if (!point) return { hasPoint: false };
+    const ref = tooltipRef(point.getAttribute("data-row-id"), point.getAttribute("data-power-option-id"));
+    state.tooltipPinned = true;
+    state.lastTooltipItems = [ref];
+    state.hoverPoints = [ref];
+    render();
+    const overlay = [...document.querySelectorAll("#chart .point-state-ring.is-pinned")]
+      .find(item => item.getAttribute("data-row-id") === ref.rowId
+        && item.getAttribute("data-power-option-id") === ref.powerOptionId);
+    const result = {
+      hasPoint: true,
+      pointOpacity: Number(point.getAttribute("opacity")),
+      hasOverlay: !!overlay,
+      overlayState: overlay?.getAttribute("data-overlay-state") || "",
+      overlayOpacity: overlay ? Number(getComputedStyle(overlay).opacity || 1) : 0,
+      overlayPointerEvents: overlay ? getComputedStyle(overlay).pointerEvents : "",
+    };
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    render();
+    return result;
+  });
+  expect(paretoPinnedOverlay.hasPoint, `${htmlFile}: no Pareto-dominated point available for pinned overlay verification`);
+  expect(paretoPinnedOverlay.hasOverlay, `${htmlFile}: Pareto-dominated pinned point has no independent overlay`);
+  expect(paretoPinnedOverlay.overlayState === "pinned", `${htmlFile}: pinned overlay did not expose pinned state`);
+  expect(paretoPinnedOverlay.overlayOpacity > paretoPinnedOverlay.pointOpacity, `${htmlFile}: pinned overlay is not more prominent than the dimmed Pareto point`);
+  expect(paretoPinnedOverlay.overlayPointerEvents === "none", `${htmlFile}: pinned overlay can intercept chart hit testing`);
 
   await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
@@ -906,6 +1351,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   }));
   expect(dryMassPresetMenuOnlyClosed.menuClosed, `${htmlFile}: dry-mass preset management menu did not close after an in-modal outside click`);
   expect(dryMassPresetMenuOnlyClosed.dryMassModalOpen, `${htmlFile}: dry-mass modal closed when only the preset management menu should close`);
+  await page.locator("#dryMassCalcReset").click();
+  await page.waitForTimeout(100);
   expect(await page.locator('#dryMassCalcArmor select[data-armor-field="type"]').count() === 3, `${htmlFile}: dry-mass calculator armor type controls missing`);
   expect(await page.locator('#dryMassCalcArmor input[data-armor-field="points"]').count() === 3, `${htmlFile}: dry-mass calculator armor point controls missing`);
   const initialCalcMass = await page.evaluate(() => dryMassCalcTotalTons());
@@ -1229,13 +1676,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const restoredSearchCount = dryMassSearchable
       ? dryMassSearchable.querySelectorAll(".searchable-select-option").length
       : -1;
+    const expectedRestoredSearchCount = dryMassSelect.querySelectorAll("option").length;
     const dryMassSearchableOk = !!dryMassSearchable
       && sortedDryMassLabels.join("|") === "Alpha|Beta|Zulu"
       && sortedDryMassKoreanLabels.join("|") === "가가|나나|다다"
       && alphaMatches.length === 1
       && alphaMatches[0] === "Alpha"
       && hiddenMatches === 0
-      && restoredSearchCount === 3;
+      && restoredSearchCount === expectedRestoredSearchCount;
 
     const chartControls = [
       "#chartPresetSelect",
@@ -1582,38 +2030,42 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 const dryMassActionLayout = await page.evaluate(() => {
     const library = document.getElementById("dryMassPresetLibrary");
     const toolbar = library?.querySelector(".dry-mass-preset-toolbar");
-    const actions = library?.querySelector(".dry-mass-preset-apply-actions");
     const status = document.getElementById("dryMassPresetStatus");
 
     const footer = document.querySelector("#dryMassCalcModal .dry-mass-modal-footer");
     const summary = footer?.querySelector(".dry-mass-summary-row");
+    const actions = footer?.querySelector(".dry-mass-footer-actions");
+    const simulationDefaults = document.getElementById("shipPresetSimulationDefaults");
+    const notesPanel = document.getElementById("dryMassCalcNotes")?.closest(".calculator-panel");
     const total = document.getElementById("dryMassCalcTotal");
     const breakdown = document.getElementById("dryMassCalcBreakdown");
-    if (!library || !toolbar || !actions || !status || !footer || !summary || !total || !breakdown) return null;
-    const libraryBox = library.getBoundingClientRect();
-    const toolbarBox = toolbar.getBoundingClientRect();
-    const actionsBox = actions.getBoundingClientRect();
-    const statusBox = status.getBoundingClientRect();
+    if (!library || !toolbar || !actions || !status || !footer || !summary || !simulationDefaults || !notesPanel || !total || !breakdown) return null;
     const footerBox = footer.getBoundingClientRect();
     const summaryBox = summary.getBoundingClientRect();
+    const actionsBox = actions.getBoundingClientRect();
+    const defaultsBox = simulationDefaults.getBoundingClientRect();
+    const notesBox = notesPanel.getBoundingClientRect();
+    const statusBox = status.getBoundingClientRect();
     const totalBox = total.getBoundingClientRect();
     const breakdownBox = breakdown.getBoundingClientRect();
     return {
-      actionsInsidePresetPanel: actions.parentElement === library,
-      actionsBelowToolbar: actionsBox.top >= toolbarBox.bottom - 1,
-      actionsAboveStatus: actionsBox.bottom <= statusBox.top + 1,
-      footerHasNoActions: !footer.querySelector(".dry-mass-modal-actions"),
+      actionsInsideFooter: actions.parentElement === footer,
+      presetPanelHasNoActions: !library.querySelector(".dry-mass-footer-actions, .dry-mass-preset-apply-actions"),
+      actionsBelowSummary: actionsBox.top >= summaryBox.bottom - 1,
+      statusAboveFooter: statusBox.bottom <= footerBox.top + 1,
+      defaultsAboveNotes: defaultsBox.bottom <= notesBox.top + 1,
       totalAndCapsulesSameRow: Math.abs(totalBox.top - breakdownBox.top) < 8,
       capsulesRightAligned: Math.abs(breakdownBox.right - summaryBox.right) < 2,
-      noHorizontalOverflow: summaryBox.right <= footerBox.right + 1 && actionsBox.right <= libraryBox.right + 1,
+      noHorizontalOverflow: summaryBox.right <= footerBox.right + 1 && actionsBox.right <= footerBox.right + 1,
     };
   });
   expect(!!dryMassActionLayout, `${htmlFile}: dry-mass modal layout elements missing`);
   if (dryMassActionLayout) {
-    expect(dryMassActionLayout.actionsInsidePresetPanel, `${htmlFile}: dry-mass actions should be inside the preset panel`);
-    expect(dryMassActionLayout.actionsBelowToolbar, `${htmlFile}: dry-mass actions should render directly below the preset toolbar`);
-    expect(dryMassActionLayout.actionsAboveStatus, `${htmlFile}: dry-mass status should stay below the action row`);
-    expect(dryMassActionLayout.footerHasNoActions, `${htmlFile}: dry-mass modal footer should only contain the summary`);
+    expect(dryMassActionLayout.actionsInsideFooter, `${htmlFile}: dry-mass actions should be inside the modal footer`);
+    expect(dryMassActionLayout.presetPanelHasNoActions, `${htmlFile}: dry-mass actions should not remain inside the preset panel`);
+    expect(dryMassActionLayout.actionsBelowSummary, `${htmlFile}: dry-mass actions should render below the footer summary`);
+    expect(dryMassActionLayout.statusAboveFooter, `${htmlFile}: dry-mass preset status should stay above the footer`);
+    expect(dryMassActionLayout.defaultsAboveNotes, `${htmlFile}: simulation defaults should render directly above notes`);
     expect(dryMassActionLayout.totalAndCapsulesSameRow, `${htmlFile}: dry-mass total and breakdown capsules should share a summary row`);
     expect(dryMassActionLayout.capsulesRightAligned, `${htmlFile}: dry-mass breakdown capsules should align to the right`);
     expect(dryMassActionLayout.noHorizontalOverflow, `${htmlFile}: dry-mass modal layout overflows horizontally`);
@@ -1732,6 +2184,20 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.waitForTimeout(100);
   const zoomReset = await page.evaluate(() => window.TI_ENGINE_CHART_DEBUG.axisSnapshot());
   expect(!!zoomReset && !zoomReset.zoomed, `${htmlFile}: reset zoom did not clear zoom state`);
+  await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    render();
+    state.tooltipPinned = false;
+    state.tooltipPinnedItems = [];
+    state.pinnedTooltipItems = [];
+    state.lastTooltipItems = [];
+    state.hoverPoints = [];
+    state.dismissedTooltipKeys.clear();
+    state.hoverHitSignature = "";
+    refreshTooltip(currentChartRows);
+  });
 
   const firstPoint = page.locator("#chart .data-point").first();
   const pointBox = await firstPoint.boundingBox();
@@ -1742,6 +2208,77 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.waitForSelector("#tooltip .tooltip-item", { timeout: 10000 });
   const cardCountAfterHover = await page.locator("#tooltip .tooltip-item").count();
   expect(cardCountAfterHover > 0, `${htmlFile}: hover did not create detail card`);
+  expect(await page.locator("#chart .point-state-ring.is-hovered").count() > 0, `${htmlFile}: hover did not render a separate point-state overlay`);
+
+  const hoverCardOrderingChecks = await page.evaluate(() => {
+    const candidates = currentChartRows
+      .filter(row => chartMassOptions(row).length > 0)
+      .slice(0, 3);
+    if (candidates.length < 3) return { checked: false };
+    const refs = candidates.map(row => tooltipRef(row.id, chartMassOptions(row)[0].id));
+    state.tooltipPinned = true;
+    state.pinnedTooltipItems = [refs[0]];
+    state.hoverPoints = [refs[0], refs[1], refs[2]];
+    state.lastTooltipItems = [refs[0], refs[1], refs[2]];
+    refreshTooltip(currentChartRows);
+    const orderA = [...document.querySelectorAll("#tooltip .tooltip-item")]
+      .map(item => item.getAttribute("data-tooltip-key"));
+    state.hoverPoints = [refs[0], refs[2], refs[1]];
+    state.lastTooltipItems = [refs[0], refs[2], refs[1]];
+    refreshTooltip(currentChartRows);
+    const orderB = [...document.querySelectorAll("#tooltip .tooltip-item")]
+      .map(item => item.getAttribute("data-tooltip-key"));
+    return {
+      checked: true,
+      pinnedFirstA: orderA[0] === refs[0].key,
+      pinnedFirstB: orderB[0] === refs[0].key,
+      hoverOrderA: orderA.slice(1, 3).join("|"),
+      hoverOrderB: orderB.slice(1, 3).join("|"),
+      expectedA: `${refs[1].key}|${refs[2].key}`,
+      expectedB: `${refs[2].key}|${refs[1].key}`,
+    };
+  });
+  expect(hoverCardOrderingChecks.checked, `${htmlFile}: not enough tooltip candidates for hover card ordering verification`);
+  expect(hoverCardOrderingChecks.pinnedFirstA && hoverCardOrderingChecks.pinnedFirstB, `${htmlFile}: pinned tooltip card did not stay fixed above hover cards`);
+  expect(hoverCardOrderingChecks.hoverOrderA === hoverCardOrderingChecks.expectedA, `${htmlFile}: initial hover card order did not follow hover-hit order`);
+  expect(hoverCardOrderingChecks.hoverOrderB === hoverCardOrderingChecks.expectedB, `${htmlFile}: hover card order did not update when hover-hit order changed`);
+
+  await page.evaluate(() => {
+    state.tooltipPinned = false;
+    state.tooltipPinnedItems = [];
+    state.pinnedTooltipItems = [];
+    state.lastTooltipItems = [];
+    state.hoverPoints = [];
+    state.dismissedTooltipKeys.clear();
+    state.hoverHitSignature = "";
+    refreshTooltip(currentChartRows);
+  });
+
+
+
+  if (pointBox) {
+    await page.mouse.click(pointBox.x + pointBox.width / 2, pointBox.y + pointBox.height / 2);
+  }
+  await page.waitForTimeout(80);
+  const chartPinnedState = await page.evaluate(() => ({
+    tooltipPinned: state.tooltipPinned,
+    pinnedOverlayCount: document.querySelectorAll("#chart .point-state-ring.is-pinned").length,
+    overlayPointerEvents: getComputedStyle(document.querySelector("#chart .point-state-overlay")).pointerEvents,
+  }));
+  expect(chartPinnedState.tooltipPinned, `${htmlFile}: clicking a chart point did not pin the tooltip state`);
+  expect(chartPinnedState.pinnedOverlayCount > 0, `${htmlFile}: clicking a chart point did not render a pinned overlay`);
+  expect(chartPinnedState.overlayPointerEvents === "none", `${htmlFile}: point-state overlay can intercept chart events`);
+
+  if (pointBox) {
+    await page.mouse.click(pointBox.x + pointBox.width / 2, pointBox.y + pointBox.height / 2);
+  }
+  await page.waitForTimeout(80);
+  const chartUnpinnedState = await page.evaluate(() => ({
+    tooltipPinned: state.tooltipPinned,
+    pinnedOverlayCount: document.querySelectorAll("#chart .point-state-ring.is-pinned").length,
+  }));
+  expect(!chartUnpinnedState.tooltipPinned, `${htmlFile}: clicking an already pinned chart point did not unpin tooltip state`);
+  expect(chartUnpinnedState.pinnedOverlayCount === 0, `${htmlFile}: pinned overlay remained after clicking the same point to unpin`);
 
   if (pointBox) {
     await page.mouse.click(pointBox.x + pointBox.width / 2, pointBox.y + pointBox.height / 2);
@@ -1768,7 +2305,8 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.locator(".tooltip-close").click();
   expect(await page.locator("#tooltip .tooltip-item.is-pinned").count() > 0, `${htmlFile}: clear-all removed pinned cards`);
   await page.locator("#tooltip .tooltip-item-close").first().click();
-  expect(await page.locator("#tooltip .usage-panel").count() > 0, `${htmlFile}: removing final pinned card did not restore usage panel`);
+  expect(await page.locator("#tooltip.tooltip-empty").count() > 0, `${htmlFile}: removing final pinned card did not restore an empty detail panel`);
+  expect(await page.locator("#tooltip .tooltip-item").count() === 0, `${htmlFile}: removing final pinned card left stale detail cards behind`);
 
   expect(consoleErrors.length === 0, `${htmlFile}: console errors: ${consoleErrors.join(" | ")}`);
   expect(pageErrors.length === 0, `${htmlFile}: page errors: ${pageErrors.join(" | ")}`);

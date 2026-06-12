@@ -1,6 +1,6 @@
 import { syncFilterInputs } from "../calc/filtering.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeModuleEffectPresetState, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeConnectionLineMode, normalizeModuleEffectPresetState, normalizePowerResearchView, state } from "../state/core.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 import { presetRuntimeApi } from "./runtime.js";
 import {
@@ -887,6 +887,7 @@ export function exportedPreset() {
         paretoHighlight: !!state.paretoHighlight,
         showImpracticalCandidates: !!state.showImpracticalCandidates,
         powerResearchView: normalizePowerResearchView(state.powerResearchView),
+        connectionLineMode: normalizeConnectionLineMode(state.connectionLineMode),
         moduleEffectsEnabled: moduleEffectState.moduleEffectsEnabled,
         moduleEffectSource: moduleEffectState.moduleEffectSource,
         moduleEffectModuleIds: moduleEffectState.moduleEffectModuleIds,
@@ -937,6 +938,9 @@ export function applyPresetToState(rawPreset) {
         state.powerResearchView = normalizePowerResearchView(preset.powerResearchView);
       } else if (typeof preset.usePowerResearch === "boolean") {
         state.powerResearchView = preset.usePowerResearch ? "all" : "focus";
+      }
+      if (typeof preset.connectionLineMode === "string") {
+        state.connectionLineMode = normalizeConnectionLineMode(preset.connectionLineMode);
       }
       applyModuleEffectPresetState(preset);
       if (Number.isFinite(Number(preset.minTwr))) state.minTwr = clamp(Number(preset.minTwr), DEFAULT_MIN_TWR, 10);

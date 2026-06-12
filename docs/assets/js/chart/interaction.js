@@ -2,12 +2,12 @@ import { chartSummaryMassOptions, computeDriveDiagnostics, filteredRows } from "
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
 import { localLabel } from "../presets/library.js";
-import { CHART_CLICK_TOLERANCE_PX, CHART_HIT_RADIUS_PX, CHART_LADDER_HIT_RADIUS_PX, DATA, UI_LANG, chart, localText, metricDefs, metricHint, metricLabel, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state, updateLeftPanelCardSummaries } from "../state/core.js";
+import { CHART_CLICK_TOLERANCE_PX, CHART_HIT_RADIUS_PX, CHART_LADDER_HIT_RADIUS_PX, CONNECTION_LINE_MODES, DATA, UI_LANG, chart, connectionLineModeLabel, localText, metricDefs, metricHint, metricLabel, normalizeConnectionLineMode, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state, updateLeftPanelCardSummaries } from "../state/core.js";
 import { updateChartControls } from "../ui/control_state.js";
-import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip } from "../ui/tooltip_table.js";
+import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip, unpinTooltipItemByKey } from "../ui/tooltip_table.js";
 import { axisSpaceValue, buildAxisTickPlan, makeScale, normalizeAxisDomain, valueFromAxisSpace } from "./axis.js";
 import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows, setChartHitTargets, setChartLadderHitTargets, setChartViewport, setCurrentChartRows, setCurrentDiagnostics } from "./context.js";
-import { baseChartResearchValues, chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawTotalMassBands, mergePinnedFocusTooltipRefs, mergePinnedTooltipRefs, pinnedFocusTooltipRefs, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
+import { baseChartResearchValues, chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawPointStateOverlay, drawTotalMassBands, isPinnedTooltipKey, mergePinnedFocusTooltipRefs, mergePinnedTooltipRefs, pinnedFocusTooltipRefs, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
 
 export function render() {
       const diagnostics = computeDriveDiagnostics();
@@ -21,6 +21,8 @@ export function render() {
       renderFamilyDiagnostics(diagnostics);
       renderChartDiagnostic(diagnostics);
       renderLegend(rows);
+      renderConnectionLineControls();
+      renderChartGuide();
       renderChart(rows);
       renderTable(rows);
       updateSortHeaders();
@@ -49,6 +51,7 @@ export function currentZoomContext() {
         state.radiatorId,
         state.showImpracticalCandidates ? 1 : 0,
         normalizePowerResearchView(state.powerResearchView),
+        normalizeConnectionLineMode(state.connectionLineMode),
         state.logX ? 1 : 0,
         state.logY ? 1 : 0,
         state.searchTerm,
@@ -134,65 +137,135 @@ export function hiddenReasonPhrase(reason, hiddenReasons = {}) {
       return phrases[reasonKey] || phrases.other;
     }
 
-export function renderLegend(rows) {
-      const used = new Set(rows.map(row => row.familyKey));
+export function renderLegend(_rows) {
       const legend = document.getElementById("legend");
+      if (!legend) return;
       legend.innerHTML = "";
-      DATA.categories.forEach(category => {
-        const subfamilies = DATA.subfamilies.filter(f => f.categoryKey === category.key && used.has(f.key));
-        if (!subfamilies.length) return;
-        const group = document.createElement("span");
-        group.className = "legend-group";
-        const heading = document.createElement("span");
-        heading.className = "legend-heading";
-        heading.textContent = localLabel(category);
-        group.appendChild(heading);
-        subfamilies.forEach(f => {
-          const item = document.createElement("span");
-          item.className = "legend-item";
-          const swatch = document.createElement("span");
-          swatch.className = "legend-swatch";
-          if (isBandMetric()) {
-            swatch.setAttribute("style", backgroundStyle(f.bandColor || f.color, f.bandColorOklch || f.bandColor || f.color));
-          } else {
-            swatch.setAttribute("style", backgroundStyle(f.color, f.colorOklch || f.color));
-          }
-          item.append(swatch, document.createTextNode(localLabel(f)));
-          group.appendChild(item);
-        });
-        legend.appendChild(group);
-      });
-      if (isBandMetric()) {
-        const item = document.createElement("span");
-        item.className = "legend-item";
-        const powerViewDescription = state.powerResearchView === "best"
-          ? localText("최적 가용 전원", "best available power")
-          : localText("전원 사다리", "power ladders");
-        item.textContent = powerResearchActive()
-          ? `${metricLabel(state.metric)} ${powerViewDescription}`
-          : `${metricLabel(state.metric)} ${localText("기본 전원", "base power")}`;
-        legend.appendChild(item);
-        const powerResearch = document.createElement("span");
-        powerResearch.className = "legend-item";
-        powerResearch.textContent = powerResearchActive()
-          ? `${localText("전원 보기", "Power view")}: ${powerResearchViewLabel()}`
-          : localText("X축: 최초 전원 포함 연구력", "X axis: first power-inclusive research");
-        legend.appendChild(powerResearch);
-        if (secondaryEncodingEnabled()) {
-          const secondary = document.createElement("span");
-          secondary.className = "legend-item";
-          secondary.textContent = (state.metric === "totalMassTons" || state.metric === "fuelMassTons")
-            ? localText("점 밝기: TWR 높을수록 밝음", "Point brightness: brighter means higher TWR")
-            : localText("점 밝기: 총질량 낮을수록 밝음", "Point brightness: brighter means lower total mass");
-          legend.appendChild(secondary);
-        }
-        if (state.paretoHighlight) {
-          const pareto = document.createElement("span");
-          pareto.className = "legend-item";
-          pareto.textContent = localText("흐린 점: Pareto 지배 후보", "Dim points: Pareto-dominated candidates");
-          legend.appendChild(pareto);
-        }
+      legend.hidden = true;
+    }
+
+function connectionLineModeDescription(mode) {
+      const descriptions = {
+        off: {
+          ko: "연결선을 숨깁니다.",
+          en: "Hide connection lines.",
+        },
+        strict: {
+          ko: "드라이브 연구 선후관계가 확인되는 연결선만 표시합니다.",
+          en: "Show only prerequisite-backed drive research links.",
+        },
+        lineage: {
+          ko: "드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다.",
+          en: "Show drive research links plus reactor/power-lineage progression.",
+        },
+        all: {
+          ko: "넓은 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다.",
+          en: "Show all available progression lines, including broader family fallback lines.",
+        },
+      };
+      const description = descriptions[normalizeConnectionLineMode(mode)] || descriptions.lineage;
+      return localText(description.ko, description.en);
+    }
+
+function connectionLineModeHelpText(mode) {
+      const value = normalizeConnectionLineMode(mode);
+      if (value === "off") {
+        return localText("연결선을 숨깁니다.", "Hide connection lines.");
       }
+      if (value === "strict") {
+        return localText(
+          "드라이브 연구 선후관계가 확인되는 연결선만 표시합니다.",
+          "Show only prerequisite-backed drive research links.",
+        );
+      }
+      if (value === "all") {
+        return localText(
+          "전기/펄스 추진기 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다.",
+          "Show all available progression lines, including electric and pulse-drive family aids.",
+        );
+      }
+      return localText(
+        "드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다.",
+        "Show drive research links plus reactor/power-lineage progression.",
+      );
+    }
+
+export function renderConnectionLineControls() {
+      const root = document.getElementById("connectionLineControls");
+      if (!root) return;
+      root.innerHTML = "";
+      root.setAttribute("aria-label", localText("연결선 표시", "Connection line mode"));
+
+      const modeLabel = document.createElement("div");
+      modeLabel.className = "connection-line-mode-label";
+      modeLabel.textContent = localText("연결선", "Connection lines");
+      const modeGroup = document.createElement("div");
+      modeGroup.className = "segmented compact connection-line-mode";
+      modeGroup.setAttribute("role", "radiogroup");
+      modeGroup.setAttribute("aria-label", localText("연결선 표시", "Connection line mode"));
+      CONNECTION_LINE_MODES.forEach(mode => {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        const labelText = connectionLineModeLabel(mode);
+        const helpText = connectionLineModeDescription(mode);
+        input.type = "radio";
+        input.name = "connectionLineMode";
+        input.value = mode;
+        input.checked = normalizeConnectionLineMode(state.connectionLineMode) === mode;
+        input.title = helpText;
+        label.title = helpText;
+        label.setAttribute("aria-label", `${labelText}: ${helpText}`);
+        input.addEventListener("change", () => {
+          if (!input.checked) return;
+          state.connectionLineMode = normalizeConnectionLineMode(input.value);
+          state.preserveViewportOnce = true;
+          render();
+        });
+        label.append(input, document.createTextNode(labelText));
+        modeGroup.appendChild(label);
+      });
+      root.append(modeLabel, modeGroup);
+    }
+
+
+export function renderChartGuide() {
+      const details = document.getElementById("chartGuide");
+      const guide = document.getElementById("chartGuideContent") || details;
+      if (!guide) return;
+      guide.innerHTML = "";
+      if (details) details.setAttribute("aria-label", localText("차트 안내", "Chart guide"));
+      const summary = document.getElementById("chartGuideSummary");
+      if (summary) summary.textContent = localText("차트 안내", "Chart Guide");
+
+      const appendItem = (symbolClass, text, helpText = "") => {
+        const item = document.createElement("span");
+        item.className = "chart-guide-item";
+        const symbol = document.createElement("span");
+        symbol.className = `chart-guide-symbol ${symbolClass}`;
+        const label = document.createElement("span");
+        label.className = "chart-guide-text";
+        label.textContent = text;
+        item.append(symbol, label);
+        if (helpText) {
+          const help = document.createElement("span");
+          help.className = "chart-guide-help";
+          help.tabIndex = 0;
+          help.textContent = "?";
+          help.title = helpText;
+          help.setAttribute("aria-label", helpText);
+          item.appendChild(help);
+        }
+        guide.appendChild(item);
+      };
+
+      const paretoHelpText = localText(
+        "누적 연구력은 더 낮고, 총질량은 더 가볍고, TWR은 더 높은 후보가 있으면 파레토 지배로 보고 흐리게 표시합니다.",
+        "A candidate is Pareto-dominated when another option needs no more research, has no more total mass, and has at least as much TWR."
+      );
+      appendItem("is-line", localText("선: 드라이브 진행 경로", "Lines: drive progression"));
+      appendItem("is-dim", localText("흐림: Pareto 지배", "Dim: Pareto-dominated"), paretoHelpText);
+      appendItem("is-warning", localText("경고 링: 낮은 TWR/극단 질량비", "Warning ring: low TWR/extreme mass"));
+      appendItem("is-pin", localText("윤곽선: 호버/선택/고정, 재클릭 해제", "Outline: hover/select/pin; click again unpins"));
     }
 
 export function valueDomain(rows) {
@@ -289,6 +362,7 @@ export function renderChart(rows) {
       } else {
         drawMetricLines(rows, x, y, plot);
       }
+      drawPointStateOverlay();
       updateZoomButton();
     }
 
@@ -540,10 +614,17 @@ export function updateHoverFromPointer(event) {
 export function updatePinnedTooltipHoverFocus(event) {
       const pinned = pinnedFocusTooltipRefs();
       const point = svgPointFromEvent(event);
+      const applyRefs = refs => {
+        setHoverPoints(refs);
+        if (!sameTooltipRefs(refs, state.lastTooltipItems)) {
+          state.lastTooltipItems = refs;
+          refreshTooltip(currentChartRows);
+        }
+      };
       if (!pointInPlot(point)) {
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
-        setHoverPoints(pinned);
+        applyRefs(pinned);
         return;
       }
 
@@ -556,12 +637,12 @@ export function updatePinnedTooltipHoverFocus(event) {
             state.hoverHitSignature = signature;
             state.dismissedTooltipKeys.clear();
           }
-          setHoverPoints(mergePinnedFocusTooltipRefs(resolveLadderHoverRefs(ladderHits)));
+          applyRefs(mergePinnedFocusTooltipRefs(resolveLadderHoverRefs(ladderHits)));
           return;
         }
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
-        setHoverPoints(pinned);
+        applyRefs(pinned);
         return;
       }
 
@@ -570,7 +651,7 @@ export function updatePinnedTooltipHoverFocus(event) {
         state.hoverHitSignature = signature;
         state.dismissedTooltipKeys.clear();
       }
-      setHoverPoints(mergePinnedFocusTooltipRefs(hits.filter(hit => !state.dismissedTooltipKeys.has(hit.key))));
+      applyRefs(mergePinnedFocusTooltipRefs(hits.filter(hit => !state.dismissedTooltipKeys.has(hit.key))));
     }
 
 export function handleChartClick(point) {
@@ -584,6 +665,16 @@ export function handleChartClick(point) {
         : hits.filter(hit => !state.dismissedTooltipKeys.has(hit.key));
       if (!visibleHits.length) {
         clearTooltip({ keepPinned: true });
+        return;
+      }
+      const primary = visibleHits[0];
+      const pinnedSnapshotKeys = new Set(dedupeTooltipRefs(state.tooltipPinnedItems).map(item => item.key));
+      if (isPinnedTooltipKey(primary.key)) {
+        unpinTooltipItemByKey(primary.key);
+        return;
+      }
+      if (state.tooltipPinned && pinnedSnapshotKeys.has(primary.key)) {
+        unpinTooltip();
         return;
       }
       pinTooltipItems(visibleHits);

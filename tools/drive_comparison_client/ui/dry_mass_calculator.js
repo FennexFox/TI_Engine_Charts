@@ -1,8 +1,8 @@
-import { renderDryMassPresetControls, setPresetUiText, setTextById, setupDryMassPresetControls, syncUiFromState } from "../presets/library.js";
+import { renderDryMassPresetControls, selectedDryMassPresetEntry, setPresetUiText, setTextById, setupDryMassPresetControls, syncUiFromState } from "../presets/library.js";
 import { ARMOR_OPTIONS, DATA, DEFAULT_MIN_TWR, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, dryMassCalcState, localText, renderRadiatorOptions, state } from "../state/core.js";
 import { escapeHtml, formatCompact, formatNumber, trim } from "../shared/formatting.js";
 import { clamp } from "../shared/math.js";
-import { updateModuleEffectsPanel } from "./control_state.js";
+import { updateModuleEffectsPanel, updateShipDesignerPanel } from "./control_state.js";
 import { enhanceSearchableSelects } from "./searchable_select.js";
 import {
   applyShipDesignSimulationDefaultsToState,
@@ -32,6 +32,21 @@ import {
 } from "../calc/dry_mass_model.js";
 
 const MIN_TWR_MG_PER_G = 1000;
+
+function selectedAppliedTemplateSnapshot() {
+      const entry = selectedDryMassPresetEntry();
+      if (!entry) return null;
+      return {
+        id: entry.id || "",
+        name: entry.name || "",
+        displayName: entry.displayName && typeof entry.displayName === "object" ? { ...entry.displayName } : null,
+      };
+    }
+
+function markCurrentDesignAppliedToChart() {
+      state.appliedShipTemplate = selectedAppliedTemplateSnapshot();
+      updateShipDesignerPanel();
+    }
 
 export function formatHardpointSize(value) {
       return Number.isFinite(value) ? trim(value) : "-";
@@ -229,11 +244,12 @@ export function renderDryMassCalcModal() {
       const minTwrInput = document.getElementById("shipPresetMinTwr");
       const radiatorLabel = document.getElementById("shipPresetRadiatorLabel");
       const radiatorSelect = document.getElementById("shipPresetRadiator");
-      const button = document.getElementById("dryMassCalcButton");
+      const button = document.getElementById("dryMassCalcButton") || document.getElementById("shipDesignerTitle");
 
       if (button) {
-        button.setAttribute("aria-label", localText("건조질량 계산기", "Dry-mass calculator"));
-        button.title = localText("건조질량 계산기", "Dry-mass calculator");
+        const label = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
+        button.setAttribute("aria-label", label);
+        button.title = label;
       }
       if (title) title.textContent = localText("건조질량 계산기", "Dry-mass calculator");
       if (close) close.textContent = localText("닫기", "Close");
@@ -342,7 +358,7 @@ export function renderDryMassCalcModal() {
 
 export function setupDryMassCalculator({ render = () => {} } = {}) {
       const modal = document.getElementById("dryMassCalcModal");
-      const button = document.getElementById("dryMassCalcButton");
+      const button = document.getElementById("dryMassCalcButton") || document.getElementById("shipDesignerTitle");
       const classSelect = document.getElementById("dryMassCalcClass");
       const slots = document.getElementById("dryMassCalcSlots");
       const weapons = document.getElementById("dryMassCalcWeapons");
@@ -485,6 +501,7 @@ export function setupDryMassCalculator({ render = () => {} } = {}) {
         state.dryMassTons = value;
         dryMass.value = String(clamp(value, Number(dryMass.min), Number(dryMass.max)));
         dryMassNumber.value = String(Math.round(value));
+        markCurrentDesignAppliedToChart();
         closeModal();
         render();
       });
@@ -493,6 +510,7 @@ export function setupDryMassCalculator({ render = () => {} } = {}) {
         state.dryMassTons = value;
         syncSimulationDefaultsFromControls();
         applyShipDesignSimulationDefaultsToState();
+        markCurrentDesignAppliedToChart();
         syncUiFromState();
         closeModal();
         render();

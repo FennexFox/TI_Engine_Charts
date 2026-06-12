@@ -52,8 +52,8 @@ __STYLES__
             <label class="label" for="metric">세로축</label>
             <select id="metric" data-searchable-select="true">
               <optgroup label="시뮬레이션(총 질량, 연료질량, TWR)">
-                <option value="totalMassTons">목표 dV 총질량 (t)</option>
-                <option value="fuelMassTons">목표 dV 연료질량 (t)</option>
+                <option value="totalMassTons">목표 Δv 달성 총질량 (t)</option>
+                <option value="fuelMassTons">목표 Δv 달성 연료질량 (t)</option>
                 <option value="twr">TWR</option>
               </optgroup>
               <optgroup label="기본 정보(추력, 효율, 출력)">
@@ -63,7 +63,45 @@ __STYLES__
               </optgroup>
             </select>
           </section>
+          <section class="control-block">
+            <div id="connectionLineControls" class="connection-line-controls" aria-label="Connection line mode"></div>
+          </section>
         </div>
+        </div>
+      </section>
+      <section class="control-card" data-control-card="shipDesigner">
+        <div class="control-card-header">
+          <div class="control-card-heading ship-designer-card-heading">
+            <div class="ship-designer-title-row">
+            <button class="control-card-toggle control-card-caret-toggle" data-card-toggle="true" type="button" aria-expanded="true" aria-label="Collapse card" title="Collapse card">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+            </button>
+            <span id="shipDesignerTitle" class="control-card-title">Ship Designer</span>
+            <button id="dryMassCalcButton" class="ship-designer-calc-button" type="button" aria-label="Open Dry Mass Calculator" title="Open Dry Mass Calculator" aria-describedby="shipDesignerTitle">&#x1F9EE;</button>
+            </div>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="Change order">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="Move up" title="Move up">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="Move down" title="Move down">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+        <section id="shipDesignerSection" class="control-block ship-designer-section" aria-labelledby="shipDesignerTitle">
+          <div id="shipDesignerAppliedTemplate" class="ship-designer-status" data-applied-template="false" aria-live="polite">No ship template applied</div>
+          <section id="moduleEffectsControl" class="module-effects-control">
+            <label class="check-row module-effects-toggle">
+              <input id="moduleEffectsEnabled" type="checkbox" checked>
+              <span id="moduleEffectsEnabledLabel">모듈 효과 적용</span>
+            </label>
+            <div id="moduleEffectsSummary" class="module-effects-summary"></div>
+            <details id="moduleEffectsDetails" class="module-effects-details">
+              <summary id="moduleEffectsDetailsSummary">Selected modules</summary>
+              <div id="moduleEffectsChips" class="effect-chip-list" aria-live="polite"></div>
+              <div id="moduleEffectsWarnings" class="module-effects-warnings" aria-live="polite"></div>
+            </details>
+          </section>
+        </section>
         </div>
       </section>
       <section class="control-card" data-control-card="simulation">
@@ -83,23 +121,11 @@ __STYLES__
         <div class="control-card-body">
         <div class="control-stack">
           <section class="control-block">
-            <div class="label-row">
-              <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
-              <button id="dryMassCalcButton" class="icon-button" type="button" aria-label="건조질량 계산기" title="건조질량 계산기">🧮</button>
-            </div>
+            <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
             <div class="split">
               <input id="dryMass" type="range" min="100" max="100000" value="10000" step="100">
               <input id="dryMassNumber" type="number" min="0" max="1000000" value="10000" step="10">
             </div>
-          </section>
-          <section id="moduleEffectsControl" class="control-block module-effects-control">
-            <label class="check-row module-effects-toggle">
-              <input id="moduleEffectsEnabled" type="checkbox">
-              <span id="moduleEffectsEnabledLabel">모듈 효과 적용</span>
-            </label>
-            <div id="moduleEffectsSummary" class="module-effects-summary"></div>
-            <div id="moduleEffectsChips" class="effect-chip-list" aria-live="polite"></div>
-            <div id="moduleEffectsWarnings" class="module-effects-warnings" aria-live="polite"></div>
           </section>
           <section class="control-block">
             <label class="label" for="targetDv">목표 dV (km/s)</label>
@@ -266,10 +292,20 @@ __STYLES__
       </div>
       <div id="chartDiagnostic" class="diagnostic-banner" hidden></div>
       <div class="chart-body">
-        <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
-        <div id="tooltip" class="tooltip tooltip-empty"><div class="tooltip-placeholder">선택 없음</div></div>
+        <div class="chart-plot-frame">
+          <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
+          <div id="chartGuide" class="chart-guide" aria-label="Chart guide">
+            <details id="chartGuideDetails" class="chart-guide-details">
+              <summary id="chartGuideSummary" class="chart-guide-summary">Chart Guide</summary>
+              <div id="chartGuideContent" class="chart-guide-content"></div>
+            </details>
+          </div>
+        </div>
+        <div class="detail-panel">
+          <div id="tooltip" class="tooltip tooltip-empty"><div class="tooltip-placeholder">선택 없음</div></div>
+        </div>
       </div>
-      <div id="legend" class="legend"></div>
+      <div id="legend" class="legend" hidden></div>
     </section>
     <section class="table-shell">
       <table>
@@ -343,24 +379,7 @@ __STYLES__
               </details>
             </div>
           </div>
-          <div class="modal-actions dry-mass-modal-actions dry-mass-preset-apply-actions">
-            <button id="dryMassCalcReset" class="compact-command" type="button">초기화</button>
-            <span class="dry-mass-preset-apply-spacer" aria-hidden="true"></span>
-            <button id="dryMassCalcApply" class="compact-command" type="button">건조질량만 적용</button>
-            <button id="dryMassCalcApplyWithDefaults" class="compact-command primary-command" type="button">건조질량·기본 조건 적용</button>
-          </div>
           <span id="dryMassPresetStatus" class="preset-status" aria-live="polite"></span>
-        </section>
-        <section id="shipPresetSimulationDefaults" class="calculator-panel calculator-panel-wide simulation-defaults-panel" aria-label="시뮬레이션 기본 조건">
-          <div id="shipPresetSimulationDefaultsLabel" class="label">시뮬레이션 기본 조건</div>
-          <div class="simulation-defaults-grid">
-            <label id="shipPresetTargetDvLabel" class="label" for="shipPresetTargetDv">목표 dV (km/s)</label>
-            <input id="shipPresetTargetDv" type="number" min="0" max="100000" step="1">
-            <label id="shipPresetMinTwrLabel" class="label" for="shipPresetMinTwr">최소 TWR (mg)</label>
-            <input id="shipPresetMinTwr" type="number" min="0.1" max="10000" value="0.1" step="0.1">
-            <label id="shipPresetRadiatorLabel" class="label" for="shipPresetRadiator">라디에이터</label>
-            <select id="shipPresetRadiator" data-searchable-select="true"></select>
-          </div>
         </section>
         <section class="calculator-panel">
           <label id="dryMassCalcClassLabel" class="label" for="dryMassCalcClass">함급</label>
@@ -379,6 +398,17 @@ __STYLES__
           <div class="label" id="dryMassCalcSlotsLabel">내부 유틸리티 모듈</div>
           <div id="dryMassCalcSlots"></div>
         </section>
+        <section id="shipPresetSimulationDefaults" class="calculator-panel calculator-panel-wide simulation-defaults-panel" aria-label="시뮬레이션 기본 조건">
+          <div id="shipPresetSimulationDefaultsLabel" class="label">시뮬레이션 기본 조건</div>
+          <div class="simulation-defaults-grid">
+            <label id="shipPresetTargetDvLabel" class="label" for="shipPresetTargetDv">목표 dV (km/s)</label>
+            <input id="shipPresetTargetDv" type="number" min="0" max="100000" step="1">
+            <label id="shipPresetMinTwrLabel" class="label" for="shipPresetMinTwr">최소 TWR (mg)</label>
+            <input id="shipPresetMinTwr" type="number" min="0.1" max="10000" value="0.1" step="0.1">
+            <label id="shipPresetRadiatorLabel" class="label" for="shipPresetRadiator">라디에이터</label>
+            <select id="shipPresetRadiator" data-searchable-select="true"></select>
+          </div>
+        </section>
         <section class="calculator-panel calculator-panel-wide">
           <label id="dryMassCalcNotesLabel" class="label" for="dryMassCalcNotes">메모</label>
           <textarea id="dryMassCalcNotes" class="calc-notes" rows="3" placeholder="선박 설계 가정 메모"></textarea>
@@ -391,6 +421,12 @@ __STYLES__
             <div id="dryMassCalcBreakdown" class="calc-breakdown"></div>
           </div>
         </section>
+        <div class="modal-actions dry-mass-modal-actions dry-mass-footer-actions">
+          <button id="dryMassCalcReset" class="compact-command" type="button">초기화</button>
+          <span class="dry-mass-preset-apply-spacer" aria-hidden="true"></span>
+          <button id="dryMassCalcApply" class="compact-command" type="button">건조질량만 적용</button>
+          <button id="dryMassCalcApplyWithDefaults" class="compact-command primary-command" type="button">건조질량·기본 조건 적용</button>
+        </div>
       </div>
     </div>
   </div>

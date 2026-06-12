@@ -1,7 +1,7 @@
 import { isBandMetric } from "../calc/metrics.js";
 import { isModuleRuleRelevantToDriveChart } from "../calc/module_effects.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, powerResearchViewLabel, state } from "../state/core.js";
 import { formatNumber, formatTwrDynamicUnit } from "./formatting.js";
 
 function utilityModuleById(id) {
@@ -100,17 +100,52 @@ function appendWarning(container, text) {
   container.appendChild(item);
 }
 
+function appliedTemplateDisplayName(template) {
+  if (!template || typeof template !== "object") return "";
+  const display = template.displayName;
+  if (display && typeof display === "object") {
+    return UI_LANG === "en"
+      ? display.en || display.ko || display.kor || template.name || ""
+      : display.ko || display.kor || display.en || template.name || "";
+  }
+  return template.name || "";
+}
+
+export function updateShipDesignerPanel() {
+  const title = document.getElementById("shipDesignerTitle");
+  const calcButton = document.getElementById("dryMassCalcButton");
+  const status = document.getElementById("shipDesignerAppliedTemplate");
+  if (title) title.textContent = localText("함선 설계", "Ship Designer");
+  if (calcButton) {
+    const openLabel = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
+    calcButton.setAttribute("aria-label", openLabel);
+    calcButton.title = openLabel;
+  }
+  if (!status) return;
+  const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
+  if (templateName) {
+    status.dataset.appliedTemplate = "true";
+    status.textContent = templateName;
+  } else {
+    status.dataset.appliedTemplate = "false";
+    status.textContent = localText("적용된 함선 템플릿 없음", "No ship template applied");
+  }
+}
+
 export function updateModuleEffectsPanel() {
   const checkbox = document.getElementById("moduleEffectsEnabled");
   const label = document.getElementById("moduleEffectsEnabledLabel");
   const summary = document.getElementById("moduleEffectsSummary");
   const chips = document.getElementById("moduleEffectsChips");
   const warnings = document.getElementById("moduleEffectsWarnings");
+  const details = document.getElementById("moduleEffectsDetails");
+  const detailsSummary = document.getElementById("moduleEffectsDetailsSummary");
   if (!checkbox || !label || !summary || !chips || !warnings) return;
 
   const assumptions = currentModuleEffectAssumptions();
   checkbox.checked = !!assumptions.moduleEffectsEnabled;
   label.textContent = localText("모듈 성능 효과 적용", "Apply module performance effects");
+  if (detailsSummary) detailsSummary.textContent = localText("선택 모듈 목록", "Selected modules");
   chips.innerHTML = "";
   warnings.innerHTML = "";
 
@@ -177,10 +212,14 @@ export function updateChartControls() {
   powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
   const powerResearchViewSelect = document.getElementById("powerResearchView");
   if (powerResearchViewSelect) {
+    [...powerResearchViewSelect.options].forEach(option => {
+      option.textContent = powerResearchViewLabel(option.value);
+    });
     powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
   }
   const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
   if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
+  updateShipDesignerPanel();
   updateModuleEffectsPanel();
   syncMinTwrInputs();
   syncMinDvInputs();

@@ -18,12 +18,14 @@ export let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
 export const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
     if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
 export const POWER_RESEARCH_VIEWS = ["focus", "all", "best"];
+export const CONNECTION_LINE_MODES = ["off", "strict", "lineage", "all"];
+export const DEFAULT_CONNECTION_LINE_MODE = "lineage";
 export const MODULE_EFFECT_SOURCES = ["dryMassCalculator", "manual"];
 export const DEFAULT_MODULE_EFFECT_SOURCE = "dryMassCalculator";
 export const POWER_RESEARCH_VIEW_LABELS = {
-      focus: { ko: "기본", en: "Base" },
-      all: { ko: "전체 사다리", en: "All ladders" },
-      best: { ko: "최적 가용", en: "Best Available" },
+      focus: { ko: "기본 전원", en: "Base power" },
+      all: { ko: "호환 전원 전체", en: "All compatible power" },
+      best: { ko: "최적 가용 전원", en: "Best available power" },
     };
 export const state = {
       metric: "totalMassTons",
@@ -32,16 +34,18 @@ export const state = {
       dryMassTons: DATA.defaults.dryMassTons,
       targetDvKps: DATA.defaults.targetDvKps,
       radiatorId: DATA.defaults.radiatorId,
-      logX: false,
+      logX: true,
       logY: true,
       showTwrInfo: true,
       showMassInfo: true,
       paretoHighlight: true,
       showImpracticalCandidates: false,
       powerResearchView: "focus",
-      moduleEffectsEnabled: false,
+      connectionLineMode: DEFAULT_CONNECTION_LINE_MODE,
+      moduleEffectsEnabled: true,
       moduleEffectSource: DEFAULT_MODULE_EFFECT_SOURCE,
       moduleEffectModuleIds: [],
+      appliedShipTemplate: null,
       minTwr: DEFAULT_MIN_TWR,
       minDvKps: 0,
       searchTerm: "",
@@ -69,16 +73,18 @@ export function chartDefaultState() {
         dryMassTons: DATA.defaults.dryMassTons,
         targetDvKps: DATA.defaults.targetDvKps,
         radiatorId: DATA.defaults.radiatorId,
-        logX: false,
+        logX: true,
         logY: true,
         showTwrInfo: true,
         showMassInfo: true,
         paretoHighlight: true,
         showImpracticalCandidates: false,
         powerResearchView: "focus",
-        moduleEffectsEnabled: false,
+        connectionLineMode: DEFAULT_CONNECTION_LINE_MODE,
+        moduleEffectsEnabled: true,
         moduleEffectSource: DEFAULT_MODULE_EFFECT_SOURCE,
         moduleEffectModuleIds: [],
+        appliedShipTemplate: null,
         minTwr: DEFAULT_MIN_TWR,
         minDvKps: 0,
         searchTerm: "",
@@ -125,6 +131,21 @@ export function normalizePowerResearchView(value) {
       return POWER_RESEARCH_VIEWS.includes(value) ? value : "focus";
     }
 
+export function normalizeConnectionLineMode(value) {
+      return CONNECTION_LINE_MODES.includes(value) ? value : DEFAULT_CONNECTION_LINE_MODE;
+    }
+
+export function connectionLineModeLabel(value = state.connectionLineMode) {
+      const labels = {
+        off: { ko: "끔", en: "Off" },
+        strict: { ko: "엄격", en: "Strict" },
+        lineage: { ko: "계통", en: "Lineage" },
+        all: { ko: "전체", en: "All" },
+      };
+      const label = labels[normalizeConnectionLineMode(value)] || labels.lineage;
+      return localText(label.ko, label.en);
+    }
+
 export function isBandMetricKey(metric = state.metric) {
       return metric === "totalMassTons" || metric === "fuelMassTons" || metric === "twr";
     }
@@ -139,7 +160,7 @@ export function powerResearchActive() {
     }
 
 export const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
-export const LEFT_PANEL_DEFAULT_ORDER = ["display", "simulation", "filter", "driveFilter"];
+export const LEFT_PANEL_DEFAULT_ORDER = ["display", "shipDesigner", "simulation", "filter", "driveFilter"];
 export const CHART_PRESET_STORAGE_KEY = "tiEngineChartNamedPresets";
 export const CHART_PRESET_STARTUP_STORAGE_KEY = "tiEngineChartStartupPresetId";
 export const DRY_MASS_PRESET_STORAGE_KEY = "tiEngineChartDryMassPresets";
@@ -194,7 +215,18 @@ export function metricSelectLabel() {
 
 export function leftPanelCardSummary(key) {
       if (key === "display") {
-        return metricSelectLabel();
+        return `${metricSelectLabel()} · ${localText("연결선", "Lines")} ${connectionLineModeLabel()}`;
+      }
+      if (key === "shipDesigner") {
+        const templateName = state.appliedShipTemplate?.name || "";
+        const assumptions = currentModuleEffectAssumptions();
+        const parts = [
+          templateName ? localText("함선 적용됨", "Ship applied") : localText("함선 미적용", "No ship applied"),
+          assumptions.moduleEffectsEnabled
+            ? `${localText("모듈 효과", "Module effects")} ${assumptions.activeModuleIds.length}`
+            : localText("모듈 효과 꺼짐", "Module effects off"),
+        ];
+        return parts.join(" · ");
       }
       if (key === "simulation") {
         const radiator = DATA.radiators.find(item => item.id === state.radiatorId);
@@ -466,8 +498,8 @@ export const metricDefs = {
         format: value => formatNumber(value, " GW"),
       },
       totalMassTons: {
-        label: "목표 dV 총질량 (t)",
-        hint: "총질량 = 기준 건조질량 + 드라이브 + 전원 + 라디에이터 + 추진체",
+        label: "목표 Δv 달성 총질량 (t)",
+        hint: "선택한 목표 Δv에 필요한 총질량 = 기준 건조질량 + 드라이브 + 전원 + 라디에이터 + 추진체",
         value: row => {
           const values = metricCalculationHooks.chartMassOptions(row);
           return values.length ? values[0].totalMassTons : NaN;
@@ -475,8 +507,8 @@ export const metricDefs = {
         format: value => formatNumber(value, " t"),
       },
       fuelMassTons: {
-        label: "목표 dV 연료질량 (t)",
-        hint: "연료질량 = (기준 건조질량 + 드라이브 + 전원 + 라디에이터) * (질량비 - 1)",
+        label: "목표 Δv 달성 연료질량 (t)",
+        hint: "선택한 목표 Δv에 필요한 연료질량 = (기준 건조질량 + 드라이브 + 전원 + 라디에이터) * (질량비 - 1)",
         value: row => {
           const values = metricCalculationHooks.chartMassOptions(row);
           return values.length ? values[0].propellantTons : NaN;
@@ -485,7 +517,7 @@ export const metricDefs = {
       },
       twr: {
         label: "TWR",
-        hint: "추력 / (목표 dV 총질량 * g)",
+        hint: "추력 / (목표 Δv 달성 총질량 * g)",
         value: row => {
           const values = metricCalculationHooks.chartMassOptions(row);
           return values.length ? values[0].twr : NaN;
@@ -524,12 +556,12 @@ export const HIDDEN_REASON_PRIORITY = [
     ];
 export const HELP_TEXT = {
       showTwrInfo: {
-        ko: "목표 dV 총질량/연료질량 그래프에서 각 점의 밝기를 TWR로 인코딩합니다. 같은 질량대라도 실제로 가속이 가능한 후보인지 빠르게 구분할 때 유용합니다.",
-        en: "On the target-dV total-mass/fuel-mass charts, point brightness encodes TWR. This helps separate candidates that can actually accelerate from sluggish designs at similar mass.",
+        ko: "목표 Δv 달성 총질량/연료질량 그래프에서 각 점의 밝기를 TWR로 인코딩합니다. 같은 질량대라도 실제로 가속이 가능한 후보인지 빠르게 구분할 때 유용합니다.",
+        en: "On the target-Δv total-mass/fuel-mass charts, point brightness encodes TWR. This helps separate candidates that can actually accelerate from sluggish designs at similar mass.",
       },
       showMassInfo: {
         ko: "TWR 그래프에서 각 점의 밝기를 총질량의 역수로 인코딩합니다. 높은 TWR 후보 중에서도 같은 목표 dV를 더 가벼운 총질량으로 달성하는 조합을 찾는 데 도움을 줍니다.",
-        en: "On the TWR chart, point brightness encodes the inverse of total mass. This helps find high-TWR candidates that also reach the target dV with a lighter ship.",
+        en: "On the TWR chart, point brightness encodes the inverse of total mass. This helps find high-TWR candidates that also reach the target Δv with a lighter ship.",
       },
       paretoHighlight: {
         ko: "누적 연구력은 더 낮고, 총질량은 더 가볍고, TWR은 더 높은 후보가 존재하면 해당 후보를 흐리게 표시합니다. 명백히 밀리는 조합을 줄여 투자 후보를 좁히는 기능입니다.",
