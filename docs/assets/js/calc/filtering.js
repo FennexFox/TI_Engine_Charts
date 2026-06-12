@@ -1,5 +1,6 @@
 import { isBandMetric, optionMetricValue } from "./metrics.js";
-import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, UI_LANG, metricDefs, powerResearchActive, state } from "../state/core.js";
+import { evaluateModuleEffectsForDrive } from "./module_effects.js";
+import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, UI_LANG, currentModuleEffectAssumptions, metricDefs, powerResearchActive, state } from "../state/core.js";
 import { clamp } from "../shared/math.js";
 
 export function rowCategoryLabel(row) {
@@ -149,7 +150,7 @@ export function bandMetricHiddenReasons(row) {
 
 export function massRatioDiagnostics(row) {
       const targetDv = Number(state.targetDvKps);
-      const exhaustVelocity = Number(row.exhaustVelocityKps);
+      const exhaustVelocity = Number(effectiveDriveValues(row).exhaustVelocityKps);
       if (!Number.isFinite(targetDv) || !Number.isFinite(exhaustVelocity) || exhaustVelocity <= 0) {
         return { invalid: true, overflow: false, extreme: false, massRatio: NaN };
       }
@@ -193,42 +194,134 @@ export function selectedRadiator() {
       return DATA.radiators.find(item => item.id === state.radiatorId) || DATA.radiators[0] || null;
     }
 
+export function moduleEffectEvaluationForDrive(row) {
+      const assumptions = currentModuleEffectAssumptions();
+      if (!assumptions.moduleEffectsEnabled) return null;
+      return evaluateModuleEffectsForDrive(row, assumptions.activeModuleIds, {
+        utilityModules: DATA.shipCatalog && DATA.shipCatalog.utilityModules,
+      });
+    }
+
+export function effectiveDriveValues(row) {
+      const evaluation = moduleEffectEvaluationForDrive(row);
+      if (!evaluation) {
+        return {
+          thrustN: row.thrustN,
+          exhaustVelocityKps: row.exhaustVelocityKps,
+          specificImpulseSeconds: row.specificImpulseSeconds,
+          powerRequirementGW: row.powerRequirementGW,
+          basePowerRequirementGW: row.powerRequirementGW,
+          moduleAuxiliaryPowerGW: 0,
+          wasteHeatMultiplier: 1,
+          moduleEffectEvaluation: null,
+        };
+      }
+      return {
+        thrustN: evaluation.effectiveThrustN,
+        exhaustVelocityKps: evaluation.effectiveExhaustVelocityKps,
+        specificImpulseSeconds: evaluation.effectiveSpecificImpulseSeconds,
+        powerRequirementGW: evaluation.modifiedPowerRequirementGW,
+        basePowerRequirementGW: evaluation.basePowerRequirementGW,
+        moduleAuxiliaryPowerGW: evaluation.moduleAuxiliaryPowerGW,
+        wasteHeatMultiplier: evaluation.wasteHeatMultiplier,
+        moduleEffectEvaluation: evaluation,
+      };
+    }
+
 export function massOptions(row) {
       const baseDryTons = state.dryMassTons;
       const targetDv = state.targetDvKps;
       const radiator = selectedRadiator();
       const radiatorSpecificPower = radiator ? Number(radiator.specificPowerKWPerKg) : NaN;
-      const massRatioMinusOne = Math.exp(targetDv / row.exhaustVelocityKps) - 1;
+      const effective = effectiveDriveValues(row);
+      const effectEvaluation = effective.moduleEffectEvaluation;
+      const massRatioMinusOne = Math.exp(targetDv / effective.exhaustVelocityKps) - 1;
       if (!Number.isFinite(massRatioMinusOne) || massRatioMinusOne < 0) return [];
       const massRatio = massRatioMinusOne + 1;
-      const options = row.powerOptions || row.reactorOptions || [];
+      const baseOptions = row.powerOptions || row.reactorOptions || [];
+      const auxiliaryPowerOptions = Array.isArray(row.auxiliaryPowerOptions) ? row.auxiliaryPowerOptions : [];
+      const moduleAuxiliaryPowerGW = Number.isFinite(Number(effective.moduleAuxiliaryPowerGW)) ? Number(effective.moduleAuxiliaryPowerGW) : 0;
+      const options = row.powerRequirementGW <= 0 && moduleAuxiliaryPowerGW > 0 && auxiliaryPowerOptions.length
+        ? auxiliaryPowerOptions.filter(option => Number(option.maxOutputGW) >= moduleAuxiliaryPowerGW)
+        : baseOptions;
       const computed = options.map(option => {
-        const selfContained = !!option.selfContained || row.powerRequirementGW <= 0;
-        const powerPlantMassTons = selfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * row.powerRequirementGW);
-        const wasteHeatGW = selfContained || row.openCycleCooling ? 0 : row.powerRequirementGW * (1 - option.efficiency);
+        const basePowerRequirementGW = Number.isFinite(Number(effective.basePowerRequirementGW)) ? Number(effective.basePowerRequirementGW) : row.powerRequirementGW;
+        const modifiedPowerRequirementGW = Number.isFinite(Number(effective.powerRequirementGW)) ? Number(effective.powerRequirementGW) : basePowerRequirementGW;
+        const wasteHeatMultiplier = Number.isFinite(Number(effective.wasteHeatMultiplier)) ? Number(effective.wasteHeatMultiplier) : 1;
+        const baseSelfContained = !!option.selfContained || basePowerRequirementGW <= 0;
+        const modifiedExternalPowerRequirementGW = baseSelfContained ? moduleAuxiliaryPowerGW : modifiedPowerRequirementGW;
+        const selfContained = modifiedExternalPowerRequirementGW <= 0;
+        const basePowerPlantMassTons = baseSelfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * basePowerRequirementGW);
+        const powerPlantMassTons = selfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * modifiedExternalPowerRequirementGW);
+        const baseWasteHeatGW = baseSelfContained || row.openCycleCooling ? 0 : basePowerRequirementGW * (1 - option.efficiency);
+        const auxiliaryWasteHeatGW = moduleAuxiliaryPowerGW > 0 ? moduleAuxiliaryPowerGW * (1 - option.efficiency) : 0;
+        const modifiedDriveWasteHeatGW = baseSelfContained || row.openCycleCooling ? 0 : basePowerRequirementGW * (1 - option.efficiency);
+        const modifiedWasteHeatGW = selfContained ? 0 : Math.max(0, (modifiedDriveWasteHeatGW + auxiliaryWasteHeatGW) * wasteHeatMultiplier);
+        const baseRadiatorMassTons = !baseSelfContained && radiatorSpecificPower > 0
+          ? Math.max(0, baseWasteHeatGW * 1_000_000 / radiatorSpecificPower / 1000)
+          : 0;
         const radiatorMassTons = !selfContained && radiatorSpecificPower > 0
-          ? Math.max(0, wasteHeatGW * 1_000_000 / radiatorSpecificPower / 1000)
+          ? Math.max(0, modifiedWasteHeatGW * 1_000_000 / radiatorSpecificPower / 1000)
           : 0;
         const hardwareMassTons = row.driveMassTons + powerPlantMassTons + radiatorMassTons;
         const dryWithHardwareTons = baseDryTons + hardwareMassTons;
         const propellantTons = dryWithHardwareTons * massRatioMinusOne;
         const totalMassTons = dryWithHardwareTons + propellantTons;
-        const twr = row.thrustN / (totalMassTons * 1000 * STANDARD_GRAVITY_MPS2);
+        const twr = effective.thrustN / (totalMassTons * 1000 * STANDARD_GRAVITY_MPS2);
+        const baseMassRatioMinusOne = Math.exp(targetDv / row.exhaustVelocityKps) - 1;
+        const baseMassRatio = baseMassRatioMinusOne + 1;
+        const baseHardwareMassTons = row.driveMassTons + basePowerPlantMassTons + baseRadiatorMassTons;
+        const baseDryWithHardwareTons = baseDryTons + baseHardwareMassTons;
+        const basePropellantTons = baseDryWithHardwareTons * baseMassRatioMinusOne;
+        const baseTotalMassTons = baseDryWithHardwareTons + basePropellantTons;
+        const baseTwr = row.thrustN / (baseTotalMassTons * 1000 * STANDARD_GRAVITY_MPS2);
+        const moduleEffectFields = effectEvaluation ? {
+          baseThrustN: effectEvaluation.baseThrustN,
+          effectiveThrustN: effectEvaluation.effectiveThrustN,
+          baseExhaustVelocityKps: effectEvaluation.baseExhaustVelocityKps,
+          effectiveExhaustVelocityKps: effectEvaluation.effectiveExhaustVelocityKps,
+          baseSpecificImpulseSeconds: effectEvaluation.baseSpecificImpulseSeconds,
+          effectiveSpecificImpulseSeconds: effectEvaluation.effectiveSpecificImpulseSeconds,
+          activeModuleEffects: effectEvaluation.activeEffects,
+          powerContributions: effectEvaluation.powerContributions,
+          moduleAuxiliaryPowerGW: effectEvaluation.moduleAuxiliaryPowerGW,
+          wasteHeatMultiplier: effectEvaluation.wasteHeatMultiplier,
+          moduleEffectDiagnostics: {
+            ...effectEvaluation.diagnostics,
+          },
+        } : {};
         return {
           ...option,
+          basePowerPlantMassTons,
           reactorMassTons: powerPlantMassTons,
           powerPlantMassTons,
+          basePowerRequirementGW,
+          modifiedPowerRequirementGW,
+          moduleAuxiliaryPowerGW,
+          baseWasteHeatGW,
+          modifiedWasteHeatGW,
+          wasteHeatMultiplier,
+          baseRadiatorMassTons,
           radiatorMassTons,
-          wasteHeatGW,
+          wasteHeatGW: modifiedWasteHeatGW,
+          baseHardwareMassTons,
           hardwareMassTons,
           baseDryTons,
+          baseDryWithHardwareTons,
           dryWithHardwareTons,
+          basePropellantTons,
           propellantTons,
+          baseTotalMassTons,
           totalMassTons,
+          baseTwr,
           twr,
-          maxPracticalDvKps: row.exhaustVelocityKps * Math.log(EXTREME_MASS_RATIO),
+          maxPracticalDvKps: effective.exhaustVelocityKps * Math.log(EXTREME_MASS_RATIO),
+          baseMaxPracticalDvKps: row.exhaustVelocityKps * Math.log(EXTREME_MASS_RATIO),
+          baseMassRatio,
           massRatio,
+          baseMassRatioMinusOne,
           massRatioMinusOne,
+          ...moduleEffectFields,
         };
       });
       return actualPowerFrontier(row, computed);

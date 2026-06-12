@@ -182,6 +182,449 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
 
+  const moduleEffectCalculationChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    state.metric = "totalMassTons";
+    state.dryMassTons = 1000;
+    state.targetDvKps = 50;
+    state.minTwr = 0.0001;
+    state.showImpracticalCandidates = true;
+    state.moduleEffectSource = "manual";
+    const fusionHydrogen = DATA.drives.find(row => (
+      row.categoryKey === "Fusion"
+      && row.propellant === "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const fissionHydrogen = DATA.drives.find(row => (
+      row.categoryKey === "Fission"
+      && row.propellant === "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const selfContainedDrive = DATA.drives.find(row => (
+      Number(row.powerRequirementGW) <= 0
+      && (row.powerOptions || row.reactorOptions || []).some(option => option && option.selfContained)
+    ));
+    const firstOption = row => chartMassOptions(row)[0] || null;
+    const installVerifierHeatModule = () => {
+      const modules = DATA.shipCatalog && Array.isArray(DATA.shipCatalog.utilityModules)
+        ? DATA.shipCatalog.utilityModules
+        : [];
+      if (!modules.some(module => module && module.dataName === "VerifierHeatSink")) {
+        modules.push({
+          dataName: "VerifierHeatSink",
+          friendlyName: "Verifier Heat Sink",
+          displayName: { en: "Verifier Heat Sink", ko: "Verifier Heat Sink" },
+          effects: [{
+            type: "wasteHeatMultiplier",
+            operation: "multiply",
+            multiplier: 0.5,
+            sourceRule: "WasteHeatMultiplier",
+          }],
+        });
+      }
+    };
+    if (!fusionHydrogen || !fissionHydrogen || !selfContainedDrive) return { missingFixture: true };
+    installVerifierHeatModule();
+
+    state.moduleEffectsEnabled = false;
+    state.moduleEffectModuleIds = ["MuonSpiker", "HydronTrap"];
+    const base = firstOption(fusionHydrogen);
+    const disabled = firstOption(fusionHydrogen);
+    const heatFixtureDrive = DATA.drives.find(row => {
+      if (row.openCycleCooling || !(Number(row.powerRequirementGW) > 0)) return false;
+      const option = firstOption(row);
+      return !!option && !option.selfContained && option.wasteHeatGW > 0;
+    });
+    const heatBase = heatFixtureDrive ? firstOption(heatFixtureDrive) : null;
+
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectModuleIds = ["MuonSpiker"];
+    const thrust = firstOption(fusionHydrogen);
+    const thrustMetric = metricDefs.thrustMN.value(fusionHydrogen);
+
+    state.moduleEffectModuleIds = ["HydronTrap"];
+    const ev = firstOption(fusionHydrogen);
+    state.fuelEfficiencyUnit = "kps";
+    const evMetric = metricDefs.fuelEfficiency.value(fusionHydrogen);
+    state.fuelEfficiencyUnit = "seconds";
+    const ispMetric = metricDefs.fuelEfficiency.value(fusionHydrogen);
+
+    state.moduleEffectModuleIds = ["MuonSpiker"];
+    state.moduleEffectsEnabled = false;
+    const fissionBase = firstOption(fissionHydrogen);
+    state.moduleEffectsEnabled = true;
+    const incompatible = firstOption(fissionHydrogen);
+
+    state.moduleEffectModuleIds = ["ElectronicCountermeasures1"];
+    const unsupported = firstOption(fusionHydrogen);
+
+    state.moduleEffectModuleIds = ["MuonSpiker", "AntimatterSpiker"];
+    const mutuallyExclusive = firstOption(fusionHydrogen);
+
+    state.moduleEffectModuleIds = ["LaserEngine"];
+    const powerAux = firstOption(fusionHydrogen);
+    const powerMetric = metricDefs.powerRequirementGW.value(fusionHydrogen);
+
+    state.moduleEffectsEnabled = false;
+    state.moduleEffectModuleIds = [];
+    const selfContainedBase = firstOption(selfContainedDrive);
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectModuleIds = ["LaserEngine"];
+    const selfContainedAux = firstOption(selfContainedDrive);
+    const selfContainedPowerMetric = metricDefs.powerRequirementGW.value(selfContainedDrive);
+
+    state.moduleEffectModuleIds = ["VerifierHeatSink"];
+    const heat = heatFixtureDrive ? firstOption(heatFixtureDrive) : null;
+
+    return {
+      missingFixture: false,
+      disabledParity: !!base && !!disabled
+        && Math.abs(base.totalMassTons - disabled.totalMassTons) < 1e-9
+        && Math.abs(base.propellantTons - disabled.propellantTons) < 1e-9
+        && Math.abs(base.twr - disabled.twr) < 1e-12,
+      thrustApplied: !!base && !!thrust
+        && Math.abs(base.totalMassTons - thrust.totalMassTons) < 1e-9
+        && thrust.twr > base.twr * 1.09
+        && thrust.effectiveThrustN > thrust.baseThrustN,
+      evApplied: !!base && !!ev
+        && ev.propellantTons < base.propellantTons
+        && ev.totalMassTons < base.totalMassTons
+        && ev.maxPracticalDvKps > base.maxPracticalDvKps
+        && ev.effectiveExhaustVelocityKps > ev.baseExhaustVelocityKps,
+      incompatibleSkipped: !!fissionBase && !!incompatible
+        && Math.abs(fissionBase.totalMassTons - incompatible.totalMassTons) < 1e-9
+        && Math.abs(fissionBase.twr - incompatible.twr) < 1e-12
+        && incompatible.moduleEffectDiagnostics.unmetRequirements.length > 0
+        && incompatible.moduleEffectDiagnostics.skippedEffects.length > 0,
+      outOfScopeUnsupportedSuppressed: !!unsupported
+        && !unsupported.moduleEffectDiagnostics.unsupportedRules.some(item => item.rule === "ECM"),
+      mutualExclusionSkipped: !!base && !!mutuallyExclusive
+        && Math.abs(mutuallyExclusive.totalMassTons - base.totalMassTons) < 1e-9
+        && Math.abs(mutuallyExclusive.twr - base.twr) < 1e-12
+        && mutuallyExclusive.moduleEffectDiagnostics.mutualExclusions.length >= 2
+        && mutuallyExclusive.moduleEffectDiagnostics.skippedEffects.some(item => item.reason === "mutualExclusion"),
+      powerAuxApplied: !!base && !!powerAux
+        && Math.abs(powerAux.moduleAuxiliaryPowerGW - 0.005) < 1e-12
+        && Math.abs(powerAux.modifiedPowerRequirementGW - (powerAux.basePowerRequirementGW + 0.005)) < 1e-12
+        && powerAux.modifiedWasteHeatGW > powerAux.baseWasteHeatGW
+        && powerAux.powerPlantMassTons > base.powerPlantMassTons
+        && powerAux.radiatorMassTons > powerAux.baseRadiatorMassTons
+        && powerAux.wasteHeatGW > base.wasteHeatGW
+        && powerAux.moduleEffectDiagnostics.powerWarnings.some(item => item.rule === "LaserPowerBonus"),
+      selfContainedAuxModeled: !!selfContainedBase && !!selfContainedAux
+        && selfContainedBase.selfContained === true
+        && selfContainedAux.selfContained !== true
+        && selfContainedAux.moduleAuxiliaryPowerGW > 0
+        && Math.abs(selfContainedAux.modifiedPowerRequirementGW - (selfContainedAux.basePowerRequirementGW + selfContainedAux.moduleAuxiliaryPowerGW)) < 1e-12
+        && Math.abs(selfContainedPowerMetric - selfContainedAux.modifiedPowerRequirementGW) < 1e-12
+        && selfContainedAux.powerPlantMassTons > selfContainedBase.powerPlantMassTons
+        && selfContainedAux.radiatorMassTons > selfContainedBase.radiatorMassTons
+        && selfContainedAux.totalMassTons > selfContainedBase.totalMassTons
+        && selfContainedAux.twr < selfContainedBase.twr
+        && !selfContainedAux.moduleEffectDiagnostics.powerWarnings.some(item => item.reason === "selfContainedDriveAuxiliaryPower"),
+      heatApplied: !!heatBase && !!heat
+        && Math.abs(heat.wasteHeatMultiplier - 0.5) < 1e-12
+        && heat.modifiedWasteHeatGW < heat.baseWasteHeatGW
+        && heat.radiatorMassTons < heat.baseRadiatorMassTons
+        && Math.abs(heat.powerPlantMassTons - heatBase.powerPlantMassTons) < 1e-9,
+      thrustMetricEffective: Math.abs(thrustMetric - fusionHydrogen.thrustN * 1.1 / 1e6) < 1e-9,
+      evMetricEffective: Math.abs(evMetric - fusionHydrogen.exhaustVelocityKps * 1.5) < 1e-9,
+      ispMetricEffective: ispMetric > fusionHydrogen.specificImpulseSeconds * 1.49,
+      powerMetricEffective: Math.abs(powerMetric - (fusionHydrogen.powerRequirementGW + 0.005)) < 1e-12,
+    };
+  });
+  expect(!moduleEffectCalculationChecks.missingFixture, `${htmlFile}: module-effect calculation fixture drives were not found`);
+  expect(moduleEffectCalculationChecks.disabledParity, `${htmlFile}: module effects disabled did not preserve base mass options`);
+  expect(moduleEffectCalculationChecks.thrustApplied, `${htmlFile}: thrust multiplier did not update TWR/effective thrust`);
+  expect(moduleEffectCalculationChecks.evApplied, `${htmlFile}: EV multiplier did not update propellant/total mass/max practical dV`);
+  expect(moduleEffectCalculationChecks.incompatibleSkipped, `${htmlFile}: incompatible module effect was not skipped with diagnostics`);
+  expect(moduleEffectCalculationChecks.outOfScopeUnsupportedSuppressed, `${htmlFile}: out-of-scope unsupported module rule was carried as chart diagnostics`);
+  expect(moduleEffectCalculationChecks.mutualExclusionSkipped, `${htmlFile}: mutually exclusive module effects were not skipped with diagnostics`);
+  expect(moduleEffectCalculationChecks.powerAuxApplied, `${htmlFile}: auxiliary module power did not update power demand and mass options`);
+  expect(moduleEffectCalculationChecks.selfContainedAuxModeled, `${htmlFile}: self-contained drive auxiliary power did not use external power-plant mass/TWR modeling`);
+  expect(moduleEffectCalculationChecks.heatApplied, `${htmlFile}: waste heat multiplier did not update heat and radiator mass options`);
+  expect(moduleEffectCalculationChecks.thrustMetricEffective, `${htmlFile}: thrust metric did not use effective thrust`);
+  expect(moduleEffectCalculationChecks.evMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective exhaust velocity`);
+  expect(moduleEffectCalculationChecks.ispMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective specific impulse`);
+  expect(moduleEffectCalculationChecks.powerMetricEffective, `${htmlFile}: power requirement metric did not use modified power demand`);
+
+  const moduleEffectUxChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    state.dryMassTons = 1000;
+    state.targetDvKps = 50;
+    state.minTwr = 0.0001;
+    state.showImpracticalCandidates = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker", "ArmorStruts"];
+    state.moduleEffectsEnabled = false;
+    const installVerifierHeatModule = () => {
+      const modules = DATA.shipCatalog && Array.isArray(DATA.shipCatalog.utilityModules)
+        ? DATA.shipCatalog.utilityModules
+        : [];
+      if (!modules.some(module => module && module.dataName === "VerifierHeatSink")) {
+        modules.push({
+          dataName: "VerifierHeatSink",
+          friendlyName: "Verifier Heat Sink",
+          displayName: { en: "Verifier Heat Sink", ko: "Verifier Heat Sink" },
+          effects: [{
+            type: "wasteHeatMultiplier",
+            operation: "multiply",
+            multiplier: 0.5,
+            sourceRule: "WasteHeatMultiplier",
+          }],
+        });
+      }
+    };
+    installVerifierHeatModule();
+    syncUiFromState();
+
+    const panel = document.getElementById("moduleEffectsControl");
+    const checkbox = document.getElementById("moduleEffectsEnabled");
+    const disabledText = panel?.textContent || "";
+    const disabledChecked = checkbox?.checked === false;
+    checkbox?.click();
+    const enabledByClick = state.moduleEffectsEnabled === true && checkbox?.checked === true;
+    const enabledText = panel?.textContent || "";
+    const activeChipCount = panel ? panel.querySelectorAll(".effect-chip.is-active").length : 0;
+    const mutedChipCount = panel ? panel.querySelectorAll(".effect-chip.is-muted").length : 0;
+    const panelWarnings = [...(panel?.querySelectorAll(".module-effects-warning") || [])].map(item => item.textContent || "");
+
+    const classWithMuon = SHIP_CLASS_OPTIONS.find(shipClass => utilityModulesForShipClass(shipClass).some(item => item.dataName === "MuonSpiker"));
+    if (classWithMuon) {
+      dryMassCalcState.classId = classWithMuon.dataName;
+      normalizeDryMassCalcSlots();
+      if (dryMassCalcState.slotModules.length) dryMassCalcState.slotModules[0] = "MuonSpiker";
+      syncUiFromState();
+    }
+    const slotSelect = document.querySelector('#dryMassCalcSlots select[data-slot-index="0"]');
+    const selectedSlotEffects = document.querySelector("#dryMassCalcSlots .calc-slot-effects")?.textContent || "";
+    const optionEffectLabelVisible = !!slotSelect && [...slotSelect.options].some(option => option.value === "MuonSpiker" && /Thrust/i.test(option.textContent || ""));
+    const slotSearchableRendered = !!slotSelect?.nextElementSibling?.classList.contains("searchable-select");
+
+    const fusionHydrogen = currentChartRows.find(row => (
+      row.categoryKey === "Fusion"
+      && row.propellant === "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const nonHydrogenDrive = currentChartRows.find(row => (
+      row.propellant !== "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const heatFixtureDrive = currentChartRows.find(row => {
+      if (row.openCycleCooling || !(Number(row.powerRequirementGW) > 0)) return false;
+      const option = chartMassOptions(row)[0] || null;
+      return !!option && !option.selfContained && option.wasteHeatGW > 0;
+    });
+    const lowImpactAuxPowerDrive = currentChartRows.find(row => (
+      Number(row.powerRequirementGW) > 1
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+
+    let compatibleTooltipText = "";
+    let compatibleTooltipChips = 0;
+    let compatiblePerformanceModifiedCount = 0;
+    let compatiblePerformanceBaselineCount = 0;
+    let compatiblePerformanceTitle = "";
+    if (fusionHydrogen) {
+      state.moduleEffectsEnabled = true;
+      state.moduleEffectSource = "manual";
+      state.moduleEffectModuleIds = ["MuonSpiker"];
+      syncUiFromState();
+      const option = chartMassOptions(fusionHydrogen)[0];
+      if (option) {
+        const ref = tooltipRef(fusionHydrogen.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        compatibleTooltipText = document.querySelector("#tooltip")?.textContent || "";
+        compatibleTooltipChips = document.querySelectorAll("#tooltip .tooltip-module-effects .effect-chip.is-active").length;
+        compatiblePerformanceModifiedCount = document.querySelectorAll("#tooltip .performance-total-value.is-modified").length;
+        compatiblePerformanceBaselineCount = document.querySelectorAll("#tooltip .performance-baseline-value").length;
+        compatiblePerformanceTitle = document.querySelector("#tooltip .performance-total-value.is-modified")?.getAttribute("title") || "";
+      }
+    }
+
+    let lowImpactPerformanceModifiedCount = 0;
+    let lowImpactPerformanceChecked = false;
+    let lowImpactPerformanceText = "";
+    let lowImpactPanelText = "";
+    if (lowImpactAuxPowerDrive) {
+      state.moduleEffectsEnabled = true;
+      state.moduleEffectSource = "manual";
+      state.moduleEffectModuleIds = ["MobileSpaceScienceLab"];
+      syncUiFromState();
+      lowImpactPanelText = panel?.textContent || "";
+      const option = chartMassOptions(lowImpactAuxPowerDrive)[0];
+      if (option) {
+        lowImpactPerformanceChecked = true;
+        const ref = tooltipRef(lowImpactAuxPowerDrive.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        lowImpactPerformanceModifiedCount = document.querySelectorAll("#tooltip .performance-total-value.is-modified").length;
+        lowImpactPerformanceText = document.querySelector("#tooltip")?.textContent || "";
+      }
+    }
+
+    let incompatibleTooltipText = "";
+    if (nonHydrogenDrive) {
+      state.moduleEffectsEnabled = true;
+      state.moduleEffectSource = "manual";
+      state.moduleEffectModuleIds = ["HydronTrap"];
+      syncUiFromState();
+      const option = chartMassOptions(nonHydrogenDrive)[0];
+      if (option) {
+        const ref = tooltipRef(nonHydrogenDrive.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        incompatibleTooltipText = document.querySelector("#tooltip")?.textContent || "";
+      }
+    }
+
+    state.moduleEffectModuleIds = ["LaserEngine"];
+    syncUiFromState();
+    const unsupportedPanelText = panel?.textContent || "";
+
+    state.moduleEffectModuleIds = ["MuonSpiker", "AntimatterSpiker"];
+    syncUiFromState();
+    const mutualExclusionPanelText = panel?.textContent || "";
+    let mutualExclusionTooltipText = "";
+    if (fusionHydrogen) {
+      const option = chartMassOptions(fusionHydrogen)[0];
+      if (option) {
+        const ref = tooltipRef(fusionHydrogen.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        mutualExclusionTooltipText = document.querySelector("#tooltip")?.textContent || "";
+      }
+    }
+
+    state.moduleEffectModuleIds = ["VerifierHeatSink"];
+    syncUiFromState();
+    const heatPanelText = panel?.textContent || "";
+    let heatTooltipText = "";
+    if (heatFixtureDrive) {
+      const option = chartMassOptions(heatFixtureDrive)[0];
+      if (option) {
+        const ref = tooltipRef(heatFixtureDrive.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        heatTooltipText = document.querySelector("#tooltip")?.textContent || "";
+      }
+    }
+
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const koreanPanelText = panel?.textContent || "";
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+
+    return {
+      panelExists: !!panel,
+      disabledChecked,
+      disabledWarnsBase: /base drive values/i.test(disabledText),
+      enabledByClick,
+      enabledSummary: /Source: manual preset list/.test(enabledText) && /Selected 2/.test(enabledText) && /Effects 1/.test(enabledText),
+      activeChipCount,
+      mutedChipCount,
+      panelWarnsRequirements: panelWarnings.some(text => /requires fusion drive/i.test(text)),
+      panelSuppressesOutOfScopeUnsupported: !panelWarnings.some(text => /rules not modeled/i.test(text) && /ArmorStruts/.test(text)),
+      optionEffectLabelVisible,
+      selectedSlotEffectVisible: /Thrust/i.test(selectedSlotEffects),
+      slotSearchableRendered,
+      compatibleTooltipShowsEffects: /Module effects/i.test(compatibleTooltipText)
+        && /Muon Spiker/i.test(compatibleTooltipText)
+        && /Thrust/i.test(compatibleTooltipText)
+        && /base/i.test(compatibleTooltipText)
+        && compatibleTooltipChips > 0,
+      compatiblePerformanceShowsTotalAndBaseline: compatiblePerformanceModifiedCount > 0
+        && compatiblePerformanceBaselineCount > 0
+        && /Total performance/i.test(compatiblePerformanceTitle)
+        && /Baseline performance/i.test(compatiblePerformanceTitle)
+        && /Module impact/i.test(compatiblePerformanceTitle)
+        && /Breakdown/i.test(compatiblePerformanceTitle)
+        && /Muon Spiker/i.test(compatiblePerformanceTitle),
+      lowImpactPerformanceSuppressed: lowImpactPerformanceChecked
+        && lowImpactPerformanceModifiedCount === 0,
+      lowImpactWarningsSuppressed: /Mobile Space Science Lab/i.test(lowImpactPanelText)
+        && !/rules not modeled|GenerateSpaceScienceBonus|Prospector/i.test(lowImpactPanelText)
+        && !/unsupported rule|GenerateSpaceScienceBonus|Prospector/i.test(lowImpactPerformanceText),
+      incompatibleTooltipWarns: /unmet prerequisite/i.test(incompatibleTooltipText) && /hydrogenPropellant/.test(incompatibleTooltipText),
+      unsupportedPanelWarns: /rules not modeled/i.test(unsupportedPanelText) && /LaserPowerBonus/.test(unsupportedPanelText) && /Aux power/i.test(unsupportedPanelText),
+      mutualExclusionPanelWarns: /Mutually exclusive module group/i.test(mutualExclusionPanelText) && /Muon Spiker/i.test(mutualExclusionPanelText) && /Antimatter Spiker/i.test(mutualExclusionPanelText),
+      mutualExclusionTooltipWarns: /mutually exclusive module group/i.test(mutualExclusionTooltipText) && /MuonSpiker|Muon Spiker/.test(mutualExclusionTooltipText) && /AntimatterSpiker|Antimatter Spiker/.test(mutualExclusionTooltipText),
+      heatPanelSummarizes: /Waste heat x0.5/.test(heatPanelText),
+      heatTooltipShowsModifiedHeat: /Waste heat/i.test(heatTooltipText) && /base/i.test(heatTooltipText) && /heat multiplier x0.5/i.test(heatTooltipText),
+      koreanPanelLocalized: !/Apply module performance effects|Source:/.test(koreanPanelText),
+    };
+  });
+  expect(moduleEffectUxChecks.panelExists, `${htmlFile}: module effects control panel is missing`);
+  expect(moduleEffectUxChecks.disabledChecked, `${htmlFile}: module effects checkbox did not sync disabled state`);
+  expect(moduleEffectUxChecks.disabledWarnsBase, `${htmlFile}: disabled module effects panel did not warn that base values are used`);
+  expect(moduleEffectUxChecks.enabledByClick, `${htmlFile}: module effects checkbox click did not update state`);
+  expect(moduleEffectUxChecks.enabledSummary, `${htmlFile}: enabled module effects summary did not describe source/selection/effect count`);
+  expect(moduleEffectUxChecks.activeChipCount >= 1, `${htmlFile}: active module-effect chip was not rendered`);
+  expect(moduleEffectUxChecks.mutedChipCount >= 1, `${htmlFile}: module without modeled performance effects was not visibly identified`);
+  expect(moduleEffectUxChecks.panelWarnsRequirements, `${htmlFile}: module effects panel did not show prerequisite warnings`);
+  expect(moduleEffectUxChecks.panelSuppressesOutOfScopeUnsupported, `${htmlFile}: module effects panel showed out-of-scope unsupported rule warnings`);
+  expect(moduleEffectUxChecks.optionEffectLabelVisible, `${htmlFile}: dry-mass module option labels did not identify module effects`);
+  expect(moduleEffectUxChecks.selectedSlotEffectVisible, `${htmlFile}: selected dry-mass module slot did not show effect chips`);
+  expect(moduleEffectUxChecks.slotSearchableRendered, `${htmlFile}: dry-mass module selector was not enhanced as searchable`);
+  expect(moduleEffectUxChecks.compatibleTooltipShowsEffects, `${htmlFile}: compatible drive tooltip did not show active module effects and base values`);
+  expect(moduleEffectUxChecks.compatiblePerformanceShowsTotalAndBaseline, `${htmlFile}: Performance Detail did not show highlighted total values with baseline and module-impact breakdown`);
+  expect(moduleEffectUxChecks.lowImpactPerformanceSuppressed, `${htmlFile}: Performance Detail highlighted a module impact at or below the 1% display threshold`);
+  expect(moduleEffectUxChecks.lowImpactWarningsSuppressed, `${htmlFile}: out-of-scope Mobile Space Science Lab rules were shown as module warnings`);
+  expect(moduleEffectUxChecks.incompatibleTooltipWarns, `${htmlFile}: incompatible drive tooltip did not show unmet prerequisite warning`);
+  expect(moduleEffectUxChecks.unsupportedPanelWarns, `${htmlFile}: unsupported-only module effect selection was silent`);
+  expect(moduleEffectUxChecks.mutualExclusionPanelWarns, `${htmlFile}: mutually exclusive module selection was not warned in the panel`);
+  expect(moduleEffectUxChecks.mutualExclusionTooltipWarns, `${htmlFile}: mutually exclusive module selection was not warned in the tooltip`);
+  expect(moduleEffectUxChecks.heatPanelSummarizes, `${htmlFile}: heat-effect module selection was not summarized in the panel`);
+  expect(moduleEffectUxChecks.heatTooltipShowsModifiedHeat, `${htmlFile}: heat-effect tooltip did not show modified waste heat and base value`);
+  expect(moduleEffectUxChecks.koreanPanelLocalized, `${htmlFile}: module effects panel did not update when switching to Korean`);
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  const moduleEffectMobileLayout = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker", "HydronTrap", "LaserEngine"];
+    syncUiFromState();
+    const classWithMuon = SHIP_CLASS_OPTIONS.find(shipClass => utilityModulesForShipClass(shipClass).some(item => item.dataName === "MuonSpiker"));
+    if (classWithMuon) {
+      dryMassCalcState.classId = classWithMuon.dataName;
+      normalizeDryMassCalcSlots();
+      if (dryMassCalcState.slotModules.length) dryMassCalcState.slotModules[0] = "MuonSpiker";
+      syncUiFromState();
+      document.getElementById("dryMassCalcModal")?.classList.add("is-open");
+    }
+    const panel = document.getElementById("moduleEffectsControl");
+    const dialog = document.querySelector("#dryMassCalcModal .modal-dialog");
+    const fitsInside = (container, selector) => {
+      if (!container) return false;
+      const box = container.getBoundingClientRect();
+      return [...container.querySelectorAll(selector)].every(element => {
+        const item = element.getBoundingClientRect();
+        return item.left >= box.left - 1 && item.right <= box.right + 1;
+      });
+    };
+    return {
+      panelFits: fitsInside(panel, ".effect-chip, .module-effects-warning"),
+      modalFits: fitsInside(dialog, ".calc-slot-effects .effect-chip"),
+    };
+  });
+  expect(moduleEffectMobileLayout.panelFits, `${htmlFile}: module-effect panel chips or warnings overflow on mobile`);
+  expect(moduleEffectMobileLayout.modalFits, `${htmlFile}: dry-mass module-effect chips overflow the modal on mobile`);
+  await page.locator("#dryMassCalcClose").click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
   await page.locator("#chartPresetActionsMenu > summary").click();
   const chartPresetMenuState = await page.evaluate(() => {
     const overflow = [...document.querySelectorAll("#presetClipboard .compact-command")]
@@ -289,6 +732,29 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       powerStepText: document.querySelector("#tooltip .tooltip-power-steps")?.textContent || "",
     };
 
+    const pinnedHoverTargets = currentChartRows
+      .filter(row => chartMassOptions(row).length > 1)
+      .slice(0, 3);
+    let pinnedHoverFocus = { checked: false };
+    if (pinnedHoverTargets.length >= 3) {
+      const refs = pinnedHoverTargets.map(row => tooltipRef(row.id, chartMassOptions(row)[0].id));
+      state.powerResearchView = "focus";
+      state.tooltipPinned = true;
+      state.lastTooltipItems = refs.slice(0, 2);
+      state.pinnedTooltipItems = refs.slice(0, 2);
+      state.hoverPoints = [refs[2]];
+      syncUiFromState();
+      render();
+      const focusedLineDriveIds = new Set([...document.querySelectorAll("#chart .power-ladder-line.is-focused")]
+        .map(path => path.getAttribute("data-row-id")));
+      pinnedHoverFocus = {
+        checked: true,
+        focusedDriveCount: focusedLineDriveIds.size,
+        includesPinnedAndHover: pinnedHoverTargets.every(row => focusedLineDriveIds.has(row.id)),
+        hoverPointPreserved: state.hoverPoints.some(ref => ref.rowId === pinnedHoverTargets[2].id),
+      };
+    }
+
     state.powerResearchView = "all";
     state.hoverPoints = [];
     state.lastTooltipItems = [];
@@ -350,7 +816,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     setLanguage("ko", { rerender: false });
     syncUiFromState();
     render();
-    return { defaultMode, legacyMigration, hasMultiOptionTarget: !!target, focusIdle, focusActive, allMode, bestMode, nonPowerMetric };
+    return { defaultMode, legacyMigration, hasMultiOptionTarget: !!target, focusIdle, focusActive, pinnedHoverFocus, allMode, bestMode, nonPowerMetric };
   });
   expect(powerViewChecks.defaultMode.controlVisible, `${htmlFile}: Power view control is hidden on band metric`);
   expect(powerViewChecks.defaultMode.selected === "focus", `${htmlFile}: Base is not the default Power view`);
@@ -379,6 +845,10 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(powerViewChecks.focusActive.focusedLines > 0, `${htmlFile}: active Base mode did not render focused dashed lines`);
   expect(powerViewChecks.focusActive.powerStepRows > 1, `${htmlFile}: Power steps table did not include multiple power options`);
   expect(/Wet mass/.test(powerViewChecks.focusActive.powerStepText) && /TWR/.test(powerViewChecks.focusActive.powerStepText), `${htmlFile}: Power steps table missing key columns`);
+  expect(powerViewChecks.pinnedHoverFocus.checked, `${htmlFile}: not enough multi-power-option drives for pinned-plus-hover ladder verification`);
+  expect(powerViewChecks.pinnedHoverFocus.focusedDriveCount >= 3, `${htmlFile}: Base mode did not focus every pinned drive plus hovered drive`);
+  expect(powerViewChecks.pinnedHoverFocus.includesPinnedAndHover, `${htmlFile}: Base mode focused ladders did not include every pinned and hovered drive`);
+  expect(powerViewChecks.pinnedHoverFocus.hoverPointPreserved, `${htmlFile}: redraw dropped the hovered drive while tooltip cards were pinned`);
   expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All ladders Power view did not select all mode`);
   expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All ladders mode did not render extra points`);
   expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All ladders mode did not apply subdued point styling`);
@@ -481,20 +951,93 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     }
     normalizeDryMassCalcSlots();
 
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker", "MissingModule", "Empty", "HydronTrap", "MuonSpiker"];
+    const expectedModuleEffects = {
+      moduleEffectsEnabled: true,
+      moduleEffectSource: "manual",
+      moduleEffectModuleIds: ["MuonSpiker", "HydronTrap"],
+    };
+
     const expected = JSON.stringify(exportedDryMassCalculatorPreset());
-    const serialized = await serializePresetPayload();
-    const parsed = await parsePresetPayload(serialized);
+    const exportedObject = exportedPreset();
+    const compressedPayload = await serializePresetPayload();
+    const parsedCompressed = await parsePresetPayload(compressedPayload);
+    const jsonPayload = JSON.stringify(exportedObject, null, 2);
+    const parsedJson = await parsePresetPayload(jsonPayload);
+    const compressedModuleEffects = {
+      moduleEffectsEnabled: parsedCompressed.moduleEffectsEnabled,
+      moduleEffectSource: parsedCompressed.moduleEffectSource,
+      moduleEffectModuleIds: parsedCompressed.moduleEffectModuleIds,
+    };
+    const jsonModuleEffects = {
+      moduleEffectsEnabled: parsedJson.moduleEffectsEnabled,
+      moduleEffectSource: parsedJson.moduleEffectSource,
+      moduleEffectModuleIds: parsedJson.moduleEffectModuleIds,
+    };
+    const oldPreset = JSON.parse(JSON.stringify(parsedCompressed));
+    delete oldPreset.moduleEffectsEnabled;
+    delete oldPreset.moduleEffectSource;
+    delete oldPreset.moduleEffectModuleIds;
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker"];
+    const oldApplied = applyPresetToState(oldPreset);
+    const oldModuleEffects = currentModuleEffectAssumptions();
     resetDryMassCalcState();
-    const applied = applyPresetToState(parsed);
+    resetChartStateToDefaults();
+    const compressedApplied = applyPresetToState(parsedCompressed);
+    const actual = JSON.stringify(exportedDryMassCalculatorPreset());
+    const compressedModuleEffectsApplied = currentModuleEffectAssumptions();
+    resetDryMassCalcState();
+    resetChartStateToDefaults();
+    const jsonApplied = applyPresetToState(parsedJson);
+    const jsonModuleEffectsApplied = currentModuleEffectAssumptions();
+    dryMassCalcState.slotModules = ["MuonSpiker", "Empty", "HydronTrap"];
+    const dryMassSourceAssumptions = currentModuleEffectAssumptions({
+      moduleEffectsEnabled: true,
+      moduleEffectSource: "dryMassCalculator",
+      moduleEffectModuleIds: ["NeutroniumSpiker"],
+    });
     return {
-      applied,
+      compressedApplied,
+      jsonApplied,
       expected,
-      actual: JSON.stringify(exportedDryMassCalculatorPreset()),
-      exportedField: !!parsed.dryMassCalculator,
+      actual,
+      exportedField: !!parsedCompressed.dryMassCalculator && !!parsedJson.dryMassCalculator,
+      compressedPayloadEncoded: compressedPayload.startsWith("ticp1:") || compressedPayload.startsWith("tijp1:"),
+      jsonPayloadPlain: jsonPayload.trim().startsWith("{") && jsonPayload.includes("\"moduleEffectsEnabled\""),
+      compressedModuleFieldsExported: JSON.stringify(compressedModuleEffects) === JSON.stringify(expectedModuleEffects),
+      jsonModuleFieldsExported: JSON.stringify(jsonModuleEffects) === JSON.stringify(expectedModuleEffects),
+      compressedModuleFieldsRoundTrip: compressedModuleEffectsApplied.moduleEffectsEnabled === true
+        && compressedModuleEffectsApplied.moduleEffectSource === "manual"
+        && compressedModuleEffectsApplied.moduleEffectModuleIds.join("|") === "MuonSpiker|HydronTrap"
+        && compressedModuleEffectsApplied.moduleIds.join("|") === "MuonSpiker|HydronTrap",
+      jsonModuleFieldsRoundTrip: jsonModuleEffectsApplied.moduleEffectsEnabled === true
+        && jsonModuleEffectsApplied.moduleEffectSource === "manual"
+        && jsonModuleEffectsApplied.moduleEffectModuleIds.join("|") === "MuonSpiker|HydronTrap"
+        && jsonModuleEffectsApplied.moduleIds.join("|") === "MuonSpiker|HydronTrap",
+      oldPresetApplied: oldApplied,
+      oldPresetDefaults: oldModuleEffects.moduleEffectsEnabled === false
+        && oldModuleEffects.moduleEffectSource === "dryMassCalculator"
+        && oldModuleEffects.moduleEffectModuleIds.length === 0
+        && oldModuleEffects.moduleIds.length === 0,
+      dryMassSourceIds: dryMassSourceAssumptions.activeModuleIds.join("|"),
     };
   });
   expect(presetRoundTrip.exportedField, `${htmlFile}: exported preset did not include dry-mass calculator state`);
-  expect(presetRoundTrip.applied, `${htmlFile}: preset with dry-mass calculator state was not accepted`);
+  expect(presetRoundTrip.compressedApplied, `${htmlFile}: compressed preset with dry-mass calculator state was not accepted`);
+  expect(presetRoundTrip.jsonApplied, `${htmlFile}: JSON preset with dry-mass calculator state was not accepted`);
+  expect(presetRoundTrip.compressedPayloadEncoded, `${htmlFile}: compressed preset export did not use an encoded payload format`);
+  expect(presetRoundTrip.jsonPayloadPlain, `${htmlFile}: JSON preset export did not include plain module-effect fields`);
+  expect(presetRoundTrip.compressedModuleFieldsExported, `${htmlFile}: compressed preset export did not include validated module-effect fields`);
+  expect(presetRoundTrip.jsonModuleFieldsExported, `${htmlFile}: JSON preset export did not include validated module-effect fields`);
+  expect(presetRoundTrip.compressedModuleFieldsRoundTrip, `${htmlFile}: module-effect fields did not round-trip through compressed preset import/export`);
+  expect(presetRoundTrip.jsonModuleFieldsRoundTrip, `${htmlFile}: module-effect fields did not round-trip through JSON preset import/export`);
+  expect(presetRoundTrip.oldPresetApplied, `${htmlFile}: old preset without module-effect fields was not accepted`);
+  expect(presetRoundTrip.oldPresetDefaults, `${htmlFile}: old preset without module-effect fields did not reset to safe defaults`);
+  expect(presetRoundTrip.dryMassSourceIds === "MuonSpiker|HydronTrap", `${htmlFile}: dry-mass source module-effect assumptions did not derive selected utility IDs`);
   expect(
     presetRoundTrip.actual === presetRoundTrip.expected,
     `${htmlFile}: dry-mass calculator state did not round-trip through preset import/export`,
@@ -523,6 +1066,9 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     state.targetDvKps = 321;
     state.thrusters = 4;
     state.searchTerm = "alpha";
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker", "MissingModule", "HydronTrap", "MuonSpiker"];
     const chartA = saveChartPresetFromSettings("Scenario Alpha", exportedPreset());
 
     state.dryMassTons = 67890;
@@ -542,6 +1088,19 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     dryMassPresetLibrary = [];
     saveDryMassPresetLibrary();
     const chartApplied = !!loadedChart && applyPresetToState(loadedChart.settings);
+    const effectDrive = DATA.drives.find(row => (
+      row.categoryKey === "Fusion"
+      && row.propellant === "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const modifiedOption = effectDrive && chartApplied ? chartMassOptions(effectDrive)[0] : null;
+    state.moduleEffectsEnabled = false;
+    const baseOption = effectDrive && chartApplied ? chartMassOptions(effectDrive)[0] : null;
+    const chartPresetAffectsValues = !!modifiedOption && !!baseOption
+      && modifiedOption.propellantTons < baseOption.propellantTons
+      && modifiedOption.totalMassTons < baseOption.totalMassTons
+      && modifiedOption.twr > baseOption.twr;
+    if (loadedChart) applyPresetToState(loadedChart.settings);
     const chartLoadedAfterManualApply = {
       dryMass: state.dryMassTons,
       dv: state.targetDvKps,
@@ -551,6 +1110,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       designNotes: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.notes,
       designDv: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.simulationDefaults && dryMassPresetLibrary[0].calculator.simulationDefaults.targetDvKps,
       designMinTwr: dryMassPresetLibrary[0] && dryMassPresetLibrary[0].calculator.simulationDefaults && dryMassPresetLibrary[0].calculator.simulationDefaults.minTwr,
+      moduleEffects: currentModuleEffectAssumptions(),
     };
 
     const chartSelectedPayload = await serializePayloadObject(chartPresetExportObject(chartB));
@@ -726,6 +1286,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       chartLoadedDesignNotes: chartLoadedAfterManualApply.designNotes,
       chartLoadedDesignDv: chartLoadedAfterManualApply.designDv,
       chartLoadedDesignMinTwr: chartLoadedAfterManualApply.designMinTwr,
+      chartLoadedModuleEffects: chartLoadedAfterManualApply.moduleEffects,
+      chartPresetAffectsValues,
       selectedChartImportOk: selectedChartImport.ok,
       selectedChartCount: chartPresetLibrary.length,
       startupSaved,
@@ -765,10 +1327,18 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartLoadedDv === 321, `${htmlFile}: named chart preset did not restore target dV`);
   expect(namedPresetRoundTrip.chartLoadedThrusters === 4, `${htmlFile}: named chart preset did not restore engine count`);
   expect(namedPresetRoundTrip.chartLoadedSearch === "alpha", `${htmlFile}: named chart preset did not restore search filter`);
+  expect(namedPresetRoundTrip.chartPresetAffectsValues, `${htmlFile}: named chart preset module effects did not affect chart mass/TWR values after apply`);
   expect(namedPresetRoundTrip.chartLoadedDesignCount === 1, `${htmlFile}: named chart preset did not restore design preset library`);
   expect(namedPresetRoundTrip.chartLoadedDesignNotes === "snapshot design notes", `${htmlFile}: named chart preset did not restore design preset content`);
   expect(namedPresetRoundTrip.chartLoadedDesignDv === 777, `${htmlFile}: named chart preset did not restore design preset simulation defaults`);
   expect(Math.abs(namedPresetRoundTrip.chartLoadedDesignMinTwr - 0.42) < 1e-9, `${htmlFile}: named chart preset did not restore design preset minimum TWR`);
+  expect(
+    namedPresetRoundTrip.chartLoadedModuleEffects
+      && namedPresetRoundTrip.chartLoadedModuleEffects.moduleEffectsEnabled === true
+      && namedPresetRoundTrip.chartLoadedModuleEffects.moduleEffectSource === "manual"
+      && namedPresetRoundTrip.chartLoadedModuleEffects.moduleEffectModuleIds.join("|") === "MuonSpiker|HydronTrap",
+    `${htmlFile}: named chart preset did not restore module-effect assumption fields`,
+  );
   expect(namedPresetRoundTrip.selectedChartImportOk, `${htmlFile}: selected chart preset import failed`);
   expect(namedPresetRoundTrip.selectedChartCount === 1, `${htmlFile}: selected chart preset import did not add one preset`);
   expect(namedPresetRoundTrip.startupSaved && namedPresetRoundTrip.startupRestored, `${htmlFile}: startup chart preset did not persist through library export/import`);
@@ -787,11 +1357,234 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartControls, `${htmlFile}: chart preset management controls missing`);
   expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
 
-  const dryMassActionLayout = await page.evaluate(() => {
+
+  const shipAssumptionWorkflow = await page.evaluate(async () => {
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    setLanguage("en", { rerender: false });
+    renderPresetLibraryControls();
+
+    const requestedModules = ["MuonSpiker", "HydronTrap"];
+    const testClass = SHIP_CLASS_OPTIONS.find(item => {
+      const slots = Number(item.utilitySlots ?? item.internalModules) || 0;
+      const allowedIds = new Set(utilityModulesForShipClass(item).map(module => module.dataName));
+      return slots >= requestedModules.length && requestedModules.every(id => allowedIds.has(id));
+    });
+    if (!testClass) return { classFound: false };
+
+    const radiatorId = DATA.radiators[0] ? DATA.radiators[0].id : state.radiatorId;
+    const payload = {
+      format: "ti-engine-chart-ship-assumption/v1",
+      name: "Phase 10 imported ship",
+      dryMassCalculator: {
+        classId: testClass.dataName,
+        slotModules: requestedModules,
+        notes: "phase 10 ship assumption import",
+        simulationDefaults: {
+          targetDvKps: 222,
+          minTwr: 0.33,
+          radiatorId,
+        },
+      },
+      moduleEffects: {
+        enabled: true,
+        source: "dryMassCalculator",
+      },
+    };
+    const importResult = await handleImportedPresetObject(payload, {
+      preferredKind: "dryMass",
+      promptToSaveCurrent: false,
+    });
+    const importedCalculator = exportedDryMassCalculatorPreset();
+    const importedAssumptions = currentModuleEffectAssumptions();
+    const calculatorMapped = importedCalculator.classId === testClass.dataName
+      && importedCalculator.notes === "phase 10 ship assumption import"
+      && requestedModules.every((id, index) => importedCalculator.slotModules[index] === id);
+    const assumptionsMapped = importedAssumptions.moduleEffectsEnabled === true
+      && importedAssumptions.moduleEffectSource === "dryMassCalculator"
+      && importedAssumptions.activeModuleIds.join("|") === requestedModules.join("|")
+      && importedAssumptions.moduleIds.join("|") === requestedModules.join("|");
+    const defaultsMapped = Math.abs(importedCalculator.simulationDefaults.targetDvKps - 222) < 1e-9
+      && Math.abs(importedCalculator.simulationDefaults.minTwr - 0.33) < 1e-9
+      && importedCalculator.simulationDefaults.radiatorId === radiatorId;
+
+    state.dryMassTons = dryMassCalcTotalTons();
+    state.targetDvKps = importedCalculator.simulationDefaults.targetDvKps;
+    state.minTwr = importedCalculator.simulationDefaults.minTwr;
+    state.radiatorId = importedCalculator.simulationDefaults.radiatorId;
+    DATA.categories.forEach(category => { state.categories[category.key] = true; });
+    DATA.subfamilies.forEach(family => { state.families[family.key] = true; });
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "dryMassCalculator";
+
+    let modifiedDrive = null;
+    let baseDriveValues = null;
+    let modifiedDriveValues = null;
+    let modifiedMetric = "";
+    const visibleCandidateRows = DATA.drives.filter(row => {
+      const research = Number(row.unlockCumulativeResearch || row.cumulativeResearch) || 0;
+      return research > 0 && row.categoryKey !== "Alien";
+    });
+    for (const row of visibleCandidateRows) {
+      state.moduleEffectsEnabled = false;
+      const base = effectiveDriveValues(row);
+      state.moduleEffectsEnabled = true;
+      const modified = effectiveDriveValues(row);
+      const thrustChanged = Number.isFinite(base.thrustN)
+        && Number.isFinite(modified.thrustN)
+        && Math.abs(modified.thrustN - base.thrustN) > Math.max(Math.abs(base.thrustN), 1) * 1e-9;
+      const evChanged = Number.isFinite(base.exhaustVelocityKps)
+        && Number.isFinite(modified.exhaustVelocityKps)
+        && Math.abs(modified.exhaustVelocityKps - base.exhaustVelocityKps) > Math.max(Math.abs(base.exhaustVelocityKps), 1) * 1e-9;
+      if (thrustChanged || evChanged) {
+        modifiedDrive = row;
+        baseDriveValues = base;
+        modifiedDriveValues = modified;
+        modifiedMetric = thrustChanged ? "thrustMN" : "fuelEfficiency";
+        if (thrustChanged) break;
+      }
+    }
+    if (modifiedDrive && modifiedMetric !== "thrustMN") {
+      for (const row of visibleCandidateRows) {
+        state.moduleEffectsEnabled = false;
+        const base = effectiveDriveValues(row);
+        state.moduleEffectsEnabled = true;
+        const modified = effectiveDriveValues(row);
+        const thrustChanged = Number.isFinite(base.thrustN)
+          && Number.isFinite(modified.thrustN)
+          && Math.abs(modified.thrustN - base.thrustN) > Math.max(Math.abs(base.thrustN), 1) * 1e-9;
+        if (thrustChanged) {
+          modifiedDrive = row;
+          baseDriveValues = base;
+          modifiedDriveValues = modified;
+          modifiedMetric = "thrustMN";
+          break;
+        }
+      }
+    }
+    if (!modifiedDrive) {
+      for (const row of visibleCandidateRows) {
+        state.moduleEffectsEnabled = false;
+        const base = effectiveDriveValues(row);
+        state.moduleEffectsEnabled = true;
+        const modified = effectiveDriveValues(row);
+        const powerChanged = Number.isFinite(base.powerRequirementGW)
+          && Number.isFinite(modified.powerRequirementGW)
+          && Math.abs(modified.powerRequirementGW - base.powerRequirementGW) > Math.max(Math.abs(base.powerRequirementGW), 1) * 1e-9;
+        if (powerChanged) {
+          modifiedDrive = row;
+          baseDriveValues = base;
+          modifiedDriveValues = modified;
+          modifiedMetric = "powerRequirementGW";
+          break;
+        }
+      }
+    }
+    state.moduleEffectsEnabled = true;
+
+    let tableBadgeText = "";
+    if (modifiedDrive) {
+      state.metric = modifiedMetric || "thrustMN";
+      state.thrusters = modifiedDrive.thrusterCount;
+      state.searchTerm = modifiedDrive.displayName.toLocaleLowerCase();
+      syncUiFromState();
+      render();
+      tableBadgeText = document.querySelector("#tableBody .metric-delta-badge")?.textContent || "";
+    }
+    const valuesDiffer = !!modifiedDrive && !!baseDriveValues && !!modifiedDriveValues
+      && (
+        modifiedDriveValues.thrustN !== baseDriveValues.thrustN
+        || modifiedDriveValues.exhaustVelocityKps !== baseDriveValues.exhaustVelocityKps
+        || modifiedDriveValues.powerRequirementGW !== baseDriveValues.powerRequirementGW
+      );
+
+    const savedChart = saveChartPresetFromSettings("Imported ship smoke", exportedPreset());
+    const selectedChartPayload = await serializePayloadObject(chartPresetExportObject(savedChart));
+    chartPresetLibrary = [];
+    saveChartPresetLibrary();
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    const selectedChartImport = await handleImportedPresetObject(await parsePresetPayload(selectedChartPayload), {
+      promptToSaveCurrent: false,
+    });
+    const loadedChart = chartPresetLibrary.find(item => item.name === "Imported ship smoke");
+    const reapplySavedChart = !!loadedChart && applyPresetToState(loadedChart.settings);
+    const reloadedAssumptions = currentModuleEffectAssumptions();
+    const savedChartReapplied = reapplySavedChart
+      && dryMassCalcState.notes === "phase 10 ship assumption import"
+      && Math.abs(state.targetDvKps - 222) < 1e-9
+      && reloadedAssumptions.moduleEffectsEnabled === true
+      && reloadedAssumptions.moduleEffectSource === "dryMassCalculator"
+      && reloadedAssumptions.activeModuleIds.join("|") === requestedModules.join("|");
+
+    const cleanScenarioPayload = await serializePayloadObject(exportedPreset());
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    saveChartPresetLibrary();
+    saveDryMassPresetLibrary();
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    const cleanScenarioImport = await handleImportedPresetObject(await parsePresetPayload(cleanScenarioPayload), {
+      promptToSaveCurrent: false,
+    });
+    const cleanAssumptions = currentModuleEffectAssumptions();
+    const cleanScenarioRoundTrip = cleanScenarioImport.ok === true
+      && dryMassCalcState.notes === "phase 10 ship assumption import"
+      && cleanAssumptions.moduleEffectsEnabled === true
+      && cleanAssumptions.moduleEffectSource === "dryMassCalculator"
+      && cleanAssumptions.activeModuleIds.join("|") === requestedModules.join("|");
+
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    renderPresetLibraryControls();
+    syncUiFromState();
+    render();
+
+    return {
+      classFound: true,
+      importOk: importResult.ok === true,
+      calculatorMapped,
+      assumptionsMapped,
+      defaultsMapped,
+      valuesDiffer,
+      tableBadgeText,
+      selectedChartImportOk: selectedChartImport.ok === true,
+      savedChartReapplied,
+      cleanScenarioRoundTrip,
+    };
+  });
+  expect(shipAssumptionWorkflow.classFound, `${htmlFile}: no ship class could host the ship-assumption test modules`);
+  expect(shipAssumptionWorkflow.importOk, `${htmlFile}: ship assumption payload import failed`);
+  expect(shipAssumptionWorkflow.calculatorMapped, `${htmlFile}: ship assumption import did not map calculator fields`);
+  expect(shipAssumptionWorkflow.assumptionsMapped, `${htmlFile}: ship assumption import did not map module-effect assumptions`);
+  expect(shipAssumptionWorkflow.defaultsMapped, `${htmlFile}: ship assumption import did not preserve simulation defaults`);
+  expect(shipAssumptionWorkflow.valuesDiffer, `${htmlFile}: imported ship module assumptions did not affect base-vs-modified values`);
+  expect(/base/i.test(shipAssumptionWorkflow.tableBadgeText), `${htmlFile}: table metric cell did not expose a base-value delta badge`);
+  expect(shipAssumptionWorkflow.selectedChartImportOk, `${htmlFile}: saved imported-ship chart preset could not be imported`);
+  expect(shipAssumptionWorkflow.savedChartReapplied, `${htmlFile}: saved imported-ship chart preset did not reapply calculator and module assumptions`);
+  expect(shipAssumptionWorkflow.cleanScenarioRoundTrip, `${htmlFile}: imported ship scenario did not round-trip through a clean profile`);
+
+const dryMassActionLayout = await page.evaluate(() => {
     const library = document.getElementById("dryMassPresetLibrary");
     const toolbar = library?.querySelector(".dry-mass-preset-toolbar");
     const actions = library?.querySelector(".dry-mass-preset-apply-actions");
     const status = document.getElementById("dryMassPresetStatus");
+
     const footer = document.querySelector("#dryMassCalcModal .dry-mass-modal-footer");
     const summary = footer?.querySelector(".dry-mass-summary-row");
     const total = document.getElementById("dryMassCalcTotal");

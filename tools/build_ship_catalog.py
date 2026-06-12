@@ -19,7 +19,7 @@ from catalog_utils import (
 )
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 DEFAULT_JSON_OUTPUT = Path("data/ship_catalog.json")
 DEFAULT_MARKDOWN_OUTPUT = Path("docs/ship_catalog.md")
 HUMAN_SHIPYARD_BUILD_TIME_MODIFIERS = {
@@ -52,6 +52,73 @@ LOCALIZATION_FILES = {
     "plasma": "TIPlasmaWeaponTemplate",
 }
 LOCALIZATION_FIELDS = ("displayName", "description")
+MODULE_EFFECT_RULES = {
+    "ThrustMultiplier": {
+        "type": "thrustMultiplier",
+        "operation": "multiply",
+        "valueKey": "multiplier",
+        "category": "drivePerformance",
+    },
+    "EVMultiplier": {
+        "type": "exhaustVelocityMultiplier",
+        "operation": "multiply",
+        "valueKey": "multiplier",
+        "category": "drivePerformance",
+    },
+    "WasteHeatMultiplier": {
+        "type": "wasteHeatMultiplier",
+        "operation": "multiply",
+        "valueKey": "multiplier",
+        "category": "thermal",
+    },
+}
+MODULE_REQUIREMENT_RULES = {
+    "RequiresFissionDrive": "fissionDrive",
+    "RequiresFusionDrive": "fusionDrive",
+    "RequiresNuclearDrive": "nuclearDrive",
+    "RequiresHydrogenPropellant": "hydrogenPropellant",
+    "RequiresNonISRUDrive": "nonIsruDrive",
+}
+UNMODELED_MODULE_RULE_CATEGORIES = {
+    "ArmorStruts": "armor",
+    "Assault": "groundCombat",
+    "ComponentArmor": "damageMitigation",
+    "Crashdown": "landing",
+    "ECM": "defense",
+    "FoundAutomatedFissionOutpost": "habDeployment",
+    "FoundAutomatedFissionPlatform": "habDeployment",
+    "FoundAutomatedSolarOutpost": "habDeployment",
+    "FoundAutomatedSolarPlatform": "habDeployment",
+    "FoundFissionOutpost": "habDeployment",
+    "FoundFissionPlatform": "habDeployment",
+    "FoundFusionOutpost": "habDeployment",
+    "FoundFusionPlatform": "habDeployment",
+    "FoundSolarOutpost": "habDeployment",
+    "FoundSolarPlatform": "habDeployment",
+    "FoundSurveillanceOrbital": "habDeployment",
+    "FoundSurveillancePlatform": "habDeployment",
+    "FoundSurveillanceRing": "habDeployment",
+    "FullRepairCost": "repair",
+    "GenerateSpaceScienceBonus": "science",
+    "ImmunetoAerobrakingDamage": "damageMitigation",
+    "ImmuneToDamage": "damageMitigation",
+    "LandArmy": "groundCombat",
+    "LandHydra": "groundCombat",
+    "LaserPowerBonus": "powerDemand",
+    "Magazine": "ammunition",
+    "MarineOpsDefenseOnly": "groundCombat",
+    "ParticleBeamPowerBonus": "powerDemand",
+    "Prospector": "resourceProspecting",
+    "RadHardened": "damageMitigation",
+    "ReduceFleetMCConsumption": "missionControl",
+    "RefuelFromAtmospheres": "propellant",
+    "RefuelFromUnimprovedSites": "propellant",
+    "Repair": "repair",
+    "RotationalThrust": "maneuvering",
+    "SalvageBonus": "salvage",
+    "Surveillance": "surveillance",
+    "TargetingComputer": "weapons",
+}
 
 
 def clean_value(value: Any) -> Any:
@@ -68,6 +135,58 @@ def normalize_string_list(value: Any) -> list[str]:
     if isinstance(value, str) and value:
         return [value]
     return []
+
+
+def normalized_module_rule_value(value: Any) -> Any:
+    if isinstance(value, bool):
+        return value
+    try:
+        number = ti.as_float(value, 0.0)
+    except (TypeError, ValueError):
+        number = 0.0
+    if number:
+        return compact_number(number)
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float)):
+        return clean_value(value)
+    return clean_value(value)
+
+
+def normalize_module_effect_contract(rules: list[str], special_value: Any) -> dict[str, Any]:
+    effects: list[dict[str, Any]] = []
+    requirements: list[dict[str, Any]] = []
+    unmodeled_rules: list[dict[str, Any]] = []
+    normalized_value = normalized_module_rule_value(special_value)
+    for rule in rules:
+        if rule in MODULE_EFFECT_RULES:
+            definition = MODULE_EFFECT_RULES[rule]
+            effect: dict[str, Any] = {
+                "type": definition["type"],
+                "category": definition["category"],
+                "operation": definition["operation"],
+                "sourceRule": rule,
+            }
+            if normalized_value is not None:
+                effect[str(definition["valueKey"])] = normalized_value
+            effects.append(effect)
+            continue
+        if rule in MODULE_REQUIREMENT_RULES:
+            requirements.append({
+                "type": MODULE_REQUIREMENT_RULES[rule],
+                "sourceRule": rule,
+            })
+            continue
+        unmodeled: dict[str, Any] = {
+            "rule": rule,
+            "category": UNMODELED_MODULE_RULE_CATEGORIES.get(rule, "unsupported"),
+        }
+        unmodeled_rules.append(unmodeled)
+    return {
+        "effects": effects,
+        "effectRequirements": requirements,
+        "unmodeledRules": unmodeled_rules,
+    }
 
 
 def localized_fields(
@@ -235,6 +354,9 @@ def normalize_utility_module(
     localizations: dict[str, dict[str, dict[str, dict[str, str]]]],
 ) -> dict[str, Any]:
     data_name = str(template.get("dataName"))
+    special_rules = normalize_string_list(template.get("specialModuleRules"))
+    special_value = template.get("specialModuleValue")
+    effect_contract = normalize_module_effect_contract(special_rules, special_value)
     node = {
         "dataName": data_name,
         "kind": "utilityModule",
@@ -247,8 +369,11 @@ def normalize_utility_module(
         "powerRequirementMW": ti.as_float(template.get("powerRequirement_MW"), 0.0),
         "grouping": int(ti.as_float(template.get("grouping"), -1.0)),
         "minConstructionTier": int(ti.as_float(template.get("minConsTier"), 0.0)),
-        "specialRules": normalize_string_list(template.get("specialModuleRules")),
-        "specialValue": template.get("specialModuleValue"),
+        "specialRules": special_rules,
+        "specialValue": special_value,
+        "effects": effect_contract["effects"],
+        "effectRequirements": effect_contract["effectRequirements"],
+        "unmodeledRules": effect_contract["unmodeledRules"],
         "noCombatRepair": bool(template.get("noCombatRepair")),
         "alien": is_alien_module(template),
         "weightedBuildMaterials": template.get("weightedBuildMaterials") or {},
@@ -361,6 +486,7 @@ def build_catalog(templates_dir: Path, languages: list[str]) -> dict[str, Any]:
         "notes": [
             "Hulls and utility modules are static template data from the local Terra Invicta install.",
             "The dry-mass calculator uses hull mass_tons plus selected weapon baseWeaponMass_tons and utility module mass_tons.",
+            "Utility module effects preserve raw specialRules/specialValue and add normalized effects, effectRequirements, and unmodeledRules fields.",
             "Weapon mount sizes are normalized from mount names: Half=1, One=1, Two=2, Three=3, Four=4. Nose and hull mounts consume separate hull hardpoint capacities.",
             "Human shipyard build times use Space Dock, Shipyard, and Spaceworks constructionTimeModifier values: T1=1.0, T2=0.8, T3=0.6.",
             "Armor templates are cataloged for the dry-mass calculator; armor mass depends on hull dimensions, armor material, and nose/lateral/tail point layout.",
@@ -431,6 +557,7 @@ def build_markdown(catalog: dict[str, Any], language: str) -> str:
         "- Weapon dry mass comes from weapon template `baseWeaponMass_tons`.",
         "- Weapon hardpoint use is derived from mount names: `Half*` = 1, `One*` = 1, `Two*` = 2, `Three*` = 3, `Four*` = 4.",
         "- Utility module dry mass comes from `TIUtilityModuleTemplate.mass_tons`.",
+        "- Utility module effects preserve raw `specialRules`/`specialValue` and expose normalized `effects`, `effectRequirements`, and `unmodeledRules` for later engine-effect evaluation.",
         "- Human shipyard build times use `constructionTimeModifier`: T1 Space Dock = 1.0, T2 Shipyard = 0.8, T3 Spaceworks = 0.6.",
         "- Armor templates are included for dry-mass calculation; armor mass depends on hull dimensions, armor material, and nose/lateral/tail point layout.",
         "",

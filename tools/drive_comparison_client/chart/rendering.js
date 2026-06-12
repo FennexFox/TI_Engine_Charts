@@ -185,6 +185,20 @@ export function mergePinnedTooltipRefs(items) {
       return [...pinned, ...transient];
     }
 
+export function pinnedFocusTooltipRefs() {
+      if (state.tooltipPinned) {
+        return dedupeTooltipRefs([...state.lastTooltipItems, ...state.pinnedTooltipItems]);
+      }
+      return pinnedTooltipRefs();
+    }
+
+export function mergePinnedFocusTooltipRefs(items) {
+      const pinned = pinnedFocusTooltipRefs();
+      const pinnedKeys = new Set(pinned.map(item => item.key));
+      const transient = dedupeTooltipRefs(items).filter(item => !pinnedKeys.has(item.key));
+      return [...pinned, ...transient];
+    }
+
 export function syncPinnedTooltipOrder() {
       const pinnedKeys = new Set(state.pinnedTooltipItems.map(item => item.key));
       state.pinnedTooltipItems = dedupeTooltipRefs(state.lastTooltipItems).filter(item => pinnedKeys.has(item.key));
@@ -197,11 +211,7 @@ export function sameTooltipRefs(left, right) {
     }
 
 export function powerResearchFocusedDriveIds() {
-      const refs = [
-        ...dedupeTooltipRefs(state.hoverPoints),
-        ...dedupeTooltipRefs(state.pinnedTooltipItems),
-        ...(state.tooltipPinned ? dedupeTooltipRefs(state.lastTooltipItems) : []),
-      ];
+      const refs = mergePinnedFocusTooltipRefs(state.hoverPoints);
       return new Set(refs.map(item => item.rowId).filter(Boolean));
     }
 
@@ -728,5 +738,4 @@ export function svgEl(name, attrs) {
       });
       return el;
     }
-
 

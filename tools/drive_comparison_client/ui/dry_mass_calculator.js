@@ -2,6 +2,7 @@ import { renderDryMassPresetControls, setPresetUiText, setTextById, setupDryMass
 import { ARMOR_OPTIONS, DATA, DEFAULT_MIN_TWR, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, dryMassCalcState, localText, renderRadiatorOptions, state } from "../state/core.js";
 import { escapeHtml, formatCompact, formatNumber, trim } from "../shared/formatting.js";
 import { clamp } from "../shared/math.js";
+import { updateModuleEffectsPanel } from "./control_state.js";
 import { enhanceSearchableSelects } from "./searchable_select.js";
 import {
   applyShipDesignSimulationDefaultsToState,
@@ -74,6 +75,42 @@ export function groupedShipClassOptionsHtml() {
 export function weaponOptionLabel(item) {
       if (item.dataName === EMPTY_WEAPON_MODULE.dataName) return catalogDisplayName(item);
       return `${catalogDisplayName(item)} (${formatHardpointSize(weaponSlotSize(item))} HP, ${formatNumber(Number(item.massTons) || 0, " t")})`;
+    }
+
+export function moduleEffectSummaries(module) {
+      if (!module) return [];
+      const effects = Array.isArray(module.effects) ? module.effects : [];
+      const summaries = effects.map(effect => {
+        const multiplier = Number(effect && effect.multiplier);
+        const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
+        if (effect && effect.type === "thrustMultiplier") return `${localText("추력", "Thrust")} ${value}`.trim();
+        if (effect && effect.type === "exhaustVelocityMultiplier") return `${localText("EV/Isp", "EV/Isp")} ${value}`.trim();
+        if (effect && effect.type === "wasteHeatMultiplier") return `${localText("폐열", "Waste heat")} ${value}`.trim();
+        return effect && effect.type ? `${effect.type} ${value}`.trim() : "";
+      }).filter(Boolean);
+      const powerMW = Number(module.powerRequirementMW);
+      if (Number.isFinite(powerMW) && powerMW > 0) {
+        summaries.push(`${localText("보조 전력", "Aux power")} +${formatNumber(powerMW / 1000, " GW")}`);
+      }
+      return summaries;
+    }
+
+export function utilityModuleOptionLabel(item) {
+      const base = `${catalogDisplayName(item)} (${formatNumber(Number(item.massTons) || 0, " t")})`;
+      const effects = moduleEffectSummaries(item);
+      return effects.length ? `${base} | ${effects.join(", ")}` : base;
+    }
+
+export function moduleEffectBadgesHtml(module) {
+      const effects = moduleEffectSummaries(module);
+      if (!effects.length) return "";
+      const requirements = Array.isArray(module.effectRequirements)
+        ? module.effectRequirements.map(requirement => requirement && requirement.type).filter(Boolean)
+        : [];
+      const requirementText = requirements.length ? ` · ${localText("조건", "requires")} ${requirements.join(", ")}` : "";
+      return effects
+        .map(effect => `<span class="effect-chip is-active">${escapeHtml(effect)}${escapeHtml(requirementText)}</span>`)
+        .join("");
     }
 
 export function renderWeaponSection(section, shipClass) {
@@ -275,7 +312,7 @@ export function renderDryMassCalcModal() {
           const selectedModule = selectedModuleById(selectedId);
           const options = moduleOptions
             .map(item => {
-              const label = `${catalogDisplayName(item)} (${formatNumber(Number(item.massTons) || 0, " t")})`;
+              const label = utilityModuleOptionLabel(item);
               return `<option value="${escapeHtml(item.dataName)}"${item.dataName === selectedId ? " selected" : ""}>${escapeHtml(label)}</option>`;
             })
             .join("");
@@ -284,6 +321,7 @@ export function renderDryMassCalcModal() {
               <span>${escapeHtml(localText("슬롯", "Slot"))} ${index + 1}</span>
               <select id="dryMassCalcSlot${index}" data-slot-index="${index}" data-searchable-select="true">${options}</select>
               <span class="calc-slot-mass">${escapeHtml(formatNumber(Number(selectedModule.massTons) || 0, " t"))}</span>
+              <span class="calc-slot-effects">${moduleEffectBadgesHtml(selectedModule)}</span>
             </div>
           `;
         }).join("");
@@ -348,6 +386,8 @@ export function setupDryMassCalculator({ render = () => {} } = {}) {
       reset.addEventListener("click", () => {
         resetDryMassCalcState();
         renderDryMassCalcModal();
+        updateModuleEffectsPanel();
+        if (state.moduleEffectsEnabled) render();
       });
       notes.addEventListener("input", () => {
         dryMassCalcState.notes = notes.value.slice(0, 2000);
@@ -392,6 +432,8 @@ export function setupDryMassCalculator({ render = () => {} } = {}) {
         dryMassCalcState.classId = classSelect.value;
         normalizeDryMassCalcSlots();
         renderDryMassCalcModal();
+        updateModuleEffectsPanel();
+        if (state.moduleEffectsEnabled) render();
       });
       slots.addEventListener("change", event => {
         const select = event.target.closest("select[data-slot-index]");
@@ -400,6 +442,8 @@ export function setupDryMassCalculator({ render = () => {} } = {}) {
         if (!Number.isFinite(index) || index < 0) return;
         dryMassCalcState.slotModules[index] = select.value;
         renderDryMassCalcModal();
+        updateModuleEffectsPanel();
+        if (state.moduleEffectsEnabled) render();
       });
       weapons.addEventListener("change", event => {
         const select = event.target.closest("select[data-weapon-section]");

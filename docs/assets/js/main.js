@@ -1,5 +1,5 @@
 import { setLanguage, refreshLocalizedControls } from "./app/controller.js";
-import { chartMassOptions } from "./calc/filtering.js";
+import { chartMassOptions, effectiveDriveValues } from "./calc/filtering.js";
 import { render, redrawChartOnly } from "./chart/interaction.js";
 import { registerRenderingCallbacks } from "./chart/rendering.js";
 import { installDebugHooks } from "./diagnostics/debug.js";
@@ -12,6 +12,7 @@ import { updateChartControls, syncMinDvInputs, syncMinTwrInputs } from "./ui/con
 
 registerMetricCalculationHooks({
   chartMassOptions,
+  effectiveDriveValues,
 });
 
 registerRenderingCallbacks({

@@ -1,8 +1,8 @@
-import { chartMassOptions, chartSummaryMassOptions, isImpracticalOption, massOptions, rowCategoryLabel, rowFamilyLabel, rowProjectLabel, rowUnlockResearchValue } from "../calc/filtering.js";
+import { chartMassOptions, chartSummaryMassOptions, effectiveDriveValues, isImpracticalOption, massOptions, rowCategoryLabel, rowFamilyLabel, rowProjectLabel, rowUnlockResearchValue } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
 import { currentChartRows, currentDiagnostics } from "../chart/context.js";
-import { dedupeTooltipRefs, defaultTooltipOption, isPinnedTooltipKey, mergePinnedTooltipRefs, optionAdditionalResearchValue, optionPowerResearchDelta, pinnedTooltipRefs, pointKey, powerResearchFocusSignature, redrawPowerResearchFocusIfChanged, resolveTooltipRow, setHoverPoints, syncPinnedTooltipOrder, tooltipRef, updateHoverStyles } from "../chart/rendering.js";
+import { dedupeTooltipRefs, defaultTooltipOption, isPinnedTooltipKey, mergePinnedFocusTooltipRefs, mergePinnedTooltipRefs, optionAdditionalResearchValue, optionPowerResearchDelta, pinnedTooltipRefs, pointKey, powerResearchFocusSignature, redrawPowerResearchFocusIfChanged, resolveTooltipRow, setHoverPoints, syncPinnedTooltipOrder, tooltipRef, updateHoverStyles } from "../chart/rendering.js";
 import { localLabel } from "../presets/library.js";
 import { UI_LANG, metricDefs, state, tooltip } from "../state/core.js";
 import { backgroundStyle, escapeHtml, formatAxisTick, formatCompact, formatNumber, formatPercent, formatTick, formatTwr, formatTwrDynamicUnit, paintStyle, trim } from "./formatting.js";
@@ -86,6 +86,39 @@ export function tooltipMetricsHtml(row, option = null) {
       const unlockResearch = Math.max(0, driveResearch + projectResearch + powerResearch);
       const researchTotal = Math.max(driveResearch + projectResearch + powerResearch, 1e-9);
       const twrValue = option ? option.twr : (defaultTooltipOption(row)?.twr ?? NaN);
+      const effective = effectiveDriveValues(row);
+      const baseThrustN = option && Number.isFinite(Number(option.baseThrustN)) ? Number(option.baseThrustN) : row.thrustN;
+      const effectiveThrustN = option && Number.isFinite(Number(option.effectiveThrustN)) ? Number(option.effectiveThrustN) : effective.thrustN;
+      const baseEvKps = option && Number.isFinite(Number(option.baseExhaustVelocityKps)) ? Number(option.baseExhaustVelocityKps) : row.exhaustVelocityKps;
+      const effectiveEvKps = option && Number.isFinite(Number(option.effectiveExhaustVelocityKps)) ? Number(option.effectiveExhaustVelocityKps) : effective.exhaustVelocityKps;
+      const basePowerRequirementGW = option && Number.isFinite(Number(option.basePowerRequirementGW)) ? Number(option.basePowerRequirementGW) : (effective.basePowerRequirementGW ?? row.powerRequirementGW);
+      const modifiedPowerRequirementGW = option && Number.isFinite(Number(option.modifiedPowerRequirementGW)) ? Number(option.modifiedPowerRequirementGW) : (effective.powerRequirementGW ?? row.powerRequirementGW);
+      const effectBreakdown = performanceBreakdownItems(option, effective);
+      const thrustHtml = performanceMetricValueHtml({
+        effectiveValue: effectiveThrustN / 1e6,
+        baseValue: baseThrustN / 1e6,
+        formatValue: value => formatNumber(value, " MN"),
+        breakdownItems: effectBreakdown.thrust,
+      });
+      const evHtml = performanceMetricValueHtml({
+        effectiveValue: effectiveEvKps,
+        baseValue: baseEvKps,
+        formatValue: value => formatNumber(value, " km/s"),
+        breakdownItems: effectBreakdown.ev,
+      });
+      const twrHtml = performanceMetricValueHtml({
+        effectiveValue: twrValue,
+        baseValue: option && Number.isFinite(Number(option.baseTwr)) ? Number(option.baseTwr) : twrValue,
+        formatValue: value => formatTwr(value, " g"),
+        breakdownItems: effectBreakdown.total,
+      });
+      const powerHtml = performanceMetricValueHtml({
+        effectiveValue: modifiedPowerRequirementGW,
+        baseValue: basePowerRequirementGW,
+        formatValue: value => formatNumber(value, " GW"),
+        breakdownItems: effectBreakdown.power,
+      });
+      const moduleEffects = moduleEffectTooltipHtml(option, effective);
       const researchRows = [
         [UI_LANG === "en" ? "Unlock research" : "개방 연구력", formatResearch(unlockResearch), true],
         [UI_LANG === "en" ? "Drive research" : "드라이브 연구", formatResearch(driveResearch), false],
@@ -93,11 +126,11 @@ export function tooltipMetricsHtml(row, option = null) {
         [UI_LANG === "en" ? "Power research" : "전원 연구", formatResearch(powerResearch), false],
       ];
       const performanceRows = [
-        [UI_LANG === "en" ? "Thrust" : "추력", formatNumber(row.thrustN / 1e6, " MN")],
-        [UI_LANG === "en" ? "TWR" : "TWR", formatTwr(twrValue, " g")],
-        [UI_LANG === "en" ? "Exhaust velocity" : "EV", formatNumber(row.exhaustVelocityKps, " km/s")],
-        [UI_LANG === "en" ? "Efficiency" : "효율", formatPercent(row.efficiency)],
-        [UI_LANG === "en" ? "Power requirement" : "출력 요구량", formatNumber(row.powerRequirementGW, " GW")],
+        [UI_LANG === "en" ? "Thrust" : "추력", thrustHtml],
+        [UI_LANG === "en" ? "TWR" : "TWR", twrHtml],
+        [UI_LANG === "en" ? "Exhaust velocity" : "EV", evHtml],
+        [UI_LANG === "en" ? "Efficiency" : "효율", escapeHtml(formatPercent(row.efficiency))],
+        [UI_LANG === "en" ? "Power requirement" : "출력 요구량", powerHtml],
       ];
       return `
         <details class="tooltip-section" open>
@@ -107,12 +140,13 @@ export function tooltipMetricsHtml(row, option = null) {
               ${performanceRows.map(([label, value]) => `
                 <div class="tooltip-metric">
                   <div class="tooltip-metric-label">${escapeHtml(label)}</div>
-                  <div class="tooltip-metric-value">${escapeHtml(value)}</div>
+                  <div class="tooltip-metric-value">${value}</div>
                 </div>
               `).join("")}
             </div>
           </div>
         </details>
+        ${moduleEffects}
         <details class="tooltip-section" open>
           <summary>${UI_LANG === "en" ? "Research detail" : "연구 상세"}</summary>
           <div class="tooltip-section-body">
@@ -138,21 +172,192 @@ export function tooltipMetricsHtml(row, option = null) {
       `;
     }
 
+export function performanceBreakdownItems(option, effective) {
+      const evaluation = effective && effective.moduleEffectEvaluation;
+      const activeEffects = option && Array.isArray(option.activeModuleEffects)
+        ? option.activeModuleEffects
+        : evaluation && Array.isArray(evaluation.activeEffects)
+          ? evaluation.activeEffects
+          : [];
+      const powerContributions = option && Array.isArray(option.powerContributions)
+        ? option.powerContributions
+        : evaluation && Array.isArray(evaluation.powerContributions)
+          ? evaluation.powerContributions
+          : [];
+      const effectItem = effect => {
+        const multiplier = Number(effect && effect.multiplier);
+        const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
+        return `${effect.moduleName || effect.moduleId || ""}: ${effectTypeLabel(effect.type)} ${value}`.trim();
+      };
+      const thrust = activeEffects.filter(effect => effect.type === "thrustMultiplier").map(effectItem);
+      const ev = activeEffects.filter(effect => effect.type === "exhaustVelocityMultiplier").map(effectItem);
+      const heat = activeEffects.filter(effect => effect.type === "wasteHeatMultiplier").map(effectItem);
+      const power = powerContributions
+        .map(item => `${item.moduleName || item.moduleId || ""}: ${UI_LANG === "en" ? "Aux power" : "보조 전력"} +${formatNumber(Number(item.powerRequirementGW), " GW")}`.trim())
+        .filter(Boolean);
+      return {
+        thrust,
+        ev,
+        power,
+        heat,
+        total: [...thrust, ...ev, ...power, ...heat],
+      };
+    }
+
+export function performanceMetricValueHtml({ effectiveValue, baseValue, formatValue, breakdownItems = [] }) {
+      const effective = formatValue(effectiveValue);
+      if (!Number.isFinite(effectiveValue) || !Number.isFinite(baseValue)) return escapeHtml(effective);
+      const scale = Math.max(Math.abs(baseValue), 1);
+      if (Math.abs(effectiveValue - baseValue) <= scale * 1e-9) return escapeHtml(effective);
+      const ratio = baseValue !== 0 ? (effectiveValue - baseValue) / baseValue : NaN;
+      if (Number.isFinite(ratio) && Math.abs(ratio) <= 0.01) return escapeHtml(effective);
+      const base = formatValue(baseValue);
+      const delta = effectiveValue - baseValue;
+      const deltaText = `${delta > 0 ? "+" : ""}${formatValue(delta)}`;
+      const ratioText = Number.isFinite(ratio) ? ` (${ratio > 0 ? "+" : ""}${formatPercent(ratio)})` : "";
+      const impact = `${deltaText}${ratioText}`;
+      const titleLines = [
+        `${UI_LANG === "en" ? "Total performance" : "전체 성능"}: ${effective}`,
+        `${UI_LANG === "en" ? "Baseline performance" : "기준 성능"}: ${base}`,
+        `${UI_LANG === "en" ? "Module impact" : "모듈 영향"}: ${impact}`,
+        ...(
+          breakdownItems.length
+            ? [`${UI_LANG === "en" ? "Breakdown" : "세부 내역"}: ${breakdownItems.join("; ")}`]
+            : []
+        ),
+      ];
+      const title = titleLines.join("\n");
+      return `
+        <span class="performance-total-value is-modified" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${escapeHtml(effective)}</span>
+        <span class="performance-baseline-value">${escapeHtml(`${UI_LANG === "en" ? "base" : "기준"} ${base} · ${impact}`)}</span>
+      `;
+    }
+
+export function modifiedMetricText(effectiveValue, baseValue, suffix) {
+      const effective = formatNumber(effectiveValue, suffix);
+      if (!Number.isFinite(effectiveValue) || !Number.isFinite(baseValue)) return effective;
+      const scale = Math.max(Math.abs(baseValue), 1);
+      if (Math.abs(effectiveValue - baseValue) <= scale * 1e-9) return effective;
+      return `${effective} (${UI_LANG === "en" ? "base" : "기본"} ${formatNumber(baseValue, suffix)})`;
+    }
+
+export function effectTypeLabel(type) {
+      if (type === "thrustMultiplier") return UI_LANG === "en" ? "Thrust" : "추력";
+      if (type === "exhaustVelocityMultiplier") return UI_LANG === "en" ? "EV/Isp" : "EV/Isp";
+      if (type === "wasteHeatMultiplier") return UI_LANG === "en" ? "Waste heat" : "폐열";
+      return type || "";
+    }
+
+function isHeatRuleCategory(category) {
+      const normalized = String(category || "").toLowerCase();
+      return normalized === "heat"
+        || normalized === "wasteheat"
+        || normalized === "thermal"
+        || normalized === "radiator";
+    }
+
+function uniqueWarningMessages(messages) {
+      return Array.from(new Set(messages.filter(Boolean)));
+    }
+
+export function moduleEffectTooltipHtml(option, effective) {
+      const evaluation = effective && effective.moduleEffectEvaluation;
+      const activeEffects = option && Array.isArray(option.activeModuleEffects)
+        ? option.activeModuleEffects
+        : evaluation && Array.isArray(evaluation.activeEffects)
+          ? evaluation.activeEffects
+          : [];
+      const diagnostics = option && option.moduleEffectDiagnostics
+        ? option.moduleEffectDiagnostics
+        : evaluation && evaluation.diagnostics
+          ? evaluation.diagnostics
+          : null;
+      if (!activeEffects.length && !diagnostics) return "";
+
+      const chips = activeEffects.map(effect => {
+        const multiplier = Number(effect.multiplier);
+        const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
+        const moduleName = effect.moduleName || effect.moduleId || "";
+        return `<span class="effect-chip is-active">${escapeHtml(`${moduleName} · ${effectTypeLabel(effect.type)} ${value}`.trim())}</span>`;
+      });
+      const auxiliaryPowerGW = option && Number.isFinite(Number(option.moduleAuxiliaryPowerGW))
+        ? Number(option.moduleAuxiliaryPowerGW)
+        : effective && Number.isFinite(Number(effective.moduleAuxiliaryPowerGW))
+          ? Number(effective.moduleAuxiliaryPowerGW)
+          : 0;
+      if (auxiliaryPowerGW > 0) {
+        chips.push(`<span class="effect-chip is-active">${escapeHtml(`${UI_LANG === "en" ? "Aux power" : "보조 전력"} +${formatNumber(auxiliaryPowerGW, " GW")}`)}</span>`);
+      }
+      const warnings = [];
+      if (diagnostics) {
+        (diagnostics.mutualExclusions || []).forEach(item => {
+          const conflicts = Array.isArray(item.conflictingModuleIds) && item.conflictingModuleIds.length
+            ? ` (${item.conflictingModuleIds.join(", ")})`
+            : "";
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "mutually exclusive module group" : "상호배타 모듈 그룹"}${conflicts}`);
+        });
+        (diagnostics.impossibleCombinations || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "cannot evaluate selected module" : "선택 모듈 평가 불가"} ${item.rule}`);
+        });
+        (diagnostics.unmetRequirements || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unmet prerequisite" : "미충족 조건"} ${item.requirement}`);
+        });
+        (diagnostics.unsupportedRules || []).forEach(item => {
+          if (item.category === "powerDemand") return;
+          if (isHeatRuleCategory(item.category)) return;
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unsupported rule" : "미지원 규칙"} ${item.rule}`);
+        });
+        (diagnostics.unsupportedEffects || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unsupported effect" : "미지원 효과"} ${item.type || item.sourceRule}`);
+        });
+        (diagnostics.powerWarnings || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "power rule not modeled" : "전력 규칙 미모델링"} ${item.rule}`);
+        });
+        (diagnostics.heatWarnings || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "heat rule not modeled" : "폐열 규칙 미모델링"} ${item.rule}`);
+        });
+      }
+      if (!chips.length && !warnings.length) return "";
+      return `
+        <details class="tooltip-section tooltip-module-effects" open>
+          <summary>${UI_LANG === "en" ? "Module effects" : "모듈 효과"}</summary>
+          <div class="tooltip-section-body">
+            ${chips.length ? `<div class="effect-chip-list">${chips.join("")}</div>` : ""}
+            ${warnings.length ? `<div class="module-effects-warnings">${uniqueWarningMessages(warnings).map(item => `<div class="module-effects-warning">${escapeHtml(item)}</div>`).join("")}</div>` : ""}
+          </div>
+        </details>
+      `;
+    }
+
 export function tooltipBreakdownHtml(row, option) {
       const totalLabel = UI_LANG === "en" ? "Total mass" : "총질량";
+      const radiatorText = modifiedMetricText(
+        Number(option.radiatorMassTons),
+        Number(option.baseRadiatorMassTons),
+        " t",
+      );
+      const wasteHeatText = modifiedMetricText(
+        Number(option.modifiedWasteHeatGW ?? option.wasteHeatGW),
+        Number(option.baseWasteHeatGW),
+        " GW",
+      );
+      const wasteHeatMultiplier = Number(option.wasteHeatMultiplier);
+      const heatMultiplierText = Number.isFinite(wasteHeatMultiplier) && Math.abs(wasteHeatMultiplier - 1) > 1e-9
+        ? ` · ${UI_LANG === "en" ? "heat multiplier" : "폐열 배율"} x${Number(wasteHeatMultiplier.toPrecision(3))}`
+        : "";
       const components = [
-        [UI_LANG === "en" ? "Hull" : "선체", option.baseDryTons, "stack-hull"],
-        [UI_LANG === "en" ? "Drive" : "드라이브", row.driveMassTons, "stack-drive"],
-        [UI_LANG === "en" ? "Power plant" : "전원", option.powerPlantMassTons, "stack-reactor"],
-        [UI_LANG === "en" ? "Radiator" : "라디에이터", option.radiatorMassTons, "stack-radiator"],
-        [UI_LANG === "en" ? "Propellant" : "추진체", option.propellantTons, "stack-propellant"],
+        [UI_LANG === "en" ? "Hull" : "선체", option.baseDryTons, "stack-hull", formatNumber(option.baseDryTons, " t")],
+        [UI_LANG === "en" ? "Drive" : "드라이브", row.driveMassTons, "stack-drive", formatNumber(row.driveMassTons, " t")],
+        [UI_LANG === "en" ? "Power plant" : "전원", option.powerPlantMassTons, "stack-reactor", formatNumber(option.powerPlantMassTons, " t")],
+        [UI_LANG === "en" ? "Radiator" : "라디에이터", option.radiatorMassTons, "stack-radiator", radiatorText],
+        [UI_LANG === "en" ? "Propellant" : "추진체", option.propellantTons, "stack-propellant", formatNumber(option.propellantTons, " t")],
       ];
       const total = Math.max(option.totalMassTons, 1e-9);
       const impracticalNote = isImpracticalOption(option)
         ? `<div class="warning">${UI_LANG === "en" ? "Shown as an impractical candidate under the current scenario." : "현재 시나리오에서 비현실적 후보로 표시 중입니다."}</div>`
         : "";
-      const componentRows = components.map(([label, value]) => `
-            <span>${label}</span><strong>${formatNumber(value, " t")}</strong>
+      const componentRows = components.map(([label, value, className, displayValue]) => `
+            <span>${label}</span><strong>${displayValue}</strong>
       `).join("");
       const componentSegments = components.map(([label, value, className]) => {
         const share = clamp(value / total * 100, 0, 100);
@@ -170,7 +375,7 @@ export function tooltipBreakdownHtml(row, option) {
             <div class="tooltip-stack" aria-hidden="true">
               ${componentSegments}
             </div>
-            <div class="muted">${UI_LANG === "en" ? "Waste heat" : "폐열"}: ${formatNumber(option.wasteHeatGW, " GW")}</div>
+            <div class="muted">${UI_LANG === "en" ? "Waste heat" : "폐열"}: ${wasteHeatText}${heatMultiplierText}</div>
           </div>
         </details>
       `;
@@ -217,11 +422,11 @@ export function tooltipPowerStepsHtml(row, selectedOption = null) {
       `;
     }
 
-export function resolveTooltipItems(rows) {
+export function resolveTooltipItems(rows, refs = state.lastTooltipItems) {
       const rowById = new Map(rows.map(row => [row.id, row]));
       const resolved = [];
       const seen = new Set();
-      state.lastTooltipItems.forEach(item => {
+      dedupeTooltipRefs(refs).forEach(item => {
         const ref = tooltipRef(item);
         const row = resolveTooltipRow(ref, rowById, rows);
         if (!row) return;
@@ -251,14 +456,20 @@ export function refreshTooltip(rows = currentChartRows) {
       }
       const pinnedKeys = new Set(state.pinnedTooltipItems.map(item => item.key));
       const hoverKeys = new Set(state.hoverPoints.map(item => item.key));
+      const resolvedHoverRefs = state.tooltipPinned
+        ? resolveTooltipItems(rows, state.hoverPoints).map(item => tooltipRef(item.rowId, item.powerOptionId))
+        : [];
       state.lastTooltipItems = resolved.map(item => tooltipRef(item.rowId, item.powerOptionId));
       state.pinnedTooltipItems = resolved
         .filter(item => pinnedKeys.has(item.sourceKey) || pinnedKeys.has(item.key))
         .map(item => tooltipRef(item.rowId, item.powerOptionId));
       const nextPinnedKeys = new Set(state.pinnedTooltipItems.map(item => item.key));
-      state.hoverPoints = resolved
+      const tooltipHoverRefs = resolved
         .filter(item => hoverKeys.has(item.sourceKey) || hoverKeys.has(item.key) || nextPinnedKeys.has(item.key))
         .map(item => tooltipRef(item.rowId, item.powerOptionId));
+      state.hoverPoints = state.tooltipPinned
+        ? mergePinnedFocusTooltipRefs(resolvedHoverRefs)
+        : tooltipHoverRefs;
       tooltip.innerHTML = tooltipPanelHtml(resolved);
       tooltip.classList.remove("tooltip-empty");
       tooltip.classList.remove("has-diagnostic");
@@ -548,12 +759,42 @@ export function metricCell(row, domain) {
       const value = metricDefs[state.metric].value(row);
       if (!Number.isFinite(value)) return "-";
       const position = sparkPosition(value, domain);
+      const deltaBadge = tableMetricDeltaBadge(row, value);
       return `
-        <div class="cell-viz" title="${metricDefs[state.metric].format(value)}${domain.log ? " · log sparkline" : ""}">
+        <div class="cell-viz${deltaBadge ? " has-delta" : ""}" title="${metricDefs[state.metric].format(value)}${domain.log ? " · log sparkline" : ""}">
           <span class="cell-value">${metricDefs[state.metric].format(value)}</span>
+          ${deltaBadge}
           <div class="sparkbar" aria-hidden="true"><span class="spark-fill" style="width:${position.toFixed(2)}%"></span></div>
         </div>
       `;
+    }
+
+export function tableBaseMetricValue(row) {
+      if (state.metric === "thrustMN") return Number(row.thrustN) / 1e6;
+      if (state.metric === "fuelEfficiency") {
+        return state.fuelEfficiencyUnit === "seconds"
+          ? Number(row.specificImpulseSeconds)
+          : Number(row.exhaustVelocityKps);
+      }
+      if (state.metric === "powerRequirementGW") return Number(row.powerRequirementGW);
+      return NaN;
+    }
+
+export function tableMetricDeltaBadge(row, value) {
+      if (!state.moduleEffectsEnabled) return "";
+      const base = tableBaseMetricValue(row);
+      if (!Number.isFinite(value) || !Number.isFinite(base)) return "";
+      const scale = Math.max(Math.abs(base), 1);
+      if (Math.abs(value - base) <= scale * 1e-9) return "";
+      const ratio = base !== 0 ? value / base - 1 : NaN;
+      const ratioText = Number.isFinite(ratio)
+        ? `${ratio > 0 ? "+" : ""}${formatPercent(ratio)}`
+        : "";
+      const text = [
+        `${UI_LANG === "en" ? "base" : "기본"} ${metricDefs[state.metric].format(base)}`,
+        ratioText,
+      ].filter(Boolean).join(" · ");
+      return `<span class="metric-delta-badge">${escapeHtml(text)}</span>`;
     }
 
 export function optionRange(row) {
