@@ -192,11 +192,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const shipDesignerHeader = shipDesignerCard?.querySelector(".control-card-header");
     const modulePanel = document.getElementById("moduleEffectsControl");
     const moduleEffectsCheckbox = document.getElementById("moduleEffectsEnabled");
-    const button = document.getElementById("shipDesignerTitle");
+    const title = document.getElementById("shipDesignerTitle");
+    const calcButton = document.getElementById("dryMassCalcButton");
     const status = document.getElementById("shipDesignerAppliedTemplate");
     const select = document.getElementById("dryMassPresetSelect");
     const initialStatus = status?.textContent.trim() || "";
-    const buttonStyle = button ? getComputedStyle(button) : null;
+    const calcButtonStyle = calcButton ? getComputedStyle(calcButton) : null;
     if (select && select.options.length > 1) {
       select.selectedIndex = 1;
       select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -207,15 +208,19 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       cardExists: !!shipDesignerCard,
       sectionInsideShipDesignerCard: !!(section && shipDesignerCard && shipDesignerCard.contains(section)),
       sectionOutsideSimulationCard: !!(section && simulationCard && !simulationCard.contains(section)),
-      titleButtonInsideHeader: !!(button && shipDesignerHeader && shipDesignerHeader.contains(button)),
-      bodyHasOpenDesignerButton: !!section?.querySelector("button.ship-designer-title-button"),
+      titleInsideHeader: !!(title && shipDesignerHeader && shipDesignerHeader.contains(title)),
+      titleIsPlainText: title?.tagName === "SPAN",
+      calcButtonInsideHeader: !!(calcButton && shipDesignerHeader && shipDesignerHeader.contains(calcButton)),
+      bodyHasOpenDesignerButton: !!section?.querySelector("button.ship-designer-title-button, button#shipDesignerTitle"),
       modulePanelInside: !!section && !!modulePanel && section.contains(modulePanel),
       moduleEffectsCheckedByDefault: moduleEffectsCheckbox?.checked === true && state.moduleEffectsEnabled === true,
-      buttonText: button?.textContent.trim() || "",
-      buttonIsTextCommand: !!button && !button.classList.contains("icon-button"),
-      buttonLooksClickable: !!buttonStyle
-        && buttonStyle.borderTopWidth !== "0px"
-        && buttonStyle.backgroundColor !== "rgba(0, 0, 0, 0)",
+      titleText: title?.textContent.trim() || "",
+      calcButtonText: calcButton?.textContent.trim() || "",
+      calcButtonLabel: calcButton?.getAttribute("aria-label") || "",
+      calcButtonLooksClickable: !!calcButtonStyle
+        && calcButtonStyle.borderTopWidth !== "0px"
+        && calcButtonStyle.backgroundColor !== "rgba(0, 0, 0, 0)",
+      calcButtonIsCompact: !!calcButtonStyle && Number.parseFloat(calcButtonStyle.width) <= 32,
       defaultStatus: initialStatus,
       defaultAppliedFlag: status?.dataset.appliedTemplate || "",
       statusAfterUnappliedSelection,
@@ -226,13 +231,17 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(shipDesignerInitial.cardExists, `${htmlFile}: Ship Designer card missing`);
   expect(shipDesignerInitial.sectionInsideShipDesignerCard, `${htmlFile}: Ship Designer controls are not inside the Ship Designer card`);
   expect(shipDesignerInitial.sectionOutsideSimulationCard, `${htmlFile}: Ship Designer controls should not remain inside Simulation Conditions`);
-  expect(shipDesignerInitial.titleButtonInsideHeader, `${htmlFile}: Ship Designer title button should be in the card header`);
+  expect(shipDesignerInitial.titleInsideHeader, `${htmlFile}: Ship Designer title should be in the card header`);
+  expect(shipDesignerInitial.titleIsPlainText, `${htmlFile}: Ship Designer title should be plain header text, not a button`);
+  expect(shipDesignerInitial.calcButtonInsideHeader, `${htmlFile}: dry-mass calculator button should sit beside the Ship Designer title`);
   expect(!shipDesignerInitial.bodyHasOpenDesignerButton, `${htmlFile}: separate Open Designer body button should be removed`);
   expect(shipDesignerInitial.modulePanelInside, `${htmlFile}: module effects controls are not grouped inside Ship Designer`);
   expect(shipDesignerInitial.moduleEffectsCheckedByDefault, `${htmlFile}: module performance effects should be enabled by default`);
-  expect(/Ship Designer|Dry Mass Calculator|Ship Design/.test(shipDesignerInitial.buttonText), `${htmlFile}: dry-mass calculator button is not a clear text command`);
-  expect(shipDesignerInitial.buttonIsTextCommand, `${htmlFile}: dry-mass calculator still uses icon-only button styling`);
-  expect(shipDesignerInitial.buttonLooksClickable, `${htmlFile}: Ship Designer title should be visibly styled as a button`);
+  expect(/Ship Designer/.test(shipDesignerInitial.titleText), `${htmlFile}: Ship Designer title text missing`);
+  expect(/Dry Mass Calculator/.test(shipDesignerInitial.calcButtonLabel), `${htmlFile}: dry-mass calculator icon button should expose an accessible label`);
+  expect(shipDesignerInitial.calcButtonText.length > 0, `${htmlFile}: dry-mass calculator icon button should show an icon glyph`);
+  expect(shipDesignerInitial.calcButtonLooksClickable, `${htmlFile}: dry-mass calculator icon button should be visibly styled as a button`);
+  expect(shipDesignerInitial.calcButtonIsCompact, `${htmlFile}: dry-mass calculator button should remain compact beside the title`);
   expect(/No ship template applied/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should say no template is applied`);
   expect(shipDesignerInitial.defaultAppliedFlag === "false", `${htmlFile}: default Ship Designer applied flag should be false`);
   expect(shipDesignerInitial.unappliedSelectionPreservedStatus, `${htmlFile}: selecting a design preset falsely changed the applied-template status`);
@@ -253,7 +262,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/No ship template applied/.test(shipDesignerPresetFixture.statusText), `${htmlFile}: saving/selecting a design preset falsely changed the applied-template status`);
   expect(shipDesignerPresetFixture.appliedFlag === "false", `${htmlFile}: saving/selecting a design preset should not mark it applied`);
 
-  await page.locator("#shipDesignerTitle").click();
+  await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
   const dryMassButtonFocusCheck = await page.evaluate(() => ({
     modalOpen: !!document.querySelector("#dryMassCalcModal.is-open"),
@@ -1303,7 +1312,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(paretoPinnedOverlay.overlayOpacity > paretoPinnedOverlay.pointOpacity, `${htmlFile}: pinned overlay is not more prominent than the dimmed Pareto point`);
   expect(paretoPinnedOverlay.overlayPointerEvents === "none", `${htmlFile}: pinned overlay can intercept chart hit testing`);
 
-  await page.locator("#shipDesignerTitle").click();
+  await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
   const dryMassManageSizing = await page.evaluate(() => {
     const manage = document.querySelector("#dryMassPresetActionsMenu > summary")?.getBoundingClientRect();
@@ -2081,7 +2090,7 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
   const minTwrAppliedFromDesignDefaults = await page.evaluate(() => Math.abs(state.minTwr - 0.37) < 1e-9);
   expect(minTwrAppliedFromDesignDefaults, `${htmlFile}: dry-mass Apply with defaults did not apply minimum TWR`);
-  await page.locator("#shipDesignerTitle").click();
+  await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
   const notesBox = await page.locator("#dryMassCalcNotes").boundingBox();
   expect(!!notesBox, `${htmlFile}: dry-mass notes field was not measurable`);

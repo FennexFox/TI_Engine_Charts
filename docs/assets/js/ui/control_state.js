@@ -113,13 +113,13 @@ function appliedTemplateDisplayName(template) {
 
 export function updateShipDesignerPanel() {
   const title = document.getElementById("shipDesignerTitle");
+  const calcButton = document.getElementById("dryMassCalcButton");
   const status = document.getElementById("shipDesignerAppliedTemplate");
-  if (title) {
-    const label = localText("함선 설계", "Ship Designer");
+  if (title) title.textContent = localText("함선 설계", "Ship Designer");
+  if (calcButton) {
     const openLabel = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
-    title.textContent = label;
-    title.setAttribute("aria-label", openLabel);
-    title.title = openLabel;
+    calcButton.setAttribute("aria-label", openLabel);
+    calcButton.title = openLabel;
   }
   if (!status) return;
   const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
