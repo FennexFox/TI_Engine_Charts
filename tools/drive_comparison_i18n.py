@@ -19,6 +19,14 @@ ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
         "<strong>Calculation note.</strong> Total mass adds the base hull dry mass, drive mass, power plant mass, selected radiator mass, and propellant mass required for the target Δv. Base drive power, drive mass, power plant mass, waste heat, and radiator mass use the same terms as this repository's ship-plan calculation. When module effects are enabled, supported drive, auxiliary-power, and waste-heat modifiers are folded into the displayed modified values; unsupported module rules are listed in the UI.",
     ),
     (
+        "선택한 목표 Δv에 필요한 총질량 = 기준 건조질량 + 드라이브 + 전원 + 라디에이터 + 추진체",
+        "Total mass required for the selected target Δv = base dry mass + drive + power plant + radiator + propellant",
+    ),
+    (
+        "선택한 목표 Δv에 필요한 연료질량 = (기준 건조질량 + 드라이브 + 전원 + 라디에이터) * (질량비 - 1)",
+        "Fuel mass required for the selected target Δv = (base dry mass + drive + power plant + radiator) * (mass ratio - 1)",
+    ),
+    (
         "총질량 = 기준 건조질량 + 드라이브 + 전원 + 라디에이터 + 추진체",
         "Total mass = base dry mass + drive + power plant + radiator + propellant",
     ),

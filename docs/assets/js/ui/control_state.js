@@ -125,7 +125,7 @@ export function updateShipDesignerPanel() {
   const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
   if (templateName) {
     status.dataset.appliedTemplate = "true";
-    status.textContent = localText(`적용된 템플릿: ${templateName}`, `Applied template: ${templateName}`);
+    status.textContent = templateName;
   } else {
     status.dataset.appliedTemplate = "false";
     status.textContent = localText("적용된 함선 템플릿 없음", "No ship template applied");

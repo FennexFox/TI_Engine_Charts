@@ -842,6 +842,28 @@
       width: 15px;
       height: 15px;
     }
+    .chart-guide-text {
+      min-width: 0;
+    }
+    .chart-guide-help {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      width: 14px;
+      height: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.72);
+      border-radius: 999px;
+      color: #d8e1db;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      cursor: help;
+    }
+    .chart-guide-help:focus-visible {
+      outline: 2px solid rgba(147, 197, 253, 0.9);
+      outline-offset: 2px;
+    }
     .chart-guide-symbol.is-family {
       border-radius: 50%;
       background: linear-gradient(135deg, #4e8ffb 0 48%, #38ac5c 52% 100%);

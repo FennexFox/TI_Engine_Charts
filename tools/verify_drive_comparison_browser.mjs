@@ -283,8 +283,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   });
   expect(dryMassButtonFocusCheck.hasDesignPreset, `${htmlFile}: dry-mass design preset fixture missing for Ship Designer applied-template check`);
   expect(shipDesignerApplied.appliedFlag === "true", `${htmlFile}: applying a named design did not mark Ship Designer status as applied`);
-  expect(/Applied template:/.test(shipDesignerApplied.text), `${htmlFile}: applied Ship Designer status did not show the template name`);
   expect(shipDesignerApplied.stateTemplateName.trim().length > 0, `${htmlFile}: applied ship template state did not store a named design`);
+  expect(shipDesignerApplied.text === shipDesignerApplied.stateTemplateName, `${htmlFile}: applied Ship Designer status should show only the template name`);
 
   const moduleEffectCalculationChecks = await page.evaluate(() => {
     resetChartStateToDefaults();
@@ -1150,7 +1150,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       && lineModeBoxes.every(box => Math.abs(box.top - lineModeBoxes[0].top) <= 1);
     const englishItemCount = guide?.querySelectorAll(".chart-guide-item").length || 0;
     const englishPowerItems = [...(guide?.querySelectorAll(".chart-guide-item") || [])]
-      .filter(item => /Power view/.test(item.textContent || "")).length;
+      .filter(item => /Power view|Hover a point/.test(item.textContent || "")).length;
+    const paretoHelp = guide?.querySelector(".chart-guide-help");
     setLanguage("ko", { rerender: false });
     syncUiFromState();
     render();
@@ -1168,6 +1169,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       englishModeDescriptions,
       englishItemCount,
       englishPowerItems,
+      paretoHelpText: paretoHelp?.title || paretoHelp?.getAttribute("aria-label") || "",
       childOverflow,
       koreanText,
     };
@@ -1190,7 +1192,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/Dim: Pareto-dominated/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain Pareto dimming`);
   expect(/Warning ring: low TWR\/extreme mass/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain low-TWR/impractical markers`);
   expect(/Outline: hover\/select\/pin; click again unpins/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain hover/select/pin and unpin behavior`);
-  expect(chartGuideChecks.englishPowerItems === 1, `${htmlFile}: guide does not explain power-view ladder semantics on band metrics`);
+  expect(chartGuideChecks.englishPowerItems === 0, `${htmlFile}: guide should omit power-view and hover-a-point helper text`);
+  expect(/no more research/.test(chartGuideChecks.paretoHelpText), `${htmlFile}: Pareto help tooltip is missing or incomplete`);
   expect(!chartGuideChecks.childOverflow, `${htmlFile}: compact chart guide overflows on mobile`);
   expect(chartGuideChecks.aria === "차트 안내", `${htmlFile}: guide aria label did not localize after Korean switch`);
   expect(!/Connection lines|Warning ring/.test(chartGuideChecks.koreanText), `${htmlFile}: guide text did not switch away from English`);

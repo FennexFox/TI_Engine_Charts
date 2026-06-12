@@ -237,23 +237,35 @@ export function renderChartGuide() {
       const summary = document.getElementById("chartGuideSummary");
       if (summary) summary.textContent = localText("차트 안내", "Chart Guide");
 
-      const appendItem = (symbolClass, text) => {
+      const appendItem = (symbolClass, text, helpText = "") => {
         const item = document.createElement("span");
         item.className = "chart-guide-item";
         const symbol = document.createElement("span");
         symbol.className = `chart-guide-symbol ${symbolClass}`;
-        item.append(symbol, document.createTextNode(text));
+        const label = document.createElement("span");
+        label.className = "chart-guide-text";
+        label.textContent = text;
+        item.append(symbol, label);
+        if (helpText) {
+          const help = document.createElement("span");
+          help.className = "chart-guide-help";
+          help.tabIndex = 0;
+          help.textContent = "?";
+          help.title = helpText;
+          help.setAttribute("aria-label", helpText);
+          item.appendChild(help);
+        }
         guide.appendChild(item);
       };
 
+      const paretoHelpText = localText(
+        "누적 연구력은 더 낮고, 총질량은 더 가볍고, TWR은 더 높은 후보가 있으면 파레토 지배로 보고 흐리게 표시합니다.",
+        "A candidate is Pareto-dominated when another option needs no more research, has no more total mass, and has at least as much TWR."
+      );
       appendItem("is-line", localText("선: 드라이브 진행 경로", "Lines: drive progression"));
-      appendItem("is-dim", localText("흐림: Pareto 지배", "Dim: Pareto-dominated"));
+      appendItem("is-dim", localText("흐림: Pareto 지배", "Dim: Pareto-dominated"), paretoHelpText);
       appendItem("is-warning", localText("경고 링: 낮은 TWR/극단 질량비", "Warning ring: low TWR/extreme mass"));
       appendItem("is-pin", localText("윤곽선: 호버/선택/고정, 재클릭 해제", "Outline: hover/select/pin; click again unpins"));
-      if (isBandMetric()) {
-        appendItem("is-power", localText("전원 보기: 호환 전원 전체/최적 가용 전원", "Power view: all compatible power/Best available power"));
-        appendItem("is-power", localText("점 호버: 더 나은 호환 반응로/전원 조합과 비교", "Hover a point: compare better compatible reactor/power options"));
-      }
     }
 
 export function valueDomain(rows) {
