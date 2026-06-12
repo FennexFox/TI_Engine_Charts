@@ -579,6 +579,26 @@
     [data-help] {
       cursor: help;
     }
+
+    .inline-help {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      margin-left: 4px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1;
+      vertical-align: text-top;
+    }
+    .inline-help:hover,
+    .inline-help:focus {
+      color: var(--text);
+      border-color: var(--muted);
+    }
     .family-name {
       min-width: 0;
       flex: 1 1 auto;
@@ -836,6 +856,53 @@
       gap: 6px;
       min-width: 0;
     }
+    .chart-guide-help {
+      position: relative;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 15px;
+      height: 15px;
+      margin-left: 1px;
+      border: 1px solid rgba(210, 222, 216, 0.5);
+      border-radius: 999px;
+      color: #dbe7e1;
+      background: rgba(219, 231, 225, 0.08);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      cursor: help;
+      user-select: none;
+    }
+    .chart-guide-help::after {
+      content: attr(data-help);
+      position: absolute;
+      z-index: 40;
+      top: calc(100% + 7px);
+      right: 0;
+      width: min(290px, 72vw);
+      padding: 8px 10px;
+      border: 1px solid var(--strong-line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: #151917;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.35;
+      text-align: left;
+      white-space: normal;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-3px);
+      transition: opacity 0.14s ease, transform 0.14s ease;
+    }
+    .chart-guide-help:hover::after,
+    .chart-guide-help:focus-visible::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
     .chart-guide-symbol {
       position: relative;
       flex: 0 0 auto;
@@ -844,25 +911,6 @@
     }
     .chart-guide-text {
       min-width: 0;
-    }
-    .chart-guide-help {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      flex: 0 0 auto;
-      width: 14px;
-      height: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.72);
-      border-radius: 999px;
-      color: #d8e1db;
-      font-size: 10px;
-      font-weight: 800;
-      line-height: 1;
-      cursor: help;
-    }
-    .chart-guide-help:focus-visible {
-      outline: 2px solid rgba(147, 197, 253, 0.9);
-      outline-offset: 2px;
     }
     .chart-guide-symbol.is-family {
       border-radius: 50%;
@@ -882,6 +930,42 @@
       border-radius: 50%;
       background: #8fb8ff;
       opacity: 0.38;
+    }
+    .chart-guide-symbol.is-secondary::before,
+    .chart-guide-symbol.is-secondary::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #8fb8ff;
+    }
+    .chart-guide-symbol.is-secondary::before {
+      left: 0;
+      opacity: 0.28;
+      filter: brightness(0.72);
+    }
+    .chart-guide-symbol.is-secondary::after {
+      right: 0;
+      opacity: 0.95;
+      filter: brightness(1.3);
+    }
+    .chart-guide-symbol.is-pareto::before,
+    .chart-guide-symbol.is-pareto::after {
+      content: "";
+      position: absolute;
+      left: 1px;
+      right: 1px;
+      top: 7px;
+      border-top: 2px solid #e5eee8;
+      border-radius: 999px;
+    }
+    .chart-guide-symbol.is-pareto::before {
+      transform: rotate(45deg);
+    }
+    .chart-guide-symbol.is-pareto::after {
+      transform: rotate(-45deg);
     }
     .chart-guide-symbol.is-warning {
       border: 2px solid var(--danger);
@@ -907,6 +991,18 @@
     }
     .chart-guide-symbol.is-power::after {
       top: 10px;
+    }
+    .pareto-dominated-marker {
+      pointer-events: none;
+      fill: none;
+      stroke: #e5eee8;
+      stroke-width: 1.55;
+      stroke-linecap: round;
+      opacity: 0.92;
+      filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.72));
+    }
+    .pareto-dominated-marker.is-impractical {
+      stroke: #fecaca;
     }
 
     .summary-strip {

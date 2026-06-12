@@ -95,6 +95,7 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("목표 dV 총질량 (t)", "Total mass for target Δv (t)"),
     ("목표 dV 연료질량 (t)", "Fuel mass for target Δv (t)"),
     ("엔진 수", "Engine count"),
+    ("엔진 수 제한이 있는 드라이브는 선택값에 가장 가까운 유효 엔진 수로 표시됩니다.", "Drives with engine-count restrictions are shown using the closest valid engine count."),
     ("기준 선체 건조 질량 (t)", "Base hull dry mass (t)"),
     ("프로젝트 링크", "Project links"),
     ("Ko-fi 후원", "Support on Ko-fi"),
