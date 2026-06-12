@@ -35,6 +35,7 @@ STANDARD_GRAVITY_MPS2 = 9.80665
 TARGET_DV_KPS = 500.0
 DEFAULT_DRY_MASS_TONS = 10000.0
 DEFAULT_PRESET_LIBRARY_PATH = ROOT / "data" / "preset_library.json"
+DRIVE_LINK_KIND = "projectedResearchDependency"
 
 CATEGORY_ORDER = ("Chemical", "Electric", "Fission", "Fusion", "Antimatter", "Alien")
 DEFAULT_CATEGORY_KEY = "Fusion"
@@ -299,6 +300,99 @@ class ResearchCostIndex:
                 return set()
             return min(choices, key=lambda choice: sum(self.own_cost(node_name) for node_name in choice))
         return set()
+
+
+def drive_link_candidate_edges(
+    drive_rows: Iterable[dict[str, Any]],
+    research: ResearchCostIndex,
+) -> set[tuple[str, str]]:
+    rows = [
+        row
+        for row in drive_rows
+        if row.get("id")
+        and row.get("requiredProject")
+        and row.get("familyKey")
+        and row.get("thrusterCount") is not None
+    ]
+    closures: dict[str, frozenset[str]] = {
+        str(row["requiredProject"]): research.closure(str(row["requiredProject"]))
+        for row in rows
+    }
+    edges: set[tuple[str, str]] = set()
+    for source in rows:
+        source_id = str(source["id"])
+        source_project = str(source["requiredProject"])
+        for target in rows:
+            target_id = str(target["id"])
+            target_project = str(target["requiredProject"])
+            if source_id == target_id:
+                continue
+            if source.get("thrusterCount") != target.get("thrusterCount"):
+                continue
+            if source.get("familyKey") != target.get("familyKey"):
+                continue
+            if source_project == target_project:
+                continue
+            if source_project in closures.get(target_project, frozenset()):
+                edges.add((source_id, target_id))
+    return edges
+
+
+def has_alternate_drive_link_path(
+    source_id: str,
+    target_id: str,
+    adjacency: dict[str, set[str]],
+    skipped_edge: tuple[str, str],
+) -> bool:
+    stack = list(adjacency.get(source_id, set()) - ({target_id} if skipped_edge == (source_id, target_id) else set()))
+    seen: set[str] = {source_id}
+    while stack:
+        current = stack.pop()
+        if current == target_id:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        stack.extend(adjacency.get(current, set()) - seen)
+    return False
+
+
+def transitive_reduced_drive_link_edges(edges: set[tuple[str, str]]) -> set[tuple[str, str]]:
+    adjacency: dict[str, set[str]] = {}
+    for source_id, target_id in edges:
+        adjacency.setdefault(source_id, set()).add(target_id)
+    return {
+        edge
+        for edge in edges
+        if not has_alternate_drive_link_path(edge[0], edge[1], adjacency, edge)
+    }
+
+
+def build_drive_links(drive_rows: Iterable[dict[str, Any]], research: ResearchCostIndex) -> list[dict[str, Any]]:
+    rows = list(drive_rows)
+    row_by_id = {str(row.get("id")): row for row in rows if row.get("id")}
+    reduced_edges = transitive_reduced_drive_link_edges(drive_link_candidate_edges(rows, research))
+    return [
+        {
+            "from": source_id,
+            "to": target_id,
+            "categoryKey": row_by_id[source_id]["categoryKey"],
+            "familyKey": row_by_id[source_id]["familyKey"],
+            "thrusterCount": row_by_id[source_id]["thrusterCount"],
+            "kind": DRIVE_LINK_KIND,
+        }
+        for source_id, target_id in sorted(
+            reduced_edges,
+            key=lambda edge: (
+                row_by_id[edge[0]].get("familyKey") or "",
+                row_by_id[edge[0]].get("thrusterCount") or 0,
+                row_by_id[edge[0]].get("cumulativeResearch") or 0,
+                edge[0],
+                row_by_id[edge[1]].get("cumulativeResearch") or 0,
+                edge[1],
+            ),
+        )
+    ]
 
 
 def remove_thruster_suffix(data_name: str, display: str) -> tuple[str, str, int | None]:
@@ -786,8 +880,9 @@ def build_data(
         "gameVersionSource": (game_version or {}).get("source"),
         "steamBuildId": (game_version or {}).get("steamBuildId"),
     }
+    drive_links = build_drive_links(drive_rows, research)
     return {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "source": source_files,
         "defaults": {
             "targetDvKps": TARGET_DV_KPS,
@@ -804,12 +899,14 @@ def build_data(
             "radiatorMassTons": "zero for self-contained drives with no auxiliary module load or for open-cycle cooling drives, otherwise wasteHeatGW * 1,000,000 / radiator specificPower_2s_KWkg / 1000, with base wasteHeatGW = drivePowerRequirementGW * (1 - powerPlantEfficiency). Runtime module effects may add selected utility auxiliary power and apply supported waste-heat multipliers before radiator mass is calculated.",
             "moduleEffects": "disabled by default. When enabled, supported drive-performance, auxiliary-power, and waste-heat effects are applied to modified chart values; unsupported module rules are preserved as visible diagnostics.",
             "totalMass": "baseDryMass + drive mass + power plant mass + radiator mass + propellant mass, where propellantMass = dryMassWithHardware * (exp(targetDvKps / exhaustVelocityKps) - 1). The dashboard slider is the base dry mass before adding the selected drive, power plant, and radiator.",
+            "driveLinks": "Projected same-family drive progression links. A link exists only when the source drive's required project is in the target drive's research closure for the same thruster count; variants sharing the same required project are ignored, and transitive shortcut links are removed against the full projected candidate graph.",
         },
         "categories": categories,
         "subfamilies": subfamilies,
         "families": subfamilies,
         "radiators": radiators,
         "shipCatalog": ship_catalog,
+        "driveLinks": drive_links,
         "drives": sorted(
             drive_rows,
             key=lambda item: (

@@ -116,12 +116,12 @@ node tools/verify_drive_comparison_import_graph.mjs
 
 ## Progress
 
-- [ ] Add builder helper for projected drive links.
-- [ ] Add deterministic link sorting and DATA field.
-- [ ] Add contract validation.
-- [ ] Rebuild generated data where available.
-- [ ] Run validation commands.
-- [ ] Complete manual smoke tests.
+- [x] Add builder helper for projected drive links.
+- [x] Add deterministic link sorting and DATA field.
+- [x] Add contract validation.
+- [x] Rebuild generated data where available.
+- [x] Run validation commands.
+- [x] Complete manual smoke tests.
 
 ## Decision Log
 
@@ -131,7 +131,47 @@ node tools/verify_drive_comparison_import_graph.mjs
   Reason: #24 is about replacing family-only lines with dependency-backed family progression lines, and this is the conservative visual change.
 - Decision: Use research closure and transitive reduction.
   Reason: The #24 implementation note recommends closure projection while suppressing shortcut edges.
+- Decision: Include `categoryKey`, `familyKey`, `thrusterCount`, and `kind` on each emitted link.
+  Reason: Phase 05 can render and filter links without re-deriving family metadata from endpoints.
+- Decision: Bump embedded DATA `schemaVersion` to 5.
+  Reason: Adding `driveLinks` changes the generated data contract while remaining backward-compatible for the current renderer.
+- Decision: Add `tools/verify_drive_links.py` and wire it into `npm run verify`.
+  Reason: The contract needs deterministic validation in the normal verification path, including transitive-reduction checks against the projected candidate graph.
 
 ## Outcomes
 
-Pending implementation.
+Implemented. The drive comparison builder now emits `DATA.driveLinks` as reduced, same-family projected research dependency links. Candidate links require matching thruster count, different required projects, matching family, and `source.requiredProject in research.closure(target.requiredProject)`. Transitive shortcuts are removed against the full candidate graph before emission.
+
+The renderer is unchanged in this phase. `driveLinks` is present in generated DATA for the next rendering phase, but chart lines still render through the existing family/path behavior until Phase 05.
+
+Updated source files:
+
+- `tools/build_drive_comparison.py`
+- `tools/verify_drive_links.py`
+- `package.json`
+
+Regenerated output:
+
+- `docs/index.html`
+- `docs/assets/js/**`
+
+Validation results:
+
+- `npm run build` passed with local Terra Invicta templates.
+- `python tools/verify_drive_links.py` passed: 171 emitted links from 238 projected candidates, including 6 Fusion links.
+- `node tools/verify_drive_comparison_client_syntax.mjs` passed.
+- `node tools/verify_drive_comparison_import_graph.mjs` passed with 0 circular dependency groups and the existing 6 boundary warnings available via `--show-boundary-warnings`.
+- `npm run verify` passed, including the new `verify:links` step.
+
+Manual smoke results:
+
+- Confirmed browser DATA has `schemaVersion: 5`.
+- Confirmed `DATA.driveLinks` exists with 171 links.
+- Confirmed `DATA.method.driveLinks` documents projected dependency links and transitive shortcut removal.
+- Confirmed Fusion examples exist, including Protium Nova Torch to Protium Converter Torch across thruster counts.
+- Confirmed the verifier rejects family-only links by requiring every emitted fission/electric/fusion link to be backed by research closure.
+- Confirmed the chart still renders points after adding the data contract; rendering has not switched to `driveLinks` yet.
+
+## Retrospective
+
+The key risk was validating only the final reduced edge list. The verifier explicitly recomputes the unreduced candidate graph and checks each emitted link for alternate candidate-visible paths, so shortcut suppression is tested against the same graph the builder reduces.

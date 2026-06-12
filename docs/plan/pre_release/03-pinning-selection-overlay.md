@@ -96,13 +96,13 @@ npm run verify
 
 ## Progress
 
-- [ ] Add overlay rendering.
-- [ ] Add chart-level click-to-unpin.
-- [ ] Preserve tooltip card pin behavior.
-- [ ] Add browser verification.
-- [ ] Rebuild generated assets.
-- [ ] Run validation commands.
-- [ ] Complete manual smoke tests.
+- [x] Add overlay rendering.
+- [x] Add chart-level click-to-unpin.
+- [x] Preserve tooltip card pin behavior.
+- [x] Add browser verification.
+- [x] Rebuild generated assets.
+- [x] Run validation commands.
+- [x] Complete manual smoke tests.
 
 ## Decision Log
 
@@ -112,7 +112,53 @@ npm run verify
   Reason: Multi-hit pin toggling should be predictable and should not unexpectedly remove several cards.
 - Decision: Keep tooltip card pin buttons as the canonical per-card controls.
   Reason: They already support explicit per-card toggling and should not be replaced by chart-only behavior.
+- Decision: Treat `tooltipPinned` plus current tooltip cards as chart-pinned state for overlay rendering.
+  Reason: Chart clicks previously pinned the current card set without adding per-card pins, so the overlay needs to reflect that existing chart-level behavior.
+- Decision: Give explicit card pins and chart-pinned selections the same pinned overlay priority.
+  Reason: Both states should remain visible independently of point opacity and should not be hidden behind hover styling.
+- Decision: Keep overlay rings out of hit testing with `pointer-events: none`.
+  Reason: Overlay rendering must not affect existing hover, click, pan, or zoom hit targets.
 
 ## Outcomes
 
-Pending implementation.
+Implemented. Chart point state is now drawn in a separate `point-state-overlay` SVG group after data points and warning rings. The overlay uses current `chartHitTargets` coordinates and renders pinned, hovered, and selected rings without mutating point opacity.
+
+Click behavior now toggles the nearest hit deterministically. Clicking a normal point pins the chart selection. Clicking the same chart-pinned point unpins it. If a tooltip card pin is active for the clicked point, the chart click removes that explicit pin through the shared tooltip helper so card buttons and overlay state stay synchronized.
+
+Updated source files:
+
+- `tools/drive_comparison_client/chart/rendering.js`
+- `tools/drive_comparison_client/chart/interaction.js`
+- `tools/drive_comparison_client/ui/tooltip_table.js`
+- `tools/drive_comparison_styles.css`
+- `tools/verify_drive_comparison_browser.mjs`
+
+Regenerated output:
+
+- `docs/index.html`
+- `docs/assets/js/chart/rendering.js`
+- `docs/assets/js/chart/interaction.js`
+- `docs/assets/js/ui/tooltip_table.js`
+
+Validation results:
+
+- `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push` passed.
+- `node tools/verify_drive_comparison_client_syntax.mjs` passed.
+- `node tools/verify_drive_comparison_import_graph.mjs` passed with 0 circular dependency groups and the existing 6 boundary warnings available via `--show-boundary-warnings`.
+- `node tools/verify_drive_comparison_browser.mjs` passed.
+- `npm run verify` passed.
+
+Manual smoke results:
+
+- Hovered a normal point and confirmed tooltip cards plus hover overlay appeared.
+- Clicked a normal point and confirmed chart-pinned state plus pinned overlay.
+- Clicked the same point again and confirmed chart-pinned state and pinned overlay cleared.
+- Used a tooltip card pin button and confirmed explicit pin state, `aria-pressed`, and overlay stayed synchronized.
+- Clicked the same card-pinned point on the chart and confirmed the explicit card pin cleared.
+- Pinned a combined impractical plus Pareto-dominated point and confirmed the overlay stayed more prominent than the dimmed point.
+- Zoomed and panned with a pinned point and confirmed pinned overlay coordinates redrew.
+- Pressed `p`, `Escape`, and `Space` in tooltip flows and confirmed pinned overlay behavior remained coherent.
+
+## Retrospective
+
+The existing system had two pin concepts: chart-level pinned tooltip state and explicit per-card pins. Phase 03 keeps both concepts intact but renders them with the same overlay priority, which avoids changing tooltip semantics while solving the visibility and click-to-unpin friction.

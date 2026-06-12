@@ -94,14 +94,14 @@ npm run verify
 
 ## Progress
 
-- [ ] Add visible link-segment resolver.
-- [ ] Replace family-wide base line rendering.
-- [ ] Preserve family grouping for points and filters.
-- [ ] Update legend text.
-- [ ] Add browser verification.
-- [ ] Rebuild generated assets.
-- [ ] Run validation commands.
-- [ ] Complete manual smoke tests.
+- [x] Add visible link-segment resolver.
+- [x] Replace family-wide base line rendering.
+- [x] Preserve family grouping for points and filters.
+- [x] Update legend text.
+- [x] Add browser verification.
+- [x] Rebuild generated assets.
+- [x] Run validation commands.
+- [x] Complete manual smoke tests.
 
 ## Decision Log
 
@@ -113,7 +113,50 @@ npm run verify
   Reason: `driveLinks` is an edge list, and disconnected or branching research paths should not be forced into a single ordered path.
 - Decision: Keep links pointer-inert.
   Reason: Existing tooltips are point and ladder based; making links interactive would expand scope.
+- Decision: Keep a fallback only when `DATA.driveLinks` is absent, not when it is an empty array.
+  Reason: Empty link data is authoritative and must not recreate family-only progression lines.
+- Decision: Use source endpoint family color for each link segment.
+  Reason: Phase 05 changes line semantics, but family color remains the visual language for category/family grouping.
+- Decision: Reuse first-compatible power endpoints in Best Available mode.
+  Reason: This keeps the generated progression line aligned with the baseline point preserved in that view.
 
 ## Outcomes
 
-Pending implementation.
+Implemented. Base chart lines now render as individual `DATA.driveLinks` segments when the generated link contract is present. Family grouping remains in place for colors, filters, legends, point ordering, and point rendering.
+
+The compatibility fallback still exists for old embedded pages that do not have a `driveLinks` field. An empty `DATA.driveLinks` array is treated as authoritative and renders no family fallback lines.
+
+Updated source files:
+
+- `tools/drive_comparison_client/chart/rendering.js`
+- `tools/drive_comparison_client/chart/interaction.js`
+- `tools/verify_drive_comparison_browser.mjs`
+
+Regenerated output:
+
+- `docs/index.html`
+- `docs/assets/js/chart/rendering.js`
+- `docs/assets/js/chart/interaction.js`
+
+Validation results:
+
+- `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push` passed.
+- `node tools/verify_drive_comparison_client_syntax.mjs` passed.
+- `node tools/verify_drive_comparison_import_graph.mjs` passed with 0 circular dependency groups and the existing 6 boundary warnings available via `--show-boundary-warnings`.
+- `node tools/verify_drive_comparison_browser.mjs` passed.
+- `npm run verify` passed, including `verify:links`.
+
+Manual smoke results:
+
+- Confirmed basic `thrustMN` renders link segments, not fallback family paths.
+- Confirmed link stroke color matches the source family color.
+- Confirmed a Fusion progression line renders for `Fusion:Inertial_Confinement_Fusion`.
+- Confirmed `Fusion:Mirrored_Magnetic_Confinement_Fusion`, a visible multi-drive family without visible drive links, renders no family-only segment.
+- Toggled the linked Fusion family off and on and confirmed link segments hide/show with endpoint rows.
+- Confirmed `totalMassTons`, `fuelMassTons`, `twr`, All Ladders, and Best Available all retain link segments without fallback lines.
+- Confirmed All Ladders and Best Available power paths still render.
+- Hovered and clicked points in the link-rendered chart and confirmed tooltip targeting still uses points.
+
+## Retrospective
+
+The important implementation detail is the fallback condition. Using `Array.isArray(DATA.driveLinks)` keeps old pages working while making an empty generated link array meaningful, which prevents family-only paths from quietly returning.

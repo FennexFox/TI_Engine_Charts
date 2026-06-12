@@ -55,6 +55,14 @@ The dry mass calculator is now split along feature boundaries:
 - `calc/dry_mass.js` remains a narrow compatibility facade that re-exports the model API for existing calculation/debug callers.
 - `ui/dry_mass_calculator.js` owns the modal DOM rendering, localized text refresh, searchable-select enhancement, and event wiring. It receives the chart render callback from the UI composition layer instead of importing chart internals directly.
 
+Current pre-release chart ownership:
+
+- `tools/build_drive_comparison.py` owns generated `DATA.driveLinks`. The browser client consumes the edge list and should not re-infer research dependencies from family membership.
+- `chart/rendering.js` owns line-segment rendering, point visual state helpers, impractical warning rings, and hover/selected/pinned SVG overlays. Calculation modules should only provide numeric values and filtering semantics.
+- `chart/interaction.js` owns legend and compact chart-guide copy because that text must stay synchronized with rendered chart semantics and interaction behavior.
+- `tools/drive_comparison_template.html` owns the Ship Designer grouping inside Simulation Conditions. `ui/dry_mass_calculator.js` continues to own the calculator modal and apply behavior; dry-mass formulas remain in the calculation layer.
+- `docs/assets/js/**` and `docs/index.html` are generated copies. Change source modules and rebuild instead of editing published assets directly.
+
 Some of these boundaries are still transitional. The import graph verifier currently fails on circular imports. Boundary warnings are available on demand with `--show-boundary-warnings`, and future cleanup PRs can promote more warnings to hard failures once the corresponding boundary is fully normalized.
 
 ## Verification

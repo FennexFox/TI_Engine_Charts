@@ -95,13 +95,13 @@ npm run verify
 
 ## Progress
 
-- [ ] Implement the Ship Designer section.
-- [ ] Preserve dry-mass calculator and module-effect wiring.
-- [ ] Add applied-template/no-template status.
-- [ ] Add or update browser verification.
-- [ ] Rebuild generated assets.
-- [ ] Run validation commands.
-- [ ] Complete manual smoke tests.
+- [x] Implement the Ship Designer section.
+- [x] Preserve dry-mass calculator and module-effect wiring.
+- [x] Add applied-template/no-template status.
+- [x] Add or update browser verification.
+- [x] Rebuild generated assets.
+- [x] Run validation commands.
+- [x] Complete manual smoke tests.
 
 ## Decision Log
 
@@ -111,7 +111,53 @@ npm run verify
   Reason: This keeps the phase reviewable and reduces event-listener risk.
 - Decision: Treat applied-template status conservatively.
   Reason: Displaying a selected-but-not-applied design as applied would be misleading.
+- Decision: Store the last applied named dry-mass design in chart runtime state as `state.appliedShipTemplate`.
+  Reason: The status must reflect an explicit chart apply action, and the current preset selector alone cannot distinguish selected, edited, and applied designs.
+- Decision: Do not serialize the applied-template status in chart presets in this phase.
+  Reason: The phase only needs current-session applied status, and adding preset schema behavior would widen review scope.
+- Decision: Add a deterministic browser verifier fixture for named dry-mass designs.
+  Reason: The current generated page has zero built-in dry-mass presets, so the applied-template test needs to create its own named design.
 
 ## Outcomes
 
-Pending implementation.
+Implemented. Simulation Conditions now contains a nested Ship Designer section with the text dry-mass calculator command, applied-template/no-template status, and module effect controls grouped together.
+
+The dry-mass calculator still owns calculation and apply behavior. Applying an unnamed design updates the main dry-mass controls without falsely showing a named applied template. Saving, selecting, or renaming a design preset without applying it leaves the side-panel status unchanged. Applying a selected named design marks the status as applied and displays the design name.
+
+Updated source files:
+
+- `tools/drive_comparison_template.html`
+- `tools/drive_comparison_styles.css`
+- `tools/drive_comparison_client/state/core.js`
+- `tools/drive_comparison_client/ui/control_state.js`
+- `tools/drive_comparison_client/ui/dry_mass_calculator.js`
+- `tools/verify_drive_comparison_browser.mjs`
+
+Regenerated output:
+
+- `docs/index.html`
+- `docs/assets/js/state/core.js`
+- `docs/assets/js/ui/control_state.js`
+- `docs/assets/js/ui/dry_mass_calculator.js`
+
+Validation results:
+
+- `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push` passed.
+- `node tools/verify_drive_comparison_client_syntax.mjs` passed.
+- `node tools/verify_drive_comparison_import_graph.mjs` passed with 0 circular dependency groups and the existing 6 boundary warnings available via `--show-boundary-warnings`.
+- `node tools/verify_drive_comparison_browser.mjs` passed.
+- `npm run verify` passed.
+
+Manual smoke results:
+
+- Confirmed Ship Designer layout at desktop and 390px mobile width.
+- Confirmed the dry-mass calculator text button opens the modal and focuses a modal control.
+- Changed hull/module selections, applied dry mass, and confirmed the main dry-mass input updated.
+- Saved and renamed a dry-mass template without applying it and confirmed the applied-template status stayed unchanged.
+- Applied the renamed template and confirmed the applied-template status showed the renamed design.
+- Toggled module performance effects and confirmed the summary changed inside the Ship Designer section.
+- Switched Korean and English text and confirmed the Ship Designer text stayed populated without layout overflow.
+
+## Retrospective
+
+The first smoke script attempts exposed two useful verifier details: enhanced searchable selects hide their native `<select>` elements from direct Playwright selection, and dry-mass preset management controls live inside the modal. The final smoke test exercises those flows through their real change events and visible modal controls.

@@ -50,6 +50,16 @@ export function unpinTooltip() {
       refreshTooltip(currentChartRows);
     }
 
+export function unpinTooltipItemByKey(key) {
+      if (!key || !isPinnedTooltipKey(key)) return false;
+      state.pinnedTooltipItems = state.pinnedTooltipItems.filter(item => item.key !== key);
+      if (!state.pinnedTooltipItems.length) state.tooltipPinned = false;
+      state.lastTooltipItems = mergePinnedTooltipRefs(state.lastTooltipItems);
+      setHoverPoints(mergePinnedTooltipRefs(state.hoverPoints));
+      refreshTooltip(currentChartRows);
+      return true;
+    }
+
 export function tooltipHtml(row, option = null, key = "", index = 0, itemCount = 1) {
       const metrics = tooltipMetricsHtml(row, option);
       const selected = option ? tooltipBreakdownHtml(row, option) : "";
@@ -503,7 +513,8 @@ export function toggleTooltipItemPin(key) {
       const ref = refs.find(item => item.key === key);
       if (!ref) return;
       if (isPinnedTooltipKey(key)) {
-        state.pinnedTooltipItems = state.pinnedTooltipItems.filter(item => item.key !== key);
+        unpinTooltipItemByKey(key);
+        return;
       } else {
         state.pinnedTooltipItems = dedupeTooltipRefs([...state.pinnedTooltipItems, ref]);
       }

@@ -104,13 +104,13 @@ npm run verify
 
 ## Progress
 
-- [ ] Refactor point visual state helper.
-- [ ] Add low-TWR/impractical marker treatment.
-- [ ] Update legend/help text.
-- [ ] Add browser checks.
-- [ ] Rebuild generated assets.
-- [ ] Run validation commands.
-- [ ] Complete manual smoke tests.
+- [x] Refactor point visual state helper.
+- [x] Add low-TWR/impractical marker treatment.
+- [x] Update legend/help text.
+- [x] Add browser checks.
+- [x] Rebuild generated assets.
+- [x] Run validation commands.
+- [x] Complete manual smoke tests.
 
 ## Decision Log
 
@@ -120,7 +120,49 @@ npm run verify
   Reason: #23 specifically calls out overlapping faded meanings as the ambiguity to remove.
 - Decision: Add data attributes for visual states.
   Reason: Browser verification should inspect semantic state instead of fragile SVG paint details alone.
+- Decision: Use the minimum pre-release cut rather than fully deduplicating every point-rendering path.
+  Reason: The ambiguity can be removed with semantic attributes and one explicit marker treatment while keeping the phase independently reviewable.
+- Decision: Add an independent SVG warning ring for impractical candidates.
+  Reason: The ring can remain visible when the underlying point is Pareto-dimmed, and it does not compete with the secondary brightness opacity scale.
+- Decision: Set warning rings to `pointer-events: none`.
+  Reason: Rings should not intercept existing hover, tooltip, click, or future pinning hit behavior.
 
 ## Outcomes
 
-Pending implementation.
+Implemented. Band-metric points now expose semantic visual state through `data-pareto-dominated`, `data-impractical`, and `data-secondary-encoding` attributes plus matching state classes. Pareto dominance remains the dimming mechanism, while low-TWR/extreme-mass candidates get an independent warning ring marker.
+
+Impractical candidates no longer receive an additional opacity reduction in the power ladder and Best Available point paths. Combined Pareto-dominated plus impractical points are still dimmed as Pareto-dominated, but the warning ring remains visible and independently verifiable.
+
+Updated source files:
+
+- `tools/drive_comparison_client/chart/rendering.js`
+- `tools/drive_comparison_client/chart/interaction.js`
+- `tools/drive_comparison_styles.css`
+- `tools/verify_drive_comparison_browser.mjs`
+
+Regenerated output:
+
+- `docs/index.html`
+- `docs/assets/js/chart/rendering.js`
+- `docs/assets/js/chart/interaction.js`
+
+Validation results:
+
+- `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push` passed.
+- `node tools/verify_drive_comparison_client_syntax.mjs` passed.
+- `node tools/verify_drive_comparison_import_graph.mjs` passed with 0 circular dependency groups and the existing 6 boundary warnings available via `--show-boundary-warnings`.
+- `node tools/verify_drive_comparison_browser.mjs` passed.
+- `npm run verify` passed.
+
+Manual smoke results:
+
+- Built a `totalMassTons` scenario with Pareto highlighting enabled, impractical candidates shown, and minimum TWR raised to `0.001`.
+- Confirmed Pareto-dominated candidates expose dimming semantics.
+- Confirmed low-TWR/impractical candidates expose warning-ring semantics.
+- Confirmed combined Pareto-dominated plus impractical points exist and retain warning rings.
+- Hovered impractical, Pareto-dominated, and combined-state points and confirmed tooltip state populated.
+- Switched to All Ladders and Best Available and confirmed extra/best points retained impractical markers.
+
+## Retrospective
+
+The full helper refactor was unnecessary for this release phase. A small `bandPointVisualState()` helper plus a dedicated ring marker removed the visual ambiguity without widening the change into unrelated chart cleanup.

@@ -127,14 +127,14 @@ npm run verify
 
 ## Progress
 
-- [ ] Map acceptance criteria to verification coverage.
-- [ ] Add final browser and data-contract checks.
-- [ ] Add or update compact chart legend / interaction guide for #26.
-- [ ] Update developer documentation.
-- [ ] Rebuild generated assets if needed.
-- [ ] Run full validation.
-- [ ] Complete manual smoke tests.
-- [ ] Update phase Outcomes sections.
+- [x] Map acceptance criteria to verification coverage.
+- [x] Add final browser and data-contract checks.
+- [x] Add or update compact chart legend / interaction guide for #26.
+- [x] Update developer documentation.
+- [x] Rebuild generated assets if needed.
+- [x] Run full validation.
+- [x] Complete manual smoke tests.
+- [x] Update phase Outcomes sections.
 
 ## Decision Log
 
@@ -146,7 +146,54 @@ npm run verify
   Reason: Earlier phases already change the visual language; the public release needs one coherent explanation of those semantics, but not a full onboarding system.
 - Decision: Update phase Outcomes after implementation.
   Reason: The plan should become a useful audit trail, not just pre-work documentation.
+- Decision: Place the compact guide directly under the chart legend.
+  Reason: It stays discoverable after tooltip cards appear and remains close to the visual semantics it explains.
+- Decision: Keep guide content short and state-based.
+  Reason: #26 needs a release guide, not a full tutorial; the guide should explain what users are seeing without competing with chart controls.
+- Decision: Document ownership boundaries in `docs/dev/native-esm-architecture.md`.
+  Reason: The new link contract, point overlays, Ship Designer grouping, and guide copy cross builder/chart/UI boundaries and need a stable maintenance map.
 
 ## Outcomes
 
-Pending implementation.
+Implemented. The chart now has a persistent compact guide under the legend. It explains family/filter colors, research progression lines, Pareto dimming, low-TWR/extreme-mass warning rings, hover/selection/pin outlines including click-again unpinning, and power ladder / Best Available semantics on band metrics.
+
+Final browser checks now cover the guide text and mobile wrapping in addition to the completed #23, #24, and #25 behavior. Developer documentation now records ownership for `driveLinks`, chart line rendering, point visual state, Ship Designer grouping, and guide copy.
+
+Updated source/docs files:
+
+- `tools/drive_comparison_template.html`
+- `tools/drive_comparison_styles.css`
+- `tools/drive_comparison_client/chart/interaction.js`
+- `tools/verify_drive_comparison_browser.mjs`
+- `docs/dev/native-esm-architecture.md`
+
+Regenerated output:
+
+- `docs/index.html`
+- `docs/assets/js/chart/interaction.js`
+
+Validation results:
+
+- `python -m compileall -q tools scripts` passed.
+- `node tools/verify_drive_comparison_client_syntax.mjs` passed.
+- `node tools/verify_drive_comparison_import_graph.mjs` passed with 0 circular dependency groups and the existing 6 boundary warnings available via `--show-boundary-warnings`.
+- `node tools/verify_axis_ticks.mjs` passed.
+- `node tools/verify_module_effects.mjs` passed.
+- `node tools/verify_drive_comparison_browser.mjs` passed.
+- `npm run verify` passed, including `verify:links`.
+
+Manual smoke results:
+
+- Confirmed Ship Designer is visible on desktop and mobile.
+- Opened and applied dry-mass calculator values.
+- Toggled module performance effects and confirmed the summary updated.
+- Confirmed the compact guide explains colors, research lines, Pareto dimming, warning rings, hover/select/pin outlines, click-again unpinning, and power views.
+- Confirmed guide text wraps on mobile without overflow.
+- Confirmed Korean and English guide text refresh.
+- Confirmed research-link rendering remains active without family fallback lines.
+- Pinned a combined Pareto-dominated plus impractical point and confirmed overlay visibility, then clicked again to unpin.
+- Confirmed chart and dry-mass preset export/apply helpers still restore relevant assumptions.
+
+## Retrospective
+
+The final pass stayed small: one persistent guide, verifier coverage for that guide, and documentation updates. The earlier phases already carried the feature work, so Phase 06 mostly proves and explains the resulting behavior.

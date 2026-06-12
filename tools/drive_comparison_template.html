@@ -83,23 +83,29 @@ __STYLES__
         <div class="control-card-body">
         <div class="control-stack">
           <section class="control-block">
-            <div class="label-row">
-              <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
-              <button id="dryMassCalcButton" class="icon-button" type="button" aria-label="건조질량 계산기" title="건조질량 계산기">🧮</button>
-            </div>
+            <label class="label" for="dryMass">기준 선체 건조 질량 (t)</label>
             <div class="split">
               <input id="dryMass" type="range" min="100" max="100000" value="10000" step="100">
               <input id="dryMassNumber" type="number" min="0" max="1000000" value="10000" step="10">
             </div>
           </section>
-          <section id="moduleEffectsControl" class="control-block module-effects-control">
-            <label class="check-row module-effects-toggle">
-              <input id="moduleEffectsEnabled" type="checkbox">
-              <span id="moduleEffectsEnabledLabel">모듈 효과 적용</span>
-            </label>
-            <div id="moduleEffectsSummary" class="module-effects-summary"></div>
-            <div id="moduleEffectsChips" class="effect-chip-list" aria-live="polite"></div>
-            <div id="moduleEffectsWarnings" class="module-effects-warnings" aria-live="polite"></div>
+          <section id="shipDesignerSection" class="control-block ship-designer-section" aria-labelledby="shipDesignerTitle">
+            <div class="ship-designer-heading">
+              <div class="ship-designer-title-stack">
+                <div id="shipDesignerTitle" class="label ship-designer-title">Ship Designer</div>
+                <div id="shipDesignerAppliedTemplate" class="ship-designer-status" data-applied-template="false" aria-live="polite">No ship template applied</div>
+              </div>
+              <button id="dryMassCalcButton" class="compact-command ship-designer-action" type="button" aria-label="Open Dry Mass Calculator" title="Open Dry Mass Calculator">Open Dry Mass Calculator</button>
+            </div>
+            <section id="moduleEffectsControl" class="module-effects-control">
+              <label class="check-row module-effects-toggle">
+                <input id="moduleEffectsEnabled" type="checkbox">
+                <span id="moduleEffectsEnabledLabel">모듈 효과 적용</span>
+              </label>
+              <div id="moduleEffectsSummary" class="module-effects-summary"></div>
+              <div id="moduleEffectsChips" class="effect-chip-list" aria-live="polite"></div>
+              <div id="moduleEffectsWarnings" class="module-effects-warnings" aria-live="polite"></div>
+            </section>
           </section>
           <section class="control-block">
             <label class="label" for="targetDv">목표 dV (km/s)</label>
@@ -270,6 +276,7 @@ __STYLES__
         <div id="tooltip" class="tooltip tooltip-empty"><div class="tooltip-placeholder">선택 없음</div></div>
       </div>
       <div id="legend" class="legend"></div>
+      <div id="chartGuide" class="chart-guide" aria-label="Chart guide"></div>
     </section>
     <section class="table-shell">
       <table>

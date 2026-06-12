@@ -4,10 +4,10 @@ import { clamp } from "../shared/math.js";
 import { localLabel } from "../presets/library.js";
 import { CHART_CLICK_TOLERANCE_PX, CHART_HIT_RADIUS_PX, CHART_LADDER_HIT_RADIUS_PX, DATA, UI_LANG, chart, localText, metricDefs, metricHint, metricLabel, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state, updateLeftPanelCardSummaries } from "../state/core.js";
 import { updateChartControls } from "../ui/control_state.js";
-import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip } from "../ui/tooltip_table.js";
+import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip, unpinTooltipItemByKey } from "../ui/tooltip_table.js";
 import { axisSpaceValue, buildAxisTickPlan, makeScale, normalizeAxisDomain, valueFromAxisSpace } from "./axis.js";
 import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows, setChartHitTargets, setChartLadderHitTargets, setChartViewport, setCurrentChartRows, setCurrentDiagnostics } from "./context.js";
-import { baseChartResearchValues, chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawTotalMassBands, mergePinnedFocusTooltipRefs, mergePinnedTooltipRefs, pinnedFocusTooltipRefs, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
+import { baseChartResearchValues, chartResearchValues, dedupeTooltipRefs, drawGridAndAxes, drawMetricLines, drawPointStateOverlay, drawTotalMassBands, isPinnedTooltipKey, mergePinnedFocusTooltipRefs, mergePinnedTooltipRefs, pinnedFocusTooltipRefs, pinnedTooltipRefs, sameTooltipRefs, secondaryEncodingEnabled, setHoverPoints, svgEl } from "./rendering.js";
 
 export function render() {
       const diagnostics = computeDriveDiagnostics();
@@ -21,6 +21,7 @@ export function render() {
       renderFamilyDiagnostics(diagnostics);
       renderChartDiagnostic(diagnostics);
       renderLegend(rows);
+      renderChartGuide();
       renderChart(rows);
       renderTable(rows);
       updateSortHeaders();
@@ -162,6 +163,14 @@ export function renderLegend(rows) {
         });
         legend.appendChild(group);
       });
+      if (rows.length) {
+        const lineMeaning = document.createElement("span");
+        lineMeaning.className = "legend-item";
+        lineMeaning.textContent = Array.isArray(DATA.driveLinks)
+          ? localText("선: 연구 진행 링크", "Lines: research progression links")
+          : localText("선: 계열 추세", "Lines: family trend fallback");
+        legend.appendChild(lineMeaning);
+      }
       if (isBandMetric()) {
         const item = document.createElement("span");
         item.className = "legend-item";
@@ -192,6 +201,47 @@ export function renderLegend(rows) {
           pareto.textContent = localText("흐린 점: Pareto 지배 후보", "Dim points: Pareto-dominated candidates");
           legend.appendChild(pareto);
         }
+        if (state.showImpracticalCandidates) {
+          const impractical = document.createElement("span");
+          impractical.className = "legend-item";
+          const marker = document.createElement("span");
+          marker.className = "legend-impractical-marker";
+          impractical.append(
+            marker,
+            document.createTextNode(localText(
+              "경고 링: 최소 TWR 미달 또는 극단 질량비",
+              "Warning ring: below minimum TWR or extreme mass ratio",
+            )),
+          );
+          legend.appendChild(impractical);
+        }
+      }
+    }
+
+export function renderChartGuide() {
+      const guide = document.getElementById("chartGuide");
+      if (!guide) return;
+      guide.innerHTML = "";
+      guide.setAttribute("aria-label", localText("차트 안내", "Chart guide"));
+
+      const appendItem = (symbolClass, text) => {
+        const item = document.createElement("span");
+        item.className = "chart-guide-item";
+        const symbol = document.createElement("span");
+        symbol.className = `chart-guide-symbol ${symbolClass}`;
+        item.append(symbol, document.createTextNode(text));
+        guide.appendChild(item);
+      };
+
+      appendItem("is-family", localText("색: 계열/필터", "Colors: family filters"));
+      appendItem("is-line", Array.isArray(DATA.driveLinks)
+        ? localText("선: 연구 진행", "Lines: research progression")
+        : localText("선: 계열 추세 대체", "Lines: family fallback"));
+      appendItem("is-dim", localText("흐림: Pareto 지배", "Dim: Pareto-dominated"));
+      appendItem("is-warning", localText("경고 링: 낮은 TWR/극단 질량비", "Warning ring: low TWR/extreme mass"));
+      appendItem("is-pin", localText("윤곽선: 호버/선택/고정, 재클릭 해제", "Outline: hover/select/pin; click again unpins"));
+      if (isBandMetric()) {
+        appendItem("is-power", localText("전원 보기: 사다리/Best Available", "Power view: ladders/Best Available"));
       }
     }
 
@@ -289,6 +339,7 @@ export function renderChart(rows) {
       } else {
         drawMetricLines(rows, x, y, plot);
       }
+      drawPointStateOverlay();
       updateZoomButton();
     }
 
@@ -584,6 +635,16 @@ export function handleChartClick(point) {
         : hits.filter(hit => !state.dismissedTooltipKeys.has(hit.key));
       if (!visibleHits.length) {
         clearTooltip({ keepPinned: true });
+        return;
+      }
+      const primary = visibleHits[0];
+      const selectedKeys = new Set(dedupeTooltipRefs(state.lastTooltipItems).map(item => item.key));
+      if (isPinnedTooltipKey(primary.key)) {
+        unpinTooltipItemByKey(primary.key);
+        return;
+      }
+      if (state.tooltipPinned && selectedKeys.has(primary.key)) {
+        unpinTooltip();
         return;
       }
       pinTooltipItems(visibleHits);

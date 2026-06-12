@@ -116,7 +116,49 @@ export function groupedRows(rows) {
       return groups;
     }
 
-export function pointAttrs(row, powerOptionId, fill, stroke = "none", strokeWidth = 0, extraClass = "") {
+export function driveLinksAvailable() {
+      return Array.isArray(DATA.driveLinks);
+    }
+
+export function visibleRowsById(rows) {
+      return new Map(rows.map(row => [row.id, row]));
+    }
+
+export function resolveDriveLinkSegments(rows, coordinateForRow) {
+      if (!driveLinksAvailable()) return null;
+      const rowById = visibleRowsById(rows);
+      return DATA.driveLinks.map(link => {
+        const source = rowById.get(link.from);
+        const target = rowById.get(link.to);
+        if (!source || !target) return null;
+        const start = coordinateForRow(source);
+        const end = coordinateForRow(target);
+        if (!start || !end) return null;
+        if (![start.xCoord, start.yCoord, end.xCoord, end.yCoord].every(Number.isFinite)) return null;
+        return { link, source, target, start, end };
+      }).filter(Boolean);
+    }
+
+export function drawDriveLinkSegments(plot, segments, segmentAttrs) {
+      segments.forEach(segment => {
+        plot.appendChild(svgEl("path", {
+          class: "base-drive-line drive-link-segment",
+          d: linePath([
+            [segment.start.xCoord, segment.start.yCoord],
+            [segment.end.xCoord, segment.end.yCoord],
+          ]),
+          fill: "none",
+          "data-drive-link": "true",
+          "data-from": segment.link.from,
+          "data-to": segment.link.to,
+          "data-family-key": segment.link.familyKey || segment.source.familyKey,
+          "data-thruster-count": segment.link.thrusterCount || segment.source.thrusterCount,
+          ...segmentAttrs(segment),
+        }));
+      });
+    }
+
+export function pointAttrs(row, powerOptionId, fill, stroke = "none", strokeWidth = 0, extraClass = "", dataAttrs = {}) {
       const hovered = isHoveredPoint(row, powerOptionId);
       return {
         class: `data-point${extraClass ? ` ${extraClass}` : ""}`,
@@ -127,7 +169,23 @@ export function pointAttrs(row, powerOptionId, fill, stroke = "none", strokeWidt
         fill,
         stroke: hovered ? "#fff" : stroke,
         "stroke-width": hovered ? 2.2 : strokeWidth,
+        ...dataAttrs,
       };
+    }
+
+export function appendImpracticalPointMarker(plot, row, powerOptionId, xCoord, yCoord, radius, kind, visual) {
+      if (!visual.impractical) return;
+      plot.appendChild(svgEl("circle", {
+        class: `impractical-point-ring${visual.paretoDominated ? " is-pareto-dominated" : ""}`,
+        "data-row-id": row.id,
+        "data-power-option-id": powerOptionId || "",
+        "data-power-point-kind": kind,
+        "data-impractical": "true",
+        "data-pareto-dominated": visual.paretoDominated ? "true" : "false",
+        cx: xCoord,
+        cy: yCoord,
+        r: radius,
+      }));
     }
 
 export function pointKey(rowId, powerOptionId = null) {
@@ -300,14 +358,70 @@ export function updateHoverStyles() {
         point.setAttribute("stroke", hovered ? "#fff" : (point.getAttribute("data-default-stroke") || "none"));
         point.setAttribute("stroke-width", hovered ? "2.2" : (point.getAttribute("data-default-stroke-width") || "0"));
       });
+      drawPointStateOverlay();
+    }
+
+export function drawPointStateOverlay() {
+      chart.querySelector(".point-state-overlay")?.remove();
+      if (!chartHitTargets.length) return;
+      const selectedKeys = new Set(dedupeTooltipRefs(state.lastTooltipItems).map(item => item.key));
+      const explicitPinnedKeys = new Set(dedupeTooltipRefs(state.pinnedTooltipItems).map(item => item.key));
+      const pinnedKeys = new Set([
+        ...explicitPinnedKeys,
+        ...(state.tooltipPinned ? selectedKeys : []),
+      ]);
+      const hoverKeys = new Set(dedupeTooltipRefs(state.hoverPoints).map(item => item.key));
+      if (!pinnedKeys.size && !hoverKeys.size && !selectedKeys.size) return;
+
+      const overlay = svgEl("g", { class: "point-state-overlay", "aria-hidden": "true" });
+      const drawn = new Set();
+      chartHitTargets.forEach(target => {
+        if (drawn.has(target.key)) return;
+        const pinned = pinnedKeys.has(target.key);
+        const hovered = hoverKeys.has(target.key);
+        const selected = selectedKeys.has(target.key);
+        if (!pinned && !hovered && !selected) return;
+        drawn.add(target.key);
+        const stateClass = pinned ? "is-pinned" : (hovered ? "is-hovered" : "is-selected");
+        const stateName = pinned ? "pinned" : (hovered ? "hovered" : "selected");
+        overlay.appendChild(svgEl("circle", {
+          class: `point-state-ring ${stateClass}`,
+          "data-row-id": target.rowId,
+          "data-power-option-id": target.powerOptionId || "",
+          "data-overlay-state": stateName,
+          cx: target.x,
+          cy: target.y,
+          r: Math.max(7.4, (Number(target.radius) || 5) + (pinned ? 3.2 : 2.4)),
+        }));
+      });
+      if (overlay.childNodes.length) chart.appendChild(overlay);
     }
 
 export function drawMetricLines(rows, x, y, plot) {
       const groups = groupedRows(rows);
+      const linkSegments = resolveDriveLinkSegments(rows, row => {
+        const value = metricDefs[state.metric].value(row);
+        if (!Number.isFinite(value) || value <= 0) return null;
+        return {
+          xCoord: x(rowUnlockResearchValue(row)),
+          yCoord: y(value),
+        };
+      });
+      if (linkSegments) {
+        drawDriveLinkSegments(plot, linkSegments, segment => ({
+          stroke: segment.source.familyColor,
+          "stroke-width": 2.2,
+          "stroke-linejoin": "round",
+          "stroke-linecap": "round",
+          opacity: 0.82,
+        }));
+      }
       groups.forEach(group => {
         const color = group[0].familyColor;
-        const path = linePath(group.map(row => [x(rowUnlockResearchValue(row)), y(metricDefs[state.metric].value(row))]));
-        plot.appendChild(svgEl("path", { d: path, fill: "none", stroke: color, "stroke-width": 2.2, "stroke-linejoin": "round", "stroke-linecap": "round", opacity: 0.82 }));
+        if (!linkSegments) {
+          const path = linePath(group.map(row => [x(rowUnlockResearchValue(row)), y(metricDefs[state.metric].value(row))]));
+          plot.appendChild(svgEl("path", { class: "base-drive-line family-fallback-line", d: path, fill: "none", stroke: color, "stroke-width": 2.2, "stroke-linejoin": "round", "stroke-linecap": "round", opacity: 0.82 }));
+        }
         group.forEach(row => {
           const value = metricDefs[state.metric].value(row);
           if (!Number.isFinite(value) || value <= 0) return;
@@ -383,6 +497,27 @@ export function drawTotalMassBands(rows, x, y, plot) {
         drawPowerBestAvailableComparison(rows, x, y, plot, secondaryDomain, paretoKeys, focusedDriveIds);
         return;
       }
+      const linkSegments = resolveDriveLinkSegments(rows, row => {
+        const option = chartMassOptions(row)[0];
+        if (!option) return null;
+        return {
+          option,
+          xCoord: optionX(row, option, x),
+          yCoord: y(optionMetricValue(option)),
+        };
+      });
+      if (linkSegments) {
+        drawDriveLinkSegments(plot, linkSegments, segment => {
+          const color = segment.source.familyBandColor || segment.source.familyColor;
+          const colorOklch = segment.source.familyBandColorOklch || color;
+          return {
+            stroke: color,
+            style: paintStyle("stroke", color, colorOklch),
+            "stroke-width": 1.7,
+            opacity: 0.58,
+          };
+        });
+      }
       const groups = groupedRows(rows);
       groups.forEach(group => {
         const color = group[0].familyBandColor || group[0].familyColor;
@@ -396,9 +531,9 @@ export function drawTotalMassBands(rows, x, y, plot) {
           const yCoord = y(optionMetricValue(option));
           return Number.isFinite(xCoord) && Number.isFinite(yCoord) ? { row, option, xCoord, yCoord } : null;
         }).filter(Boolean);
-        if (basePoints.length >= 2) {
+        if (!linkSegments && basePoints.length >= 2) {
           plot.appendChild(svgEl("path", {
-            class: "base-drive-line",
+            class: "base-drive-line family-fallback-line",
             d: linePath(basePoints.map(point => [point.xCoord, point.yCoord])),
             fill: "none",
             stroke: color,
@@ -421,6 +556,20 @@ export function powerResearchComparisonMode() {
     }
 
 export function drawPowerBestAvailableComparison(rows, x, y, plot, secondaryDomain, paretoKeys, focusedDriveIds) {
+      const linkSegments = resolveDriveLinkSegments(rows, row => firstCompatiblePowerPoint(row, x, y));
+      if (linkSegments) {
+        drawDriveLinkSegments(plot, linkSegments, segment => {
+          const color = segment.source.familyBandColor || segment.source.familyColor;
+          const colorOklch = segment.source.familyBandColorOklch || color;
+          return {
+            stroke: color,
+            style: paintStyle("stroke", color, colorOklch),
+            "stroke-width": 1.35,
+            "stroke-dasharray": "3 5",
+            opacity: 0.44,
+          };
+        });
+      }
       const groups = groupedRows(rows);
       groups.forEach(group => {
         const color = group[0].familyBandColor || group[0].familyColor;
@@ -428,9 +577,9 @@ export function drawPowerBestAvailableComparison(rows, x, y, plot, secondaryDoma
         const fillStyle = paintStyle("fill", color, colorOklch);
         const strokeStyle = paintStyle("stroke", color, colorOklch);
         const basePoints = group.map(row => firstCompatiblePowerPoint(row, x, y)).filter(Boolean);
-        if (basePoints.length >= 2) {
+        if (!linkSegments && basePoints.length >= 2) {
           plot.appendChild(svgEl("path", {
-            class: "base-drive-line",
+            class: "base-drive-line family-fallback-line",
             d: linePath(basePoints.map(point => [point.xCoord, point.yCoord])),
             fill: "none",
             stroke: color,
@@ -458,18 +607,17 @@ export function firstCompatiblePowerPoint(row, x, y) {
     }
 
 export function drawFirstCompatiblePowerPoint(row, option, xCoord, yCoord, plot, color, fillStyle, secondaryDomain, paretoKeys) {
-      const key = pointKey(row.id, option.id);
-      const visual = bandPointVisual(option, secondaryDomain, paretoKeys.has(key));
-      const impractical = isImpracticalOption(option);
+      const visual = bandPointVisualState(row, option, secondaryDomain, paretoKeys, "power-base-point");
       registerHitTarget(row, option.id, xCoord, yCoord, 5.5);
       plot.appendChild(svgEl("circle", {
         ...pointAttrs(
           row,
           option.id,
           color,
-          impractical ? "var(--danger)" : "none",
-          impractical ? 2 : 0,
-          "power-base-point",
+          visual.impractical ? "var(--danger)" : "none",
+          visual.impractical ? 1.5 : 0,
+          visual.className,
+          visual.dataAttrs,
         ),
         cx: xCoord,
         cy: yCoord,
@@ -477,8 +625,8 @@ export function drawFirstCompatiblePowerPoint(row, option, xCoord, yCoord, plot,
         style: `${fillStyle}${visual.style}`,
         opacity: clamp(visual.opacity, 0.12, 1),
         "data-power-point-kind": "base",
-        "data-impractical": impractical ? "true" : "false",
       }));
+      appendImpracticalPointMarker(plot, row, option.id, xCoord, yCoord, 7.1, "base", visual);
     }
 
 export function drawBestAvailablePowerPath(row, x, y, plot, color, fillStyle, strokeStyle, secondaryDomain, paretoKeys, focusedDriveIds) {
@@ -508,27 +656,25 @@ export function drawBestAvailablePowerPath(row, x, y, plot, color, fillStyle, st
       points.forEach((point, index) => {
         if (index === 0) return;
         const { option, xCoord, yCoord } = point;
-        const key = pointKey(row.id, option.id);
-        const visual = bandPointVisual(option, secondaryDomain, paretoKeys.has(key));
-        const impractical = isImpracticalOption(option);
-        const baseOpacity = impractical ? Math.max(visual.opacity * 0.78, 0.38) : visual.opacity;
+        const visual = bandPointVisualState(row, option, secondaryDomain, paretoKeys, `power-extra-point power-best-point${focused ? " is-focused" : " is-subdued"}`);
         plot.appendChild(svgEl("circle", {
           ...pointAttrs(
             row,
             option.id,
             "var(--panel)",
-            impractical ? "var(--danger)" : color,
-            impractical ? 2 : 1.65,
-            `power-extra-point power-best-point${focused ? " is-focused" : " is-subdued"}`,
+            visual.impractical ? "var(--danger)" : color,
+            visual.impractical ? 1.5 : 1.65,
+            visual.className,
+            visual.dataAttrs,
           ),
           cx: xCoord,
           cy: yCoord,
           r: 3.7,
           style: visual.style,
-          opacity: clamp(baseOpacity * (focused ? 1 : 0.58), 0.12, 1),
+          opacity: clamp(visual.opacity * (focused ? 1 : 0.58), 0.12, 1),
           "data-power-point-kind": "best",
-          "data-impractical": impractical ? "true" : "false",
         }));
+        appendImpracticalPointMarker(plot, row, option.id, xCoord, yCoord, 5.2, "best", visual);
         registerHitTarget(row, option.id, xCoord, yCoord, 4.4);
       });
     }
@@ -621,10 +767,13 @@ export function drawPowerLadder(row, x, y, plot, color, fillStyle, strokeStyle, 
       optionPoints.forEach(point => {
         const { option, index, xCoord, yCoord } = point;
         const isBase = index === 0;
-        const key = pointKey(row.id, option.id);
-        const visual = bandPointVisual(option, secondaryDomain, paretoKeys.has(key));
-        const impractical = isImpracticalOption(option);
-        const baseOpacity = impractical ? Math.max(visual.opacity * 0.78, 0.38) : visual.opacity;
+        const visual = bandPointVisualState(
+          row,
+          option,
+          secondaryDomain,
+          paretoKeys,
+          isBase ? "power-base-point" : `power-extra-point${focused ? " is-focused" : " is-subdued"}`,
+        );
         const subduedOpacity = !isBase && state.powerResearchView === "all" && !focused ? 0.38 : 1;
         registerHitTarget(row, option.id, xCoord, yCoord, isBase ? 5.5 : 4.4);
         const circle = svgEl("circle", {
@@ -632,19 +781,20 @@ export function drawPowerLadder(row, x, y, plot, color, fillStyle, strokeStyle, 
             row,
             option.id,
             isBase ? color : "var(--panel)",
-            impractical ? "var(--danger)" : color,
-            impractical ? 2 : (isBase ? 1 : 1.65),
-            isBase ? "power-base-point" : `power-extra-point${focused ? " is-focused" : " is-subdued"}`,
+            visual.impractical ? "var(--danger)" : color,
+            visual.impractical ? 1.5 : (isBase ? 1 : 1.65),
+            visual.className,
+            visual.dataAttrs,
           ),
           cx: xCoord,
           cy: yCoord,
           r: isBase ? 5.5 : 3.7,
           style: `${isBase ? fillStyle : ""}${visual.style}`,
-          opacity: clamp(baseOpacity * subduedOpacity, 0.12, 1),
+          opacity: clamp(visual.opacity * subduedOpacity, 0.12, 1),
           "data-power-point-kind": isBase ? "base" : "extra",
-          "data-impractical": impractical ? "true" : "false",
         });
         plot.appendChild(circle);
+        appendImpracticalPointMarker(plot, row, option.id, xCoord, yCoord, isBase ? 7.1 : 5.2, isBase ? "base" : "extra", visual);
       });
     }
 
@@ -703,6 +853,31 @@ export function bandPointVisual(option, secondaryDomain, pareto) {
       return {
         opacity: clamp(encodedOpacity * paretoOpacity, 0.12, 1),
         style: `filter:brightness(${brightness.toFixed(2)});`,
+      };
+    }
+
+export function bandPointVisualState(row, option, secondaryDomain, paretoKeys, extraClass = "") {
+      const key = pointKey(row.id, option.id);
+      const paretoDominated = !!state.paretoHighlight && !paretoKeys.has(key);
+      const impractical = isImpracticalOption(option);
+      const visual = bandPointVisual(option, secondaryDomain, !paretoDominated);
+      const classes = [
+        extraClass,
+        paretoDominated ? "is-pareto-dominated" : "",
+        impractical ? "is-impractical" : "",
+        secondaryDomain ? "has-secondary-encoding" : "",
+      ].filter(Boolean).join(" ");
+      return {
+        ...visual,
+        key,
+        paretoDominated,
+        impractical,
+        className: classes,
+        dataAttrs: {
+          "data-pareto-dominated": paretoDominated ? "true" : "false",
+          "data-impractical": impractical ? "true" : "false",
+          "data-secondary-encoding": secondaryDomain ? "true" : "false",
+        },
       };
     }
 

@@ -182,6 +182,80 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
 
+  const shipDesignerInitial = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    const section = document.getElementById("shipDesignerSection");
+    const modulePanel = document.getElementById("moduleEffectsControl");
+    const button = document.getElementById("dryMassCalcButton");
+    const status = document.getElementById("shipDesignerAppliedTemplate");
+    const select = document.getElementById("dryMassPresetSelect");
+    const initialStatus = status?.textContent.trim() || "";
+    if (select && select.options.length > 1) {
+      select.selectedIndex = 1;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    const statusAfterUnappliedSelection = status?.textContent.trim() || "";
+    return {
+      sectionExists: !!section,
+      modulePanelInside: !!section && !!modulePanel && section.contains(modulePanel),
+      buttonText: button?.textContent.trim() || "",
+      buttonIsTextCommand: !!button && !button.classList.contains("icon-button"),
+      defaultStatus: initialStatus,
+      defaultAppliedFlag: status?.dataset.appliedTemplate || "",
+      statusAfterUnappliedSelection,
+      unappliedSelectionPreservedStatus: statusAfterUnappliedSelection === initialStatus,
+    };
+  });
+  expect(shipDesignerInitial.sectionExists, `${htmlFile}: Ship Designer section missing from Simulation Conditions`);
+  expect(shipDesignerInitial.modulePanelInside, `${htmlFile}: module effects controls are not grouped inside Ship Designer`);
+  expect(/Dry Mass Calculator|Ship Design/.test(shipDesignerInitial.buttonText), `${htmlFile}: dry-mass calculator button is not a clear text command`);
+  expect(shipDesignerInitial.buttonIsTextCommand, `${htmlFile}: dry-mass calculator still uses icon-only button styling`);
+  expect(/No ship template applied/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should say no template is applied`);
+  expect(shipDesignerInitial.defaultAppliedFlag === "false", `${htmlFile}: default Ship Designer applied flag should be false`);
+  expect(shipDesignerInitial.unappliedSelectionPreservedStatus, `${htmlFile}: selecting a design preset falsely changed the applied-template status`);
+
+  const shipDesignerPresetFixture = await page.evaluate(() => {
+    const entry = saveDryMassPresetFromCalculator("Verifier Ship Design", exportedDryMassCalculatorPreset());
+    if (entry) renderDryMassPresetControls(entry.id);
+    const status = document.getElementById("shipDesignerAppliedTemplate");
+    return {
+      saved: !!entry,
+      selected: document.getElementById("dryMassPresetSelect")?.value === entry?.id,
+      statusText: status?.textContent.trim() || "",
+      appliedFlag: status?.dataset.appliedTemplate || "",
+    };
+  });
+  expect(shipDesignerPresetFixture.saved, `${htmlFile}: could not create dry-mass design preset fixture for Ship Designer applied-template check`);
+  expect(shipDesignerPresetFixture.selected, `${htmlFile}: dry-mass design preset fixture was not selected`);
+  expect(/No ship template applied/.test(shipDesignerPresetFixture.statusText), `${htmlFile}: saving/selecting a design preset falsely changed the applied-template status`);
+  expect(shipDesignerPresetFixture.appliedFlag === "false", `${htmlFile}: saving/selecting a design preset should not mark it applied`);
+
+  await page.locator("#dryMassCalcButton").click();
+  await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
+  const dryMassButtonFocusCheck = await page.evaluate(() => ({
+    modalOpen: !!document.querySelector("#dryMassCalcModal.is-open"),
+    activeInsideModal: !!document.activeElement?.closest("#dryMassCalcModal"),
+    hasDesignPreset: !!document.getElementById("dryMassPresetSelect")?.value,
+  }));
+  expect(dryMassButtonFocusCheck.modalOpen, `${htmlFile}: Ship Designer dry-mass button did not open the modal`);
+  expect(dryMassButtonFocusCheck.activeInsideModal, `${htmlFile}: Ship Designer dry-mass button did not focus a modal control`);
+  await page.locator("#dryMassCalcApply").click();
+  await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
+  const shipDesignerApplied = await page.evaluate(() => {
+    const status = document.getElementById("shipDesignerAppliedTemplate");
+    return {
+      text: status?.textContent.trim() || "",
+      appliedFlag: status?.dataset.appliedTemplate || "",
+      stateTemplateName: state.appliedShipTemplate?.name || "",
+    };
+  });
+  expect(dryMassButtonFocusCheck.hasDesignPreset, `${htmlFile}: dry-mass design preset fixture missing for Ship Designer applied-template check`);
+  expect(shipDesignerApplied.appliedFlag === "true", `${htmlFile}: applying a named design did not mark Ship Designer status as applied`);
+  expect(/Applied template:/.test(shipDesignerApplied.text), `${htmlFile}: applied Ship Designer status did not show the template name`);
+  expect(shipDesignerApplied.stateTemplateName.trim().length > 0, `${htmlFile}: applied ship template state did not store a named design`);
+
   const moduleEffectCalculationChecks = await page.evaluate(() => {
     resetChartStateToDefaults();
     state.metric = "totalMassTons";
@@ -869,6 +943,284 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(powerViewChecks.bestMode.selectedPowerText.trim().length > 0, `${htmlFile}: Best Available tooltip did not identify the selected power plant`);
   expect(!powerViewChecks.nonPowerMetric.controlVisible, `${htmlFile}: Power view control is visible on a non-power-comparison metric`);
   expect(powerViewChecks.nonPowerMetric.bestLines === 0 && powerViewChecks.nonPowerMetric.ladderLines === 0, `${htmlFile}: Power view rendered on a non-power-comparison metric`);
+
+  const driveLinkRenderingChecks = await page.evaluate(() => {
+    const currentRowById = () => new Map(currentChartRows.map(row => [row.id, row]));
+    const visibleDriveLinkCount = coordinatePredicate => {
+      const rows = currentRowById();
+      return (DATA.driveLinks || []).filter(link => {
+        const source = rows.get(link.from);
+        const target = rows.get(link.to);
+        return source && target && coordinatePredicate(source) && coordinatePredicate(target);
+      }).length;
+    };
+    const finiteBasicMetric = row => {
+      const value = metricDefs[state.metric].value(row);
+      const research = Number(row.unlockCumulativeResearch || row.cumulativeResearch);
+      return Number.isFinite(value) && value > 0 && Number.isFinite(research) && research > 0;
+    };
+    const finiteBaseMassOption = row => {
+      const option = chartMassOptions(row)[0];
+      const research = Number(option?.combinedCumulativeResearch || row.unlockCumulativeResearch || row.cumulativeResearch);
+      return !!option
+        && Number.isFinite(research)
+        && research > 0
+        && Number.isFinite(Number(option.totalMassTons))
+        && Number(option.totalMassTons) > 0;
+    };
+    const snapshot = (metric, powerView = "focus") => {
+      resetChartStateToDefaults();
+      setLanguage("en", { rerender: false });
+      state.metric = metric;
+      state.powerResearchView = powerView;
+      syncUiFromState();
+      render();
+      const coordinatePredicate = metric === "totalMassTons" ? finiteBaseMassOption : finiteBasicMetric;
+      return {
+        metric,
+        powerView,
+        expectedLinks: visibleDriveLinkCount(coordinatePredicate),
+        renderedLinks: document.querySelectorAll("#chart .drive-link-segment").length,
+        fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
+        baseLines: document.querySelectorAll("#chart .base-drive-line").length,
+        legendText: document.getElementById("legend")?.textContent || "",
+        ladderLines: document.querySelectorAll("#chart .power-ladder-line").length,
+        bestLines: document.querySelectorAll("#chart .power-best-line").length,
+      };
+    };
+    const basic = snapshot("thrustMN");
+    const totalMass = snapshot("totalMassTons", "focus");
+    const allLadders = snapshot("totalMassTons", "all");
+    const bestAvailable = snapshot("totalMassTons", "best");
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    syncUiFromState();
+    render();
+    const visibleIds = new Set(currentChartRows.map(row => row.id));
+    const linkFamilies = new Set((DATA.driveLinks || [])
+      .filter(link => visibleIds.has(link.from) && visibleIds.has(link.to))
+      .map(link => link.familyKey));
+    const families = new Map();
+    currentChartRows.forEach(row => {
+      if (!families.has(row.familyKey)) families.set(row.familyKey, []);
+      families.get(row.familyKey).push(row);
+    });
+    const familyWithoutLinks = [...families.entries()].find(([family, rows]) => rows.length > 1 && !linkFamilies.has(family));
+    const familyWithoutLinkSegmentCount = familyWithoutLinks
+      ? [...document.querySelectorAll("#chart .drive-link-segment")]
+        .filter(path => path.getAttribute("data-family-key") === familyWithoutLinks[0]).length
+      : 0;
+
+    const originalLinks = DATA.driveLinks;
+    DATA.driveLinks = [];
+    render();
+    const emptyArray = {
+      baseLines: document.querySelectorAll("#chart .base-drive-line").length,
+      renderedLinks: document.querySelectorAll("#chart .drive-link-segment").length,
+      fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
+      legendText: document.getElementById("legend")?.textContent || "",
+    };
+    delete DATA.driveLinks;
+    render();
+    const missingDataFallback = {
+      baseLines: document.querySelectorAll("#chart .base-drive-line").length,
+      fallbackLines: document.querySelectorAll("#chart .family-fallback-line").length,
+      legendText: document.getElementById("legend")?.textContent || "",
+    };
+    DATA.driveLinks = originalLinks;
+    render();
+
+    return {
+      basic,
+      totalMass,
+      allLadders,
+      bestAvailable,
+      familyWithoutLinks: familyWithoutLinks ? familyWithoutLinks[0] : "",
+      familyWithoutLinkSegmentCount,
+      emptyArray,
+      missingDataFallback,
+    };
+  });
+  expect(driveLinkRenderingChecks.basic.expectedLinks > 0, `${htmlFile}: no visible generated driveLinks available for basic metric rendering`);
+  expect(driveLinkRenderingChecks.basic.renderedLinks === driveLinkRenderingChecks.basic.expectedLinks, `${htmlFile}: basic metric line count is not derived from visible driveLinks`);
+  expect(driveLinkRenderingChecks.basic.fallbackLines === 0, `${htmlFile}: family fallback lines rendered even though driveLinks data exists`);
+  expect(/Lines: research progression links/.test(driveLinkRenderingChecks.basic.legendText), `${htmlFile}: legend does not describe research progression links`);
+  expect(driveLinkRenderingChecks.totalMass.renderedLinks === driveLinkRenderingChecks.totalMass.expectedLinks, `${htmlFile}: total-mass link line count is not derived from visible driveLinks`);
+  expect(driveLinkRenderingChecks.allLadders.renderedLinks === driveLinkRenderingChecks.allLadders.expectedLinks, `${htmlFile}: All Ladders link line count is not derived from visible driveLinks`);
+  expect(driveLinkRenderingChecks.allLadders.ladderLines > 0, `${htmlFile}: All Ladders power paths disappeared after link rendering change`);
+  expect(driveLinkRenderingChecks.bestAvailable.renderedLinks === driveLinkRenderingChecks.bestAvailable.expectedLinks, `${htmlFile}: Best Available link line count is not derived from visible driveLinks`);
+  expect(driveLinkRenderingChecks.bestAvailable.bestLines > 0, `${htmlFile}: Best Available power paths disappeared after link rendering change`);
+  expect(driveLinkRenderingChecks.familyWithoutLinks, `${htmlFile}: no visible multi-drive family without driveLinks was available for family-only line verification`);
+  expect(driveLinkRenderingChecks.familyWithoutLinkSegmentCount === 0, `${htmlFile}: rendered a family-only line for ${driveLinkRenderingChecks.familyWithoutLinks}`);
+  expect(driveLinkRenderingChecks.emptyArray.baseLines === 0 && driveLinkRenderingChecks.emptyArray.fallbackLines === 0, `${htmlFile}: empty driveLinks array triggered family fallback lines`);
+  expect(/Lines: research progression links/.test(driveLinkRenderingChecks.emptyArray.legendText), `${htmlFile}: empty driveLinks array was not treated as authoritative link data`);
+  expect(driveLinkRenderingChecks.missingDataFallback.fallbackLines > 0, `${htmlFile}: missing driveLinks data did not trigger compatibility fallback`);
+  expect(/Lines: family trend fallback/.test(driveLinkRenderingChecks.missingDataFallback.legendText), `${htmlFile}: missing driveLinks fallback legend text missing`);
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  const chartGuideChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    state.showImpracticalCandidates = true;
+    state.paretoHighlight = true;
+    syncUiFromState();
+    render();
+    const guide = document.getElementById("chartGuide");
+    const guideBox = guide?.getBoundingClientRect();
+    const childOverflow = guide && guideBox
+      ? [...guide.children].some(child => {
+        const box = child.getBoundingClientRect();
+        return box.left < guideBox.left - 1 || box.right > guideBox.right + 1;
+      })
+      : true;
+    const englishText = guide?.textContent || "";
+    const englishItemCount = guide?.querySelectorAll(".chart-guide-item").length || 0;
+    const englishPowerItems = [...(guide?.querySelectorAll(".chart-guide-item") || [])]
+      .filter(item => /Power view/.test(item.textContent || "")).length;
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    render();
+    const koreanText = guide?.textContent || "";
+    return {
+      exists: !!guide,
+      aria: guide?.getAttribute("aria-label") || "",
+      englishText,
+      englishItemCount,
+      englishPowerItems,
+      childOverflow,
+      koreanText,
+    };
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  expect(chartGuideChecks.exists, `${htmlFile}: compact chart guide is missing`);
+  expect(chartGuideChecks.englishItemCount >= 6, `${htmlFile}: compact chart guide is missing required items`);
+  expect(/Colors: family filters/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain family colors/filters`);
+  expect(/Lines: research progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain research progression lines`);
+  expect(/Dim: Pareto-dominated/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain Pareto dimming`);
+  expect(/Warning ring: low TWR\/extreme mass/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain low-TWR/impractical markers`);
+  expect(/Outline: hover\/select\/pin; click again unpins/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain hover/select/pin and unpin behavior`);
+  expect(chartGuideChecks.englishPowerItems === 1, `${htmlFile}: guide does not explain power-view ladder semantics on band metrics`);
+  expect(!chartGuideChecks.childOverflow, `${htmlFile}: compact chart guide overflows on mobile`);
+  expect(chartGuideChecks.aria === "차트 안내", `${htmlFile}: guide aria label did not localize after Korean switch`);
+  expect(!/Colors: family filters|Warning ring/.test(chartGuideChecks.koreanText), `${htmlFile}: guide text did not switch away from English`);
+
+  const pointVisualSemantics = await page.evaluate(() => {
+    const thresholds = [0.0001, 0.001, 0.01, 0.1, 1, 10];
+    const views = ["focus", "all", "best"];
+    let result = null;
+    for (const view of views) {
+      for (const threshold of thresholds) {
+        resetChartStateToDefaults();
+        setLanguage("en", { rerender: false });
+        state.metric = "totalMassTons";
+        state.showImpracticalCandidates = true;
+        state.paretoHighlight = true;
+        state.minTwr = threshold;
+        state.powerResearchView = view;
+        syncUiFromState();
+        render();
+        const points = [...document.querySelectorAll("#chart .data-point")];
+        const rings = [...document.querySelectorAll("#chart .impractical-point-ring")];
+        const combined = points.find(point => (
+          point.getAttribute("data-impractical") === "true"
+          && point.getAttribute("data-pareto-dominated") === "true"
+        ));
+        if (!combined) continue;
+        const rowId = combined.getAttribute("data-row-id") || "";
+        const optionId = combined.getAttribute("data-power-option-id") || "";
+        const ring = rings.find(item => (
+          item.getAttribute("data-row-id") === rowId
+          && item.getAttribute("data-power-option-id") === optionId
+          && item.getAttribute("data-pareto-dominated") === "true"
+        ));
+        result = {
+          view,
+          threshold,
+          pointCount: points.length,
+          impracticalCount: points.filter(point => point.getAttribute("data-impractical") === "true").length,
+          paretoDominatedCount: points.filter(point => point.getAttribute("data-pareto-dominated") === "true").length,
+          combinedCount: points.filter(point => (
+            point.getAttribute("data-impractical") === "true"
+            && point.getAttribute("data-pareto-dominated") === "true"
+          )).length,
+          combinedClasses: combined.getAttribute("class") || "",
+          combinedOpacity: Number(combined.getAttribute("opacity")),
+          ringCount: rings.length,
+          combinedHasRing: !!ring,
+          ringOpacity: ring ? Number(getComputedStyle(ring).opacity || ring.getAttribute("opacity") || 1) : 0,
+          ringPointerEvents: ring ? getComputedStyle(ring).pointerEvents : "",
+          legendText: document.getElementById("legend")?.textContent || "",
+        };
+        break;
+      }
+      if (result) break;
+    }
+    return result || {
+      pointCount: document.querySelectorAll("#chart .data-point").length,
+      impracticalCount: document.querySelectorAll('#chart .data-point[data-impractical="true"]').length,
+      paretoDominatedCount: document.querySelectorAll('#chart .data-point[data-pareto-dominated="true"]').length,
+      combinedCount: 0,
+      combinedClasses: "",
+      combinedOpacity: NaN,
+      ringCount: document.querySelectorAll("#chart .impractical-point-ring").length,
+      combinedHasRing: false,
+      ringOpacity: 0,
+      ringPointerEvents: "",
+      legendText: document.getElementById("legend")?.textContent || "",
+    };
+  });
+  expect(pointVisualSemantics.pointCount > 0, `${htmlFile}: no chart points available for visual-semantic verification`);
+  expect(pointVisualSemantics.impracticalCount > 0, `${htmlFile}: no impractical points exposed data-impractical=true`);
+  expect(pointVisualSemantics.paretoDominatedCount > 0, `${htmlFile}: no Pareto-dominated points exposed data-pareto-dominated=true`);
+  expect(pointVisualSemantics.combinedCount > 0, `${htmlFile}: no combined impractical and Pareto-dominated point was found`);
+  expect(/is-impractical/.test(pointVisualSemantics.combinedClasses), `${htmlFile}: combined point is missing is-impractical class`);
+  expect(/is-pareto-dominated/.test(pointVisualSemantics.combinedClasses), `${htmlFile}: combined point is missing is-pareto-dominated class`);
+  expect(pointVisualSemantics.combinedHasRing, `${htmlFile}: combined impractical/Pareto point has no warning ring marker`);
+  expect(pointVisualSemantics.ringOpacity >= 0.8, `${htmlFile}: warning ring marker is dimmed along with Pareto opacity`);
+  expect(pointVisualSemantics.ringPointerEvents === "none", `${htmlFile}: warning ring marker can intercept point hover/click events`);
+  expect(/Warning ring: below minimum TWR or extreme mass ratio/.test(pointVisualSemantics.legendText), `${htmlFile}: legend does not describe the impractical warning ring`);
+
+  const paretoPinnedOverlay = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    state.showImpracticalCandidates = true;
+    state.paretoHighlight = true;
+    state.minTwr = 0.001;
+    syncUiFromState();
+    render();
+    const point = document.querySelector('#chart .data-point[data-pareto-dominated="true"]');
+    if (!point) return { hasPoint: false };
+    const ref = tooltipRef(point.getAttribute("data-row-id"), point.getAttribute("data-power-option-id"));
+    state.tooltipPinned = true;
+    state.lastTooltipItems = [ref];
+    state.hoverPoints = [ref];
+    render();
+    const overlay = [...document.querySelectorAll("#chart .point-state-ring.is-pinned")]
+      .find(item => item.getAttribute("data-row-id") === ref.rowId
+        && item.getAttribute("data-power-option-id") === ref.powerOptionId);
+    const result = {
+      hasPoint: true,
+      pointOpacity: Number(point.getAttribute("opacity")),
+      hasOverlay: !!overlay,
+      overlayState: overlay?.getAttribute("data-overlay-state") || "",
+      overlayOpacity: overlay ? Number(getComputedStyle(overlay).opacity || 1) : 0,
+      overlayPointerEvents: overlay ? getComputedStyle(overlay).pointerEvents : "",
+    };
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    render();
+    return result;
+  });
+  expect(paretoPinnedOverlay.hasPoint, `${htmlFile}: no Pareto-dominated point available for pinned overlay verification`);
+  expect(paretoPinnedOverlay.hasOverlay, `${htmlFile}: Pareto-dominated pinned point has no independent overlay`);
+  expect(paretoPinnedOverlay.overlayState === "pinned", `${htmlFile}: pinned overlay did not expose pinned state`);
+  expect(paretoPinnedOverlay.overlayOpacity > paretoPinnedOverlay.pointOpacity, `${htmlFile}: pinned overlay is not more prominent than the dimmed Pareto point`);
+  expect(paretoPinnedOverlay.overlayPointerEvents === "none", `${htmlFile}: pinned overlay can intercept chart hit testing`);
 
   await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
@@ -1742,6 +2094,31 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.waitForSelector("#tooltip .tooltip-item", { timeout: 10000 });
   const cardCountAfterHover = await page.locator("#tooltip .tooltip-item").count();
   expect(cardCountAfterHover > 0, `${htmlFile}: hover did not create detail card`);
+  expect(await page.locator("#chart .point-state-ring.is-hovered").count() > 0, `${htmlFile}: hover did not render a separate point-state overlay`);
+
+  if (pointBox) {
+    await page.mouse.click(pointBox.x + pointBox.width / 2, pointBox.y + pointBox.height / 2);
+  }
+  await page.waitForTimeout(80);
+  const chartPinnedState = await page.evaluate(() => ({
+    tooltipPinned: state.tooltipPinned,
+    pinnedOverlayCount: document.querySelectorAll("#chart .point-state-ring.is-pinned").length,
+    overlayPointerEvents: getComputedStyle(document.querySelector("#chart .point-state-overlay")).pointerEvents,
+  }));
+  expect(chartPinnedState.tooltipPinned, `${htmlFile}: clicking a chart point did not pin the tooltip state`);
+  expect(chartPinnedState.pinnedOverlayCount > 0, `${htmlFile}: clicking a chart point did not render a pinned overlay`);
+  expect(chartPinnedState.overlayPointerEvents === "none", `${htmlFile}: point-state overlay can intercept chart events`);
+
+  if (pointBox) {
+    await page.mouse.click(pointBox.x + pointBox.width / 2, pointBox.y + pointBox.height / 2);
+  }
+  await page.waitForTimeout(80);
+  const chartUnpinnedState = await page.evaluate(() => ({
+    tooltipPinned: state.tooltipPinned,
+    pinnedOverlayCount: document.querySelectorAll("#chart .point-state-ring.is-pinned").length,
+  }));
+  expect(!chartUnpinnedState.tooltipPinned, `${htmlFile}: clicking an already pinned chart point did not unpin tooltip state`);
+  expect(chartUnpinnedState.pinnedOverlayCount === 0, `${htmlFile}: pinned overlay remained after clicking the same point to unpin`);
 
   if (pointBox) {
     await page.mouse.click(pointBox.x + pointBox.width / 2, pointBox.y + pointBox.height / 2);

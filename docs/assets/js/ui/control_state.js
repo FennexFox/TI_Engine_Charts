@@ -100,6 +100,39 @@ function appendWarning(container, text) {
   container.appendChild(item);
 }
 
+function appliedTemplateDisplayName(template) {
+  if (!template || typeof template !== "object") return "";
+  const display = template.displayName;
+  if (display && typeof display === "object") {
+    return UI_LANG === "en"
+      ? display.en || display.ko || display.kor || template.name || ""
+      : display.ko || display.kor || display.en || template.name || "";
+  }
+  return template.name || "";
+}
+
+export function updateShipDesignerPanel() {
+  const title = document.getElementById("shipDesignerTitle");
+  const status = document.getElementById("shipDesignerAppliedTemplate");
+  const button = document.getElementById("dryMassCalcButton");
+  if (title) title.textContent = localText("함선 설계", "Ship Designer");
+  if (button) {
+    const label = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
+    button.textContent = localText("함선 설계 편집", "Edit Ship Design");
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  }
+  if (!status) return;
+  const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
+  if (templateName) {
+    status.dataset.appliedTemplate = "true";
+    status.textContent = localText(`적용된 템플릿: ${templateName}`, `Applied template: ${templateName}`);
+  } else {
+    status.dataset.appliedTemplate = "false";
+    status.textContent = localText("적용된 함선 템플릿 없음", "No ship template applied");
+  }
+}
+
 export function updateModuleEffectsPanel() {
   const checkbox = document.getElementById("moduleEffectsEnabled");
   const label = document.getElementById("moduleEffectsEnabledLabel");
@@ -181,6 +214,7 @@ export function updateChartControls() {
   }
   const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
   if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
+  updateShipDesignerPanel();
   updateModuleEffectsPanel();
   syncMinTwrInputs();
   syncMinDvInputs();

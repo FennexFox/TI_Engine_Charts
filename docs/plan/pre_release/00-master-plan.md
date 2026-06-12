@@ -84,6 +84,19 @@ node tools/verify_drive_comparison_browser.mjs
 5. [Phase 05 - Drive Link Rendering](./05-drive-link-rendering.md)
 6. [Phase 06 - Pre-Release Verification and Legend Hardening](./06-pre-release-verification-hardening.md)
 
+## Execution Status
+
+All six phases are implemented and documented.
+
+- Phase 01 shipped the Ship Designer section, clear dry-mass calculator command, grouped module effects, and applied-template/no-template status.
+- Phase 02 split point visual semantics with Pareto dimming, low-TWR/impractical warning rings, and semantic SVG data attributes.
+- Phase 03 added opacity-independent hover/selected/pinned overlays and chart click-to-unpin behavior.
+- Phase 04 generated the `DATA.driveLinks` contract from research closure with transitive shortcut removal and a verifier in `npm run verify`.
+- Phase 05 switched chart base lines to `DATA.driveLinks` segments while preserving family colors, filters, and power paths.
+- Phase 06 added the compact chart guide, final browser checks, developer architecture documentation, and final smoke coverage.
+
+Final validation passed with `npm run verify`, including Python compilation, client syntax, module-effect fixtures, import graph, axis ticks, drive-link contract verification, and browser verification.
+
 ## Done Definition
 
 - #23 acceptance criteria are covered by visual encoding, overlay, click-to-unpin, legend/help text, and browser smoke tests.
@@ -94,6 +107,6 @@ node tools/verify_drive_comparison_browser.mjs
 
 ## Repository Safety Notes
 
-- This planning step adds documentation only under `docs/plan/pre_release/`.
-- Do not edit application code as part of this planning step.
-- Future implementation phases should avoid broad review of generated data unless the phase explicitly changes data generation or validates generated output.
+- The initial planning step added documentation under `docs/plan/pre_release/`.
+- Implementation phases updated source files, the generated `docs/index.html` page, and generated `docs/assets/js/**` copies through the documented rebuild workflow.
+- Future follow-up work should continue to avoid hand-editing generated data or published assets. Change source builders/client modules first, then rebuild.
