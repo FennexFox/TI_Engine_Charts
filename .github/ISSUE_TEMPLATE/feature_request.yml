@@ -37,10 +37,13 @@ body:
     attributes:
       label: Area
       options:
-        - phantom-vacancy
-        - software-track
-        - diagnostics
-        - optimization
-        - repo-meta
+        - chart-ui
+        - drive-data
+        - ship-designer
+        - dry-mass-calculator
+        - module-effects
+        - presets-storage
+        - build-generated-output
+        - docs-repo-meta
     validations:
       required: true

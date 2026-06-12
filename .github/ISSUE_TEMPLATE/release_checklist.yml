@@ -21,17 +21,12 @@ body:
     id: evidence
     attributes:
       label: Release-gate evidence / validation
-      description: List only the gate or validation artifacts that apply to this release scope. For software-track releases, link the release-build software evidence entry, the comparison summary against the current anchor evidence entry, and the release PR validation note. For telemetry/performance releases, link the performance telemetry issue or other validation artifact and summarize what it proves. If no scoped gate applies, say so explicitly.
+      description: List the validation artifacts that apply to this release scope, including local build output, verification commands, and GitHub Pages deployment checks. If no scoped gate applies, say so explicitly.
       placeholder: |
-        - software gate (if applicable):
-          - comparable software evidence: #...
-          - software anchor comparison summary: same / better / worse / unclear
-          - software release PR validation note: ...
-        - telemetry validation (if applicable):
-          - performance telemetry issue or validation artifact: #...
-          - telemetry validation summary: capture OK / comparison OK / triage OK / unclear
-        - no scoped gate:
-          - none required for this release
+        - build: npm run build
+        - verification: npm run verify
+        - generated output reviewed: docs/index.html, docs/assets/js/**, generated catalogs
+        - GitHub Pages deployment check: pending / passed / not applicable
     validations:
       required: true
   - type: checkboxes
@@ -40,11 +35,10 @@ body:
       label: Checklist
       options:
         - label: README updated
-        - label: PublishConfiguration wording reviewed against shipped behavior
-        - label: Diagnostics wording reviewed
-        - label: Release build completed successfully
-        - label: Applicable release-gate evidence or validation artifacts captured
-        - label: Applicable comparison summaries and release PR validation notes recorded
-        - label: Tag/version confirmed
-        - label: Release notes reviewed
-        - label: Local release script verified
+        - label: Generated docs/index.html rebuilt
+        - label: Generated docs/assets/js rebuilt
+        - label: npm run build completed successfully
+        - label: npm run verify completed successfully
+        - label: GitHub Pages deployment path confirmed
+        - label: Release notes or release PR body reviewed
+        - label: Tag/version confirmed when applicable

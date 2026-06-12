@@ -6,23 +6,22 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this form for confirmed or at least reproducible problems.
-        For raw diagnostics intake, use the `Raw log report` form.
-        For open-ended theories, use the Investigation form, the `Software investigation` form, or Discussions.
+        Use this form for confirmed or reproducible problems in the engine chart dashboard.
+        For early ideas or open-ended design discussion, use Discussions when available.
   - type: input
     id: game-version
     attributes:
       label: Game version
-      placeholder: e.g. 1.5.xf1
+      placeholder: e.g. 1.0.32, or the version shown in the page footer
     validations:
       required: true
   - type: input
-    id: mod-version
+    id: site-version
     attributes:
-      label: Mod version
-      placeholder: e.g. current release, unreleased, or local dev build
+      label: Site version / commit
+      placeholder: e.g. GitHub Pages main, local develop, or a commit SHA
     validations:
-      required: true
+      required: false
   - type: textarea
     id: summary
     attributes:
@@ -56,10 +55,13 @@ body:
     attributes:
       label: Area
       options:
-        - phantom-vacancy
-        - software-track
-        - diagnostics
-        - optimization
-        - repo-meta
+        - chart-ui
+        - drive-data
+        - ship-designer
+        - dry-mass-calculator
+        - module-effects
+        - presets-storage
+        - build-generated-output
+        - docs-repo-meta
     validations:
       required: true
