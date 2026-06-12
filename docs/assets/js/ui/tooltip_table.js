@@ -222,7 +222,7 @@ export function performanceMetricValueHtml({ effectiveValue, baseValue, formatVa
         `${UI_LANG === "en" ? "Module impact" : "모듈 영향"}: ${impact}`,
         ...(
           breakdownItems.length
-            ? [`${UI_LANG === "en" ? "Breakdown" : "Breakdown"}: ${breakdownItems.join("; ")}`]
+            ? [`${UI_LANG === "en" ? "Breakdown" : "세부 내역"}: ${breakdownItems.join("; ")}`]
             : []
         ),
       ];
