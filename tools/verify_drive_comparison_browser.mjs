@@ -229,6 +229,10 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     state.moduleEffectModuleIds = ["ElectronicCountermeasures1"];
     const unsupported = firstOption(fusionHydrogen);
 
+    state.moduleEffectModuleIds = ["LaserEngine"];
+    const powerAux = firstOption(fusionHydrogen);
+    const powerMetric = metricDefs.powerRequirementGW.value(fusionHydrogen);
+
     return {
       missingFixture: false,
       disabledParity: !!base && !!disabled
@@ -251,11 +255,16 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && incompatible.moduleEffectDiagnostics.skippedEffects.length > 0,
       unsupportedDiagnosed: !!unsupported
         && unsupported.moduleEffectDiagnostics.unsupportedRules.some(item => item.rule === "ECM"),
-      powerPreservedDiagnostic: !!thrust
-        && thrust.moduleEffectDiagnostics.powerSideEffects.some(item => item.status === "baseValuesPreserved"),
+      powerAuxApplied: !!base && !!powerAux
+        && Math.abs(powerAux.moduleAuxiliaryPowerGW - 0.005) < 1e-12
+        && Math.abs(powerAux.modifiedPowerRequirementGW - (powerAux.basePowerRequirementGW + 0.005)) < 1e-12
+        && powerAux.powerPlantMassTons > base.powerPlantMassTons
+        && powerAux.wasteHeatGW > base.wasteHeatGW
+        && powerAux.moduleEffectDiagnostics.powerWarnings.some(item => item.rule === "LaserPowerBonus"),
       thrustMetricEffective: Math.abs(thrustMetric - fusionHydrogen.thrustN * 1.1 / 1e6) < 1e-9,
       evMetricEffective: Math.abs(evMetric - fusionHydrogen.exhaustVelocityKps * 1.5) < 1e-9,
       ispMetricEffective: ispMetric > fusionHydrogen.specificImpulseSeconds * 1.49,
+      powerMetricEffective: Math.abs(powerMetric - (fusionHydrogen.powerRequirementGW + 0.005)) < 1e-12,
     };
   });
   expect(!moduleEffectCalculationChecks.missingFixture, `${htmlFile}: module-effect calculation fixture drives were not found`);
@@ -264,10 +273,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectCalculationChecks.evApplied, `${htmlFile}: EV multiplier did not update propellant/total mass/max practical dV`);
   expect(moduleEffectCalculationChecks.incompatibleSkipped, `${htmlFile}: incompatible module effect was not skipped with diagnostics`);
   expect(moduleEffectCalculationChecks.unsupportedDiagnosed, `${htmlFile}: unsupported module rule was not carried as diagnostics`);
-  expect(moduleEffectCalculationChecks.powerPreservedDiagnostic, `${htmlFile}: power-side base-value diagnostic missing`);
+  expect(moduleEffectCalculationChecks.powerAuxApplied, `${htmlFile}: auxiliary module power did not update power demand and mass options`);
   expect(moduleEffectCalculationChecks.thrustMetricEffective, `${htmlFile}: thrust metric did not use effective thrust`);
   expect(moduleEffectCalculationChecks.evMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective exhaust velocity`);
   expect(moduleEffectCalculationChecks.ispMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective specific impulse`);
+  expect(moduleEffectCalculationChecks.powerMetricEffective, `${htmlFile}: power requirement metric did not use modified power demand`);
 
   const moduleEffectUxChecks = await page.evaluate(() => {
     resetChartStateToDefaults();
@@ -278,7 +288,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     state.minTwr = 0.0001;
     state.showImpracticalCandidates = true;
     state.moduleEffectSource = "manual";
-    state.moduleEffectModuleIds = ["MuonSpiker", "ElectronicCountermeasures1"];
+    state.moduleEffectModuleIds = ["MuonSpiker", "ArmorStruts"];
     state.moduleEffectsEnabled = false;
     syncUiFromState();
 
@@ -349,7 +359,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       }
     }
 
-    state.moduleEffectModuleIds = ["ElectronicCountermeasures1"];
+    state.moduleEffectModuleIds = ["LaserEngine"];
     syncUiFromState();
     const unsupportedPanelText = panel?.textContent || "";
 
@@ -370,8 +380,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       activeChipCount,
       mutedChipCount,
       panelWarnsRequirements: panelWarnings.some(text => /requires fusion drive/i.test(text)),
-      panelWarnsUnsupported: panelWarnings.some(text => /rules not modeled/i.test(text) && /ECM/.test(text)),
-      panelWarnsPowerBase: panelWarnings.some(text => /Power demand, waste heat, and radiator mass remain base values/i.test(text)),
+      panelWarnsUnsupported: panelWarnings.some(text => /rules not modeled/i.test(text) && /ArmorStruts/.test(text)),
       optionEffectLabelVisible,
       selectedSlotEffectVisible: /Thrust/i.test(selectedSlotEffects),
       slotSearchableRendered,
@@ -381,7 +390,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && /base/i.test(compatibleTooltipText)
         && compatibleTooltipChips > 0,
       incompatibleTooltipWarns: /unmet prerequisite/i.test(incompatibleTooltipText) && /hydrogenPropellant/.test(incompatibleTooltipText),
-      unsupportedPanelWarns: /rules not modeled/i.test(unsupportedPanelText) && /ECM/.test(unsupportedPanelText),
+      unsupportedPanelWarns: /rules not modeled/i.test(unsupportedPanelText) && /LaserPowerBonus/.test(unsupportedPanelText) && /Aux power/i.test(unsupportedPanelText),
       koreanPanelLocalized: !/Apply module performance effects|Source:/.test(koreanPanelText),
     };
   });
@@ -394,7 +403,6 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectUxChecks.mutedChipCount >= 1, `${htmlFile}: module without modeled performance effects was not visibly identified`);
   expect(moduleEffectUxChecks.panelWarnsRequirements, `${htmlFile}: module effects panel did not show prerequisite warnings`);
   expect(moduleEffectUxChecks.panelWarnsUnsupported, `${htmlFile}: module effects panel did not show unsupported rule warnings`);
-  expect(moduleEffectUxChecks.panelWarnsPowerBase, `${htmlFile}: module effects panel did not show power-side base-value warning`);
   expect(moduleEffectUxChecks.optionEffectLabelVisible, `${htmlFile}: dry-mass module option labels did not identify module effects`);
   expect(moduleEffectUxChecks.selectedSlotEffectVisible, `${htmlFile}: selected dry-mass module slot did not show effect chips`);
   expect(moduleEffectUxChecks.slotSearchableRendered, `${htmlFile}: dry-mass module selector was not enhanced as searchable`);
@@ -409,7 +417,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     setLanguage("en", { rerender: false });
     state.moduleEffectsEnabled = true;
     state.moduleEffectSource = "manual";
-    state.moduleEffectModuleIds = ["MuonSpiker", "HydronTrap", "ElectronicCountermeasures1"];
+    state.moduleEffectModuleIds = ["MuonSpiker", "HydronTrap", "LaserEngine"];
     syncUiFromState();
     const classWithMuon = SHIP_CLASS_OPTIONS.find(shipClass => utilityModulesForShipClass(shipClass).some(item => item.dataName === "MuonSpiker"));
     if (classWithMuon) {

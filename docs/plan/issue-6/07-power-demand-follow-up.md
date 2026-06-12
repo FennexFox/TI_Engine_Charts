@@ -94,7 +94,19 @@ npm run verify
 
 ## Progress
 
-- [ ] Not started.
+- [x] Added base/modified power demand fields to module-effect evaluation.
+- [x] Applied selected utility `powerRequirementMW` as auxiliary drive power in GW.
+- [x] Routed modified power demand through mass options, power metric values, and tooltip rows.
+- [x] Added auxiliary-power labels and unsupported power-rule warnings in the module panel and dry-mass selectors.
+- [x] Hardened module-effect and browser verification for power demand, power ladders, and legacy preset defaults.
+- [x] Rebuilt generated UI assets.
+- [x] Validation completed:
+  - `node tools/verify_module_effects.mjs`
+  - `node tools/verify_axis_ticks.mjs`
+  - `node tools/verify_drive_comparison_browser.mjs docs/index.html`
+  - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
+  - `npm run verify`
+- [x] Manual smoke completed for modified power metrics/mass, auxiliary-power UI labels, power ladder modes, and legacy preset import/default behavior.
 
 ## Decision Log
 
@@ -102,8 +114,26 @@ npm run verify
   Reason: Issue #6 explicitly lists power demand modifiers as follow-up if the MVP grows large.
 - Decision: Preserve base and modified power fields.
   Reason: Tooltips and future heat work need to explain which value drove each result.
+- Decision: Treat selected module `powerRequirementMW` as auxiliary power demand, converted from MW to GW.
+  Reason: It is a direct positive power draw on the selected utility module and can be represented deterministically without rebuilding reactor candidates.
+- Decision: Keep `LaserPowerBonus` and `ParticleBeamPowerBonus` as unsupported power-rule warnings.
+  Reason: These weapon-specific bonuses do not map cleanly to drive-chart power demand and are out of scope for this phase.
+- Decision: Use modified power demand for power plant mass, waste heat, radiator mass, and the displayed power metric.
+  Reason: Those values already derive directly from the option power requirement; preserving separate base values keeps the UI explainable.
+- Decision: Preserve the build-time power option frontier.
+  Reason: Dynamic reactor candidate generation is a larger compatibility problem and belongs in later scope if needed.
 
 ## Outcomes
 
-- Pending.
+- Module-effect evaluation now returns `basePowerRequirementGW`, `modifiedPowerRequirementGW`, `moduleAuxiliaryPowerGW`, `powerContributions`, and `powerWarnings`.
+- `massOptions()` and the `powerRequirementGW` metric use modified power demand while retaining base values for tooltips and comparison.
+- The module-effects panel, dry-mass selector labels, and drive tooltip show auxiliary power contributions and warn for unsupported power-like rules.
+- Browser and module-effect verification now cover auxiliary power math, power mass deltas, unsupported power warnings, power ladder modes, and legacy preset compatibility.
+- Generated `docs/index.html` and `docs/assets/js/` were regenerated after the source changes.
+
+## Retrospective
+
+- What worked: Keeping base and modified power fields separate made the chart metric, mass options, and tooltip behavior straightforward to verify.
+- What to watch: Auxiliary power currently increases drive comparison power demand directly; future ship-wide power balance work should re-evaluate whether this remains the right model.
+- Follow-up scope: Phase 08 can layer heat/radiator-specific module rules on top of the power fields added here instead of changing the power-demand contract again.
 

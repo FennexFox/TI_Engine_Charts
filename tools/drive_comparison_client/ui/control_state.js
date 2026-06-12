@@ -41,9 +41,14 @@ function requirementSummary(requirement) {
 }
 
 function moduleEffectSummaries(module) {
-  return Array.isArray(module && module.effects)
+  const summaries = Array.isArray(module && module.effects)
     ? module.effects.map(effectSummary).filter(Boolean)
     : [];
+  const powerMW = Number(module && module.powerRequirementMW);
+  if (Number.isFinite(powerMW) && powerMW > 0) {
+    summaries.push(`${localText("보조 전력", "Aux power")} +${formatNumber(powerMW / 1000, " GW")}`);
+  }
+  return summaries;
 }
 
 function moduleRequirementSummaries(module) {

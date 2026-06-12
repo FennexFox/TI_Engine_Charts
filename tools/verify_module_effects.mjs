@@ -108,6 +108,17 @@ const electronicCountermeasures = {
   specialValue: 0.2,
 };
 
+const laserEngine = {
+  dataName: "LaserEngine",
+  friendlyName: "Laser Engine",
+  powerRequirementMW: 5,
+  specialRules: ["LaserPowerBonus"],
+  unmodeledRules: [{
+    rule: "LaserPowerBonus",
+    category: "powerDemand",
+  }],
+};
+
 const rawNeutroniumSpiker = {
   dataName: "RawNeutroniumSpiker",
   friendlyName: "Raw Neutronium Spiker",
@@ -124,12 +135,19 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
     ? evaluateModuleEffectsForDrive(row, modules)
     : evaluateModuleEffectsForDrive(row, []);
   const massRatio = Math.exp(FIXTURE_TARGET_DV_KPS / evaluation.effectiveExhaustVelocityKps);
-  const propellantTons = FIXTURE_DRY_WITH_HARDWARE_TONS * (massRatio - 1);
-  const totalMassTons = FIXTURE_DRY_WITH_HARDWARE_TONS + propellantTons;
+  const powerPlantMassTons = evaluation.modifiedPowerRequirementGW * 20;
+  const wasteHeatGW = evaluation.modifiedPowerRequirementGW * 0.5;
+  const radiatorMassTons = wasteHeatGW * 10;
+  const dryWithHardwareTons = FIXTURE_DRY_WITH_HARDWARE_TONS + powerPlantMassTons + radiatorMassTons;
+  const propellantTons = dryWithHardwareTons * (massRatio - 1);
+  const totalMassTons = dryWithHardwareTons + propellantTons;
   const twr = evaluation.effectiveThrustN / (totalMassTons * 1000 * STANDARD_GRAVITY_MPS2);
   return {
     ...evaluation,
     massRatio,
+    powerPlantMassTons,
+    wasteHeatGW,
+    radiatorMassTons,
     propellantTons,
     totalMassTons,
     twr,
@@ -229,6 +247,20 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
   assertClose(unsupported.effectiveThrustN, base.effectiveThrustN, "unsupported-only module keeps base thrust");
   assertClose(unsupported.effectiveExhaustVelocityKps, base.effectiveExhaustVelocityKps, "unsupported-only module keeps base exhaust velocity");
   assertClose(unsupported.totalMassTons, base.totalMassTons, "unsupported-only module keeps base total mass");
+}
+
+{
+  const result = evaluateModuleEffectsForDrive(fusionHydrogenDrive, [laserEngine]);
+  const base = fixtureMassSummary(fusionHydrogenDrive, []);
+  const powered = fixtureMassSummary(fusionHydrogenDrive, [laserEngine]);
+  assertClose(result.moduleAuxiliaryPowerGW, 0.005, "module auxiliary power converts MW to GW");
+  assertClose(result.modifiedPowerRequirementGW, (Number(fusionHydrogenDrive.powerRequirementGW) || 0) + 0.005, "auxiliary power adds to drive power demand");
+  assert.equal(result.diagnostics.powerWarnings.length, 1, "unsupported power bonus rule is diagnosed separately");
+  assert.equal(result.diagnostics.powerWarnings[0].rule, "LaserPowerBonus");
+  assert.ok(powered.powerPlantMassTons > base.powerPlantMassTons, "auxiliary power increases power plant mass fixture");
+  assert.ok(powered.wasteHeatGW > base.wasteHeatGW, "auxiliary power increases waste heat fixture");
+  assert.ok(powered.radiatorMassTons > base.radiatorMassTons, "auxiliary power increases radiator mass fixture");
+  assert.ok(powered.totalMassTons > base.totalMassTons, "auxiliary power increases total mass fixture");
 }
 
 {

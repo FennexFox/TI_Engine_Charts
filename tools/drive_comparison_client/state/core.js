@@ -462,7 +462,7 @@ export const metricDefs = {
       powerRequirementGW: {
         label: "출력 요구량 (GW)",
         hint: "thrust_N * EV_kps * 0.5 / 1,000,000 / efficiency",
-        value: row => row.powerRequirementGW,
+        value: row => metricCalculationHooks.effectiveDriveValues(row).powerRequirementGW,
         format: value => formatNumber(value, " GW"),
       },
       totalMassTons: {

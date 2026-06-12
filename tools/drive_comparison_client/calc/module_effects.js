@@ -167,7 +167,8 @@ function baseDriveValues(row) {
   const specificImpulseSeconds = Number.isFinite(finiteNumber(row && row.specificImpulseSeconds))
     ? finiteNumber(row && row.specificImpulseSeconds)
     : specificImpulseSecondsFromExhaustVelocityKps(exhaustVelocityKps);
-  return { thrustN, exhaustVelocityKps, specificImpulseSeconds };
+  const powerRequirementGW = finiteNumber(row && row.powerRequirementGW, 0);
+  return { thrustN, exhaustVelocityKps, specificImpulseSeconds, powerRequirementGW };
 }
 
 function requirementWarning(module, requirement) {
@@ -198,6 +199,17 @@ function unsupportedEffectWarning(module, effect, reason) {
   };
 }
 
+function modulePowerContribution(module) {
+  const powerRequirementMW = finiteNumber(module && module.powerRequirementMW, 0);
+  if (!Number.isFinite(powerRequirementMW) || powerRequirementMW <= 0) return null;
+  return {
+    moduleId: moduleId(module),
+    moduleName: compactModuleName(module),
+    powerRequirementMW,
+    powerRequirementGW: powerRequirementMW / 1000,
+  };
+}
+
 export function evaluateModuleEffectsForDrive(row, selectedModules = [], options = {}) {
   const { modules, unresolvedModules } = resolveSelectedModules(selectedModules, options);
   const base = baseDriveValues(row || {});
@@ -208,16 +220,28 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
     unsupportedRules: [],
     unsupportedEffects: [],
     skippedEffects: [],
+    powerWarnings: [],
   };
   const activeEffects = [];
+  const powerContributions = [];
   const multipliers = {
     thrust: 1,
     exhaustVelocity: 1,
   };
 
   modules.forEach(module => {
+    const powerContribution = modulePowerContribution(module);
+    if (powerContribution) powerContributions.push(powerContribution);
+
     unsupportedRules(module).forEach(rule => {
-      diagnostics.unsupportedRules.push(unsupportedRuleWarning(module, rule));
+      const warning = unsupportedRuleWarning(module, rule);
+      diagnostics.unsupportedRules.push(warning);
+      if (warning.category === "powerDemand") {
+        diagnostics.powerWarnings.push({
+          ...warning,
+          reason: "unsupportedPowerRule",
+        });
+      }
     });
 
     const unmetRequirements = normalizedRequirements(module)
@@ -263,6 +287,12 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
     });
   });
 
+  const moduleAuxiliaryPowerGW = powerContributions.reduce(
+    (total, item) => total + item.powerRequirementGW,
+    0,
+  );
+  effective.powerRequirementGW = base.powerRequirementGW + moduleAuxiliaryPowerGW;
+
   return {
     base,
     effective,
@@ -272,6 +302,10 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
     effectiveThrustN: effective.thrustN,
     effectiveExhaustVelocityKps: effective.exhaustVelocityKps,
     effectiveSpecificImpulseSeconds: effective.specificImpulseSeconds,
+    basePowerRequirementGW: base.powerRequirementGW,
+    modifiedPowerRequirementGW: effective.powerRequirementGW,
+    moduleAuxiliaryPowerGW,
+    powerContributions,
     multipliers,
     activeEffects,
     diagnostics,

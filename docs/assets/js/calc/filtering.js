@@ -209,6 +209,9 @@ export function effectiveDriveValues(row) {
           thrustN: row.thrustN,
           exhaustVelocityKps: row.exhaustVelocityKps,
           specificImpulseSeconds: row.specificImpulseSeconds,
+          powerRequirementGW: row.powerRequirementGW,
+          basePowerRequirementGW: row.powerRequirementGW,
+          moduleAuxiliaryPowerGW: 0,
           moduleEffectEvaluation: null,
         };
       }
@@ -216,6 +219,9 @@ export function effectiveDriveValues(row) {
         thrustN: evaluation.effectiveThrustN,
         exhaustVelocityKps: evaluation.effectiveExhaustVelocityKps,
         specificImpulseSeconds: evaluation.effectiveSpecificImpulseSeconds,
+        powerRequirementGW: evaluation.modifiedPowerRequirementGW,
+        basePowerRequirementGW: evaluation.basePowerRequirementGW,
+        moduleAuxiliaryPowerGW: evaluation.moduleAuxiliaryPowerGW,
         moduleEffectEvaluation: evaluation,
       };
     }
@@ -232,9 +238,12 @@ export function massOptions(row) {
       const massRatio = massRatioMinusOne + 1;
       const options = row.powerOptions || row.reactorOptions || [];
       const computed = options.map(option => {
-        const selfContained = !!option.selfContained || row.powerRequirementGW <= 0;
-        const powerPlantMassTons = selfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * row.powerRequirementGW);
-        const wasteHeatGW = selfContained || row.openCycleCooling ? 0 : row.powerRequirementGW * (1 - option.efficiency);
+        const basePowerRequirementGW = Number.isFinite(Number(effective.basePowerRequirementGW)) ? Number(effective.basePowerRequirementGW) : row.powerRequirementGW;
+        const modifiedPowerRequirementGW = Number.isFinite(Number(effective.powerRequirementGW)) ? Number(effective.powerRequirementGW) : basePowerRequirementGW;
+        const moduleAuxiliaryPowerGW = Number.isFinite(Number(effective.moduleAuxiliaryPowerGW)) ? Number(effective.moduleAuxiliaryPowerGW) : 0;
+        const selfContained = !!option.selfContained || modifiedPowerRequirementGW <= 0;
+        const powerPlantMassTons = selfContained ? 0 : Math.max(1, option.specificMassTonsPerGW * modifiedPowerRequirementGW);
+        const wasteHeatGW = selfContained || row.openCycleCooling ? 0 : modifiedPowerRequirementGW * (1 - option.efficiency);
         const radiatorMassTons = !selfContained && radiatorSpecificPower > 0
           ? Math.max(0, wasteHeatGW * 1_000_000 / radiatorSpecificPower / 1000)
           : 0;
@@ -251,18 +260,19 @@ export function massOptions(row) {
           baseSpecificImpulseSeconds: effectEvaluation.baseSpecificImpulseSeconds,
           effectiveSpecificImpulseSeconds: effectEvaluation.effectiveSpecificImpulseSeconds,
           activeModuleEffects: effectEvaluation.activeEffects,
+          powerContributions: effectEvaluation.powerContributions,
+          moduleAuxiliaryPowerGW: effectEvaluation.moduleAuxiliaryPowerGW,
           moduleEffectDiagnostics: {
             ...effectEvaluation.diagnostics,
-            powerSideEffects: [{
-              status: "baseValuesPreserved",
-              fields: ["powerRequirementGW", "powerPlantMassTons", "wasteHeatGW", "radiatorMassTons"],
-            }],
           },
         } : {};
         return {
           ...option,
           reactorMassTons: powerPlantMassTons,
           powerPlantMassTons,
+          basePowerRequirementGW,
+          modifiedPowerRequirementGW,
+          moduleAuxiliaryPowerGW,
           radiatorMassTons,
           wasteHeatGW,
           hardwareMassTons,

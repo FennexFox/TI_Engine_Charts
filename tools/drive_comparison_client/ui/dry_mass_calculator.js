@@ -76,14 +76,20 @@ export function weaponOptionLabel(item) {
     }
 
 export function moduleEffectSummaries(module) {
-      if (!module || !Array.isArray(module.effects)) return [];
-      return module.effects.map(effect => {
+      if (!module) return [];
+      const effects = Array.isArray(module.effects) ? module.effects : [];
+      const summaries = effects.map(effect => {
         const multiplier = Number(effect && effect.multiplier);
         const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
         if (effect && effect.type === "thrustMultiplier") return `${localText("추력", "Thrust")} ${value}`.trim();
         if (effect && effect.type === "exhaustVelocityMultiplier") return `${localText("EV/Isp", "EV/Isp")} ${value}`.trim();
         return effect && effect.type ? `${effect.type} ${value}`.trim() : "";
       }).filter(Boolean);
+      const powerMW = Number(module.powerRequirementMW);
+      if (Number.isFinite(powerMW) && powerMW > 0) {
+        summaries.push(`${localText("보조 전력", "Aux power")} +${formatNumber(powerMW / 1000, " GW")}`);
+      }
+      return summaries;
     }
 
 export function utilityModuleOptionLabel(item) {

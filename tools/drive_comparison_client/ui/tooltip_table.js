@@ -91,8 +91,11 @@ export function tooltipMetricsHtml(row, option = null) {
       const effectiveThrustN = option && Number.isFinite(Number(option.effectiveThrustN)) ? Number(option.effectiveThrustN) : effective.thrustN;
       const baseEvKps = option && Number.isFinite(Number(option.baseExhaustVelocityKps)) ? Number(option.baseExhaustVelocityKps) : row.exhaustVelocityKps;
       const effectiveEvKps = option && Number.isFinite(Number(option.effectiveExhaustVelocityKps)) ? Number(option.effectiveExhaustVelocityKps) : effective.exhaustVelocityKps;
+      const basePowerRequirementGW = option && Number.isFinite(Number(option.basePowerRequirementGW)) ? Number(option.basePowerRequirementGW) : (effective.basePowerRequirementGW ?? row.powerRequirementGW);
+      const modifiedPowerRequirementGW = option && Number.isFinite(Number(option.modifiedPowerRequirementGW)) ? Number(option.modifiedPowerRequirementGW) : (effective.powerRequirementGW ?? row.powerRequirementGW);
       const thrustText = modifiedMetricText(effectiveThrustN / 1e6, baseThrustN / 1e6, " MN");
       const evText = modifiedMetricText(effectiveEvKps, baseEvKps, " km/s");
+      const powerText = modifiedMetricText(modifiedPowerRequirementGW, basePowerRequirementGW, " GW");
       const moduleEffects = moduleEffectTooltipHtml(option, effective);
       const researchRows = [
         [UI_LANG === "en" ? "Unlock research" : "개방 연구력", formatResearch(unlockResearch), true],
@@ -105,7 +108,7 @@ export function tooltipMetricsHtml(row, option = null) {
         [UI_LANG === "en" ? "TWR" : "TWR", formatTwr(twrValue, " g")],
         [UI_LANG === "en" ? "Exhaust velocity" : "EV", evText],
         [UI_LANG === "en" ? "Efficiency" : "효율", formatPercent(row.efficiency)],
-        [UI_LANG === "en" ? "Power requirement" : "출력 요구량", formatNumber(row.powerRequirementGW, " GW")],
+        [UI_LANG === "en" ? "Power requirement" : "출력 요구량", powerText],
       ];
       return `
         <details class="tooltip-section" open>
@@ -181,22 +184,29 @@ export function moduleEffectTooltipHtml(option, effective) {
         const moduleName = effect.moduleName || effect.moduleId || "";
         return `<span class="effect-chip is-active">${escapeHtml(`${moduleName} · ${effectTypeLabel(effect.type)} ${value}`.trim())}</span>`;
       });
+      const auxiliaryPowerGW = option && Number.isFinite(Number(option.moduleAuxiliaryPowerGW))
+        ? Number(option.moduleAuxiliaryPowerGW)
+        : effective && Number.isFinite(Number(effective.moduleAuxiliaryPowerGW))
+          ? Number(effective.moduleAuxiliaryPowerGW)
+          : 0;
+      if (auxiliaryPowerGW > 0) {
+        chips.push(`<span class="effect-chip is-active">${escapeHtml(`${UI_LANG === "en" ? "Aux power" : "보조 전력"} +${formatNumber(auxiliaryPowerGW, " GW")}`)}</span>`);
+      }
       const warnings = [];
       if (diagnostics) {
         (diagnostics.unmetRequirements || []).forEach(item => {
           warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unmet prerequisite" : "미충족 조건"} ${item.requirement}`);
         });
         (diagnostics.unsupportedRules || []).forEach(item => {
+          if (item.category === "powerDemand") return;
           warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unsupported rule" : "미지원 규칙"} ${item.rule}`);
         });
         (diagnostics.unsupportedEffects || []).forEach(item => {
           warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unsupported effect" : "미지원 효과"} ${item.type || item.sourceRule}`);
         });
-        if ((diagnostics.powerSideEffects || []).length && activeEffects.length) {
-          warnings.push(UI_LANG === "en"
-            ? "Power demand, waste heat, and radiator mass remain base values in this MVP."
-            : "이 MVP에서는 전력 요구량, 폐열, 라디에이터 질량이 기본값으로 유지됩니다.");
-        }
+        (diagnostics.powerWarnings || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "power rule not modeled" : "전력 규칙 미모델링"} ${item.rule}`);
+        });
       }
       if (!chips.length && !warnings.length) return "";
       return `
