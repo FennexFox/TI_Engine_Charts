@@ -209,6 +209,20 @@ export function appendImpracticalPointMarker(plot, row, powerOptionId, xCoord, y
       }));
     }
 
+export function appendParetoDominatedPointMarker(plot, row, powerOptionId, xCoord, yCoord, radius, kind, visual) {
+      if (!visual.paretoDominated) return;
+      const half = Math.max(3.2, radius * 0.72);
+      plot.appendChild(svgEl("path", {
+        class: `pareto-dominated-marker${visual.impractical ? " is-impractical" : ""}`,
+        "data-row-id": row.id,
+        "data-power-option-id": powerOptionId || "",
+        "data-power-point-kind": kind,
+        "data-pareto-dominated": "true",
+        "data-impractical": visual.impractical ? "true" : "false",
+        d: `M ${xCoord - half} ${yCoord - half} L ${xCoord + half} ${yCoord + half} M ${xCoord - half} ${yCoord + half} L ${xCoord + half} ${yCoord - half}`,
+      }));
+    }
+
 export function pointKey(rowId, powerOptionId = null) {
       return `${rowId}::${powerOptionId || ""}`;
     }
@@ -650,6 +664,7 @@ export function drawFirstCompatiblePowerPoint(row, option, xCoord, yCoord, plot,
         opacity: clamp(visual.opacity, 0.12, 1),
         "data-power-point-kind": "base",
       }));
+      appendParetoDominatedPointMarker(plot, row, option.id, xCoord, yCoord, 5.5, "base", visual);
       appendImpracticalPointMarker(plot, row, option.id, xCoord, yCoord, 7.1, "base", visual);
     }
 
@@ -698,6 +713,7 @@ export function drawBestAvailablePowerPath(row, x, y, plot, color, fillStyle, st
           opacity: clamp(visual.opacity * (focused ? 1 : 0.58), 0.12, 1),
           "data-power-point-kind": "best",
         }));
+        appendParetoDominatedPointMarker(plot, row, option.id, xCoord, yCoord, 3.7, "best", visual);
         appendImpracticalPointMarker(plot, row, option.id, xCoord, yCoord, 5.2, "best", visual);
         registerHitTarget(row, option.id, xCoord, yCoord, 4.4);
       });
@@ -818,6 +834,7 @@ export function drawPowerLadder(row, x, y, plot, color, fillStyle, strokeStyle, 
           "data-power-point-kind": isBase ? "base" : "extra",
         });
         plot.appendChild(circle);
+        appendParetoDominatedPointMarker(plot, row, option.id, xCoord, yCoord, isBase ? 5.5 : 3.7, isBase ? "base" : "extra", visual);
         appendImpracticalPointMarker(plot, row, option.id, xCoord, yCoord, isBase ? 7.1 : 5.2, isBase ? "base" : "extra", visual);
       });
     }
@@ -865,17 +882,16 @@ export function secondaryScore(option) {
       return NaN;
     }
 
-export function bandPointVisual(option, secondaryDomain, pareto) {
+export function bandPointVisual(option, secondaryDomain, _pareto = true) {
       let normalized = 0.72;
       if (secondaryDomain) {
         const span = Math.max(secondaryDomain.max - secondaryDomain.min, 1e-9);
         normalized = clamp((secondaryScore(option) - secondaryDomain.min) / span, 0, 1);
       }
       const encodedOpacity = secondaryDomain ? 0.42 + normalized * 0.58 : 0.88;
-      const paretoOpacity = state.paretoHighlight && !pareto ? 0.28 : 1;
       const brightness = secondaryDomain ? 0.68 + normalized * 0.72 : 1;
       return {
-        opacity: clamp(encodedOpacity * paretoOpacity, 0.12, 1),
+        opacity: clamp(encodedOpacity, 0.18, 1),
         style: `filter:brightness(${brightness.toFixed(2)});`,
       };
     }

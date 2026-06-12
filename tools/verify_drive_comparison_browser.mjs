@@ -1166,6 +1166,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       floatingInPlotCorner,
       lineModeSingleRow,
       englishText,
+      paretoHelpText: (() => {
+        const help = guide.querySelector(".chart-guide-item .chart-guide-symbol.is-pareto + .chart-guide-help");
+        return help?.dataset.help || help?.getAttribute("aria-label") || "";
+      })(),
+      paretoHelpHasNativeTitle: !!guide.querySelector(".chart-guide-item .chart-guide-symbol.is-pareto + .chart-guide-help")?.getAttribute("title"),
       englishModeDescriptions,
       englishItemCount,
       englishPowerItems,
@@ -1189,11 +1194,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/reactor\/power-lineage progression/.test(lineModeDescriptions.get("lineage") || ""), `${htmlFile}: lineage line mode tooltip is missing or incomplete`);
   expect(/broader family fallback lines/.test(lineModeDescriptions.get("all") || ""), `${htmlFile}: all line mode tooltip is missing or incomplete`);
   expect(/Hide connection lines/.test(lineModeDescriptions.get("off") || ""), `${htmlFile}: off line mode tooltip is missing or incomplete`);
-  expect(/Dim: Pareto-dominated/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain Pareto dimming`);
+  expect(chartGuideChecks.englishText.includes("Transparency: low TWR / high mass"), `${htmlFile}: guide does not explain secondary opacity encoding`);
+  expect(chartGuideChecks.englishText.includes("×: Pareto-dominated"), `${htmlFile}: guide does not explain Pareto-dominated markers`);
   expect(/Warning ring: low TWR\/extreme mass/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain low-TWR/impractical markers`);
   expect(/Outline: hover\/select\/pin; click again unpins/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain hover/select/pin and unpin behavior`);
   expect(chartGuideChecks.englishPowerItems === 0, `${htmlFile}: guide should omit power-view and hover-a-point helper text`);
-  expect(/no more research/.test(chartGuideChecks.paretoHelpText), `${htmlFile}: Pareto help tooltip is missing or incomplete`);
+  expect(/no more research/.test(chartGuideChecks.paretoHelpText || chartGuideChecks.paretoHelp || ""), `${htmlFile}: Pareto help tooltip is missing or incomplete`);
   expect(!chartGuideChecks.childOverflow, `${htmlFile}: compact chart guide overflows on mobile`);
   expect(chartGuideChecks.aria === "차트 안내", `${htmlFile}: guide aria label did not localize after Korean switch`);
   expect(!/Connection lines|Warning ring/.test(chartGuideChecks.koreanText), `${htmlFile}: guide text did not switch away from English`);
@@ -1240,6 +1246,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
           combinedClasses: combined.getAttribute("class") || "",
           combinedOpacity: Number(combined.getAttribute("opacity")),
           ringCount: rings.length,
+          paretoMarkerCount: document.querySelectorAll("#chart .pareto-dominated-marker").length,
+          combinedHasParetoMarker: !!document.querySelector(`#chart .pareto-dominated-marker[data-row-id="${rowId}"][data-power-option-id="${optionId}"]`),
           combinedHasRing: !!ring,
           ringOpacity: ring ? Number(getComputedStyle(ring).opacity || ring.getAttribute("opacity") || 1) : 0,
           ringPointerEvents: ring ? getComputedStyle(ring).pointerEvents : "",
@@ -1258,6 +1266,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       combinedClasses: "",
       combinedOpacity: NaN,
       ringCount: document.querySelectorAll("#chart .impractical-point-ring").length,
+      paretoMarkerCount: document.querySelectorAll("#chart .pareto-dominated-marker").length,
+      combinedHasParetoMarker: false,
       combinedHasRing: false,
       ringOpacity: 0,
       ringPointerEvents: "",
@@ -1271,10 +1281,13 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(pointVisualSemantics.combinedCount > 0, `${htmlFile}: no combined impractical and Pareto-dominated point was found`);
   expect(/is-impractical/.test(pointVisualSemantics.combinedClasses), `${htmlFile}: combined point is missing is-impractical class`);
   expect(/is-pareto-dominated/.test(pointVisualSemantics.combinedClasses), `${htmlFile}: combined point is missing is-pareto-dominated class`);
+  expect(pointVisualSemantics.combinedHasParetoMarker, `${htmlFile}: combined point has no Pareto-dominated marker`);
   expect(pointVisualSemantics.combinedHasRing, `${htmlFile}: combined impractical/Pareto point has no warning ring marker`);
   expect(pointVisualSemantics.ringOpacity >= 0.8, `${htmlFile}: warning ring marker is dimmed along with Pareto opacity`);
   expect(pointVisualSemantics.ringPointerEvents === "none", `${htmlFile}: warning ring marker can intercept point hover/click events`);
-  expect(/Warning ring: low TWR\/extreme mass/.test(pointVisualSemantics.guideText), `${htmlFile}: chart guide does not describe the impractical warning ring`);
+  expect(pointVisualSemantics.guideText.includes("Transparency: low TWR / high mass"), `${htmlFile}: chart guide does not describe secondary opacity encoding`);
+  expect(pointVisualSemantics.guideText.includes("×: Pareto-dominated"), `${htmlFile}: chart guide does not describe the Pareto marker`);
+  expect(pointVisualSemantics.guideText.includes("Warning ring: low TWR/extreme mass"), `${htmlFile}: chart guide does not describe the impractical warning ring`);
 
   const paretoPinnedOverlay = await page.evaluate(() => {
     resetChartStateToDefaults();

@@ -237,33 +237,38 @@ export function renderChartGuide() {
       const summary = document.getElementById("chartGuideSummary");
       if (summary) summary.textContent = localText("차트 안내", "Chart Guide");
 
+      const paretoHelpText = localText(
+        "다른 표시 후보가 연구를 더 필요로 하지 않고, 선택한 차트 지표도 같거나 더 좋으며, 두 축 중 적어도 하나에서는 더 좋은 후보입니다.",
+        "A candidate is Pareto-dominated when another visible option needs no more research, is at least as good on the selected chart metric, and is better on at least one plotted axis."
+      );
+
       const appendItem = (symbolClass, text, helpText = "") => {
         const item = document.createElement("span");
         item.className = "chart-guide-item";
         const symbol = document.createElement("span");
         symbol.className = `chart-guide-symbol ${symbolClass}`;
-        const label = document.createElement("span");
-        label.className = "chart-guide-text";
-        label.textContent = text;
-        item.append(symbol, label);
+        item.append(symbol, document.createTextNode(text));
         if (helpText) {
           const help = document.createElement("span");
           help.className = "chart-guide-help";
-          help.tabIndex = 0;
           help.textContent = "?";
-          help.title = helpText;
+          help.tabIndex = 0;
+          help.setAttribute("role", "note");
           help.setAttribute("aria-label", helpText);
+          help.dataset.help = helpText;
           item.appendChild(help);
         }
         guide.appendChild(item);
       };
 
-      const paretoHelpText = localText(
-        "누적 연구력은 더 낮고, 총질량은 더 가볍고, TWR은 더 높은 후보가 있으면 파레토 지배로 보고 흐리게 표시합니다.",
-        "A candidate is Pareto-dominated when another option needs no more research, has no more total mass, and has at least as much TWR."
-      );
       appendItem("is-line", localText("선: 드라이브 진행 경로", "Lines: drive progression"));
-      appendItem("is-dim", localText("흐림: Pareto 지배", "Dim: Pareto-dominated"), paretoHelpText);
+      if (secondaryEncodingEnabled()) {
+        appendItem(
+          "is-secondary",
+          localText("투명도: 낮은 TWR / 큰 질량", "Transparency: low TWR / high mass"),
+        );
+      }
+      appendItem("is-pareto", localText("×: Pareto 지배", "×: Pareto-dominated"), paretoHelpText);
       appendItem("is-warning", localText("경고 링: 낮은 TWR/극단 질량비", "Warning ring: low TWR/extreme mass"));
       appendItem("is-pin", localText("윤곽선: 호버/선택/고정, 재클릭 해제", "Outline: hover/select/pin; click again unpins"));
     }
