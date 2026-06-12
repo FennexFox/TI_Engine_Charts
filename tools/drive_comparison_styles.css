@@ -307,6 +307,66 @@
     .control-block:last-child {
       margin-bottom: 0;
     }
+    .module-effects-control {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .module-effects-toggle {
+      width: fit-content;
+      max-width: 100%;
+    }
+    .module-effects-summary {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .effect-chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .effect-chip {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: rgba(148, 163, 184, 0.08);
+      color: #d8e1db;
+      font-size: 11px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .effect-chip.is-active {
+      border-color: rgba(20, 184, 166, 0.45);
+      background: rgba(20, 184, 166, 0.12);
+      color: #cde9df;
+    }
+    .effect-chip.is-muted {
+      color: var(--muted);
+    }
+    .module-effects-warnings {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .module-effects-warning {
+      border: 1px solid rgba(245, 158, 11, 0.36);
+      border-radius: 6px;
+      padding: 6px 8px;
+      background: rgba(245, 158, 11, 0.08);
+      color: #f1c17e;
+      font-size: 11px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
     .control-stack {
       display: grid;
       gap: 12px;
@@ -892,6 +952,13 @@
       font-size: 12px;
       margin-bottom: 8px;
     }
+    .calc-slot-effects {
+      grid-column: 2 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-width: 0;
+    }
     #dryMassCalcArmor {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -962,6 +1029,9 @@
       color: var(--muted);
       text-align: right;
       font-variant-numeric: tabular-nums;
+    }
+    .calc-slot-effects:empty {
+      display: none;
     }
     .native-select-hidden {
       display: none !important;
@@ -1477,6 +1547,12 @@
     }
     .tooltip-section-body {
       margin-top: 8px;
+    }
+    .tooltip-module-effects .effect-chip-list + .module-effects-warnings {
+      margin-top: 7px;
+    }
+    .tooltip-module-effects .effect-chip {
+      max-width: 100%;
     }
     .tooltip-metrics {
       display: grid;

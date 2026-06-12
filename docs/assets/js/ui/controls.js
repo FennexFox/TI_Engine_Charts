@@ -8,7 +8,7 @@ import { applyHelp, applyStartupChartPreset, exportedPreset, handleImportedPrese
 import { DATA, applyStaticLanguage, categoryRoot, chart, familyRoot, localText, normalizePowerResearchView, renderRadiatorOptions, setupLeftPanelCards, state, tooltip } from "../state/core.js";
 import { enhanceSearchableSelect } from "./searchable_select.js";
 import { backgroundStyle } from "./formatting.js";
-import { updateChartControls, syncMinTwrInputs, syncMinDvInputs } from "./control_state.js";
+import { updateChartControls, syncMinTwrInputs, syncMinDvInputs, updateModuleEffectsPanel } from "./control_state.js";
 import { clearTooltip, moveTooltipItemByOffset, removeTooltipItem, renderTable, toggleTooltipItemPin } from "./tooltip_table.js";
 
 export function setupControls({ setLanguage = () => {}, refreshLocalizedControls = () => {} } = {}) {
@@ -27,6 +27,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
       const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
+      const moduleEffectsEnabled = document.getElementById("moduleEffectsEnabled");
       const powerResearchViewControl = document.getElementById("powerResearchViewControl");
       const powerResearchViewSelect = document.getElementById("powerResearchView");
       const minTwrExp = document.getElementById("minTwrExp");
@@ -201,6 +202,13 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
           render();
         });
       });
+      if (moduleEffectsEnabled) {
+        moduleEffectsEnabled.addEventListener("change", () => {
+          state.moduleEffectsEnabled = !!moduleEffectsEnabled.checked;
+          updateModuleEffectsPanel();
+          render();
+        });
+      }
       document.querySelectorAll("[data-sort]").forEach(button => {
         button.addEventListener("click", () => {
           const key = button.dataset.sort;

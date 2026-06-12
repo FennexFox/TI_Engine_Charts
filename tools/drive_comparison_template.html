@@ -92,6 +92,15 @@ __STYLES__
               <input id="dryMassNumber" type="number" min="0" max="1000000" value="10000" step="10">
             </div>
           </section>
+          <section id="moduleEffectsControl" class="control-block module-effects-control">
+            <label class="check-row module-effects-toggle">
+              <input id="moduleEffectsEnabled" type="checkbox">
+              <span id="moduleEffectsEnabledLabel">모듈 효과 적용</span>
+            </label>
+            <div id="moduleEffectsSummary" class="module-effects-summary"></div>
+            <div id="moduleEffectsChips" class="effect-chip-list" aria-live="polite"></div>
+            <div id="moduleEffectsWarnings" class="module-effects-warnings" aria-live="polite"></div>
+          </section>
           <section class="control-block">
             <label class="label" for="targetDv">목표 dV (km/s)</label>
             <div class="split">

@@ -99,7 +99,18 @@ node tools/verify_drive_comparison_browser.mjs
 
 ## Progress
 
-- [ ] Not started.
+- [x] Added the module effects enable/disable panel near dry-mass assumptions.
+- [x] Added source, selection count, active-effect chips, muted non-effect chips, and warnings.
+- [x] Marked dry-mass utility-module options and selected slots with effect summaries.
+- [x] Added tooltip module-effect detail with active modifiers, unmet prerequisites, unsupported rules/effects, and MVP power-side limitation notes.
+- [x] Added responsive chip/warning styles for the sidebar, dry-mass modal, and tooltips.
+- [x] Extended browser verification for visible warnings, localization, dry-mass labels, tooltip diagnostics, and mobile overflow.
+- [x] Rebuilt generated UI assets under `docs/index.html` and `docs/assets/js/`.
+- [x] Validation passed:
+  - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
+  - `node tools/verify_drive_comparison_browser.mjs`
+  - `npm run verify`
+- [x] Manual smoke passed by Playwright session for English/Korean language switching, dry-mass module chips, compatible tooltip effects, incompatible warnings, unsupported-rule warnings, and mobile no-overflow.
 
 ## Decision Log
 
@@ -107,8 +118,24 @@ node tools/verify_drive_comparison_browser.mjs
   Reason: Users must not mistake modified thrust/EV for full ship-designer parity.
 - Decision: Keep effect summaries compact.
   Reason: The dry-mass calculator already has dense controls.
+- Decision: Use `currentChartRows` for tooltip UX test fixtures.
+  Reason: Tooltip cards resolve through the current rendered row set, so tests must target visible rows instead of arbitrary catalog rows.
+- Decision: Keep phase-specific localization in the existing `localText` pattern rather than adding a new i18n table entry.
+  Reason: The nearby control and tooltip code already uses inline localized strings, and this keeps the change scoped.
+- Decision: Make the static Playwright server avoid Chromium unsafe ports.
+  Reason: The rebuild command runs browser verification, and an ephemeral assignment of port `1720` caused a non-deterministic `ERR_UNSAFE_PORT` failure.
 
 ## Outcomes
 
-- Pending.
+- Users can now toggle MVP module performance effects from the main controls and see the active source, selected module count, effect count, and warnings.
+- Dry-mass calculator module selections now surface known thrust and EV/Isp modifiers directly in options and selected slot chips.
+- Tooltips now show active module effects and base-vs-modified thrust/EV values, plus unmet prerequisite and unsupported-rule diagnostics.
+- Unsupported-only selections are no longer silent; they render explicit warnings.
+- Mobile and narrow-panel layouts wrap effect chips and warning rows without horizontal overflow.
+- Generated docs were refreshed and all planned validation passed.
+
+## Retrospective
+
+- The main implementation stayed within the planned MVP boundary: thrust and EV/Isp are surfaced, while power demand, waste heat, and radiator mass remain base values with explicit warnings.
+- The only extra scope was stabilizing `tools/static_http_server.mjs` against Chromium unsafe ephemeral ports, which was necessary for the required rebuild validation to pass reliably.
 

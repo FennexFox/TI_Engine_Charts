@@ -269,6 +269,176 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectCalculationChecks.evMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective exhaust velocity`);
   expect(moduleEffectCalculationChecks.ispMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective specific impulse`);
 
+  const moduleEffectUxChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    state.dryMassTons = 1000;
+    state.targetDvKps = 50;
+    state.minTwr = 0.0001;
+    state.showImpracticalCandidates = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker", "ElectronicCountermeasures1"];
+    state.moduleEffectsEnabled = false;
+    syncUiFromState();
+
+    const panel = document.getElementById("moduleEffectsControl");
+    const checkbox = document.getElementById("moduleEffectsEnabled");
+    const disabledText = panel?.textContent || "";
+    const disabledChecked = checkbox?.checked === false;
+    checkbox?.click();
+    const enabledByClick = state.moduleEffectsEnabled === true && checkbox?.checked === true;
+    const enabledText = panel?.textContent || "";
+    const activeChipCount = panel ? panel.querySelectorAll(".effect-chip.is-active").length : 0;
+    const mutedChipCount = panel ? panel.querySelectorAll(".effect-chip.is-muted").length : 0;
+    const panelWarnings = [...(panel?.querySelectorAll(".module-effects-warning") || [])].map(item => item.textContent || "");
+
+    const classWithMuon = SHIP_CLASS_OPTIONS.find(shipClass => utilityModulesForShipClass(shipClass).some(item => item.dataName === "MuonSpiker"));
+    if (classWithMuon) {
+      dryMassCalcState.classId = classWithMuon.dataName;
+      normalizeDryMassCalcSlots();
+      if (dryMassCalcState.slotModules.length) dryMassCalcState.slotModules[0] = "MuonSpiker";
+      syncUiFromState();
+    }
+    const slotSelect = document.querySelector('#dryMassCalcSlots select[data-slot-index="0"]');
+    const selectedSlotEffects = document.querySelector("#dryMassCalcSlots .calc-slot-effects")?.textContent || "";
+    const optionEffectLabelVisible = !!slotSelect && [...slotSelect.options].some(option => option.value === "MuonSpiker" && /Thrust/i.test(option.textContent || ""));
+    const slotSearchableRendered = !!slotSelect?.nextElementSibling?.classList.contains("searchable-select");
+
+    const fusionHydrogen = currentChartRows.find(row => (
+      row.categoryKey === "Fusion"
+      && row.propellant === "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const nonHydrogenDrive = currentChartRows.find(row => (
+      row.propellant !== "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+
+    let compatibleTooltipText = "";
+    let compatibleTooltipChips = 0;
+    if (fusionHydrogen) {
+      state.moduleEffectsEnabled = true;
+      state.moduleEffectSource = "manual";
+      state.moduleEffectModuleIds = ["MuonSpiker"];
+      syncUiFromState();
+      const option = chartMassOptions(fusionHydrogen)[0];
+      if (option) {
+        const ref = tooltipRef(fusionHydrogen.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        compatibleTooltipText = document.querySelector("#tooltip")?.textContent || "";
+        compatibleTooltipChips = document.querySelectorAll("#tooltip .tooltip-module-effects .effect-chip.is-active").length;
+      }
+    }
+
+    let incompatibleTooltipText = "";
+    if (nonHydrogenDrive) {
+      state.moduleEffectsEnabled = true;
+      state.moduleEffectSource = "manual";
+      state.moduleEffectModuleIds = ["HydronTrap"];
+      syncUiFromState();
+      const option = chartMassOptions(nonHydrogenDrive)[0];
+      if (option) {
+        const ref = tooltipRef(nonHydrogenDrive.id, option.id);
+        state.hoverPoints = [ref];
+        state.lastTooltipItems = [ref];
+        refreshTooltip(currentChartRows);
+        incompatibleTooltipText = document.querySelector("#tooltip")?.textContent || "";
+      }
+    }
+
+    state.moduleEffectModuleIds = ["ElectronicCountermeasures1"];
+    syncUiFromState();
+    const unsupportedPanelText = panel?.textContent || "";
+
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const koreanPanelText = panel?.textContent || "";
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+
+    return {
+      panelExists: !!panel,
+      disabledChecked,
+      disabledWarnsBase: /base drive values/i.test(disabledText),
+      enabledByClick,
+      enabledSummary: /Source: manual preset list/.test(enabledText) && /Selected 2/.test(enabledText) && /Effects 1/.test(enabledText),
+      activeChipCount,
+      mutedChipCount,
+      panelWarnsRequirements: panelWarnings.some(text => /requires fusion drive/i.test(text)),
+      panelWarnsUnsupported: panelWarnings.some(text => /rules not modeled/i.test(text) && /ECM/.test(text)),
+      panelWarnsPowerBase: panelWarnings.some(text => /Power demand, waste heat, and radiator mass remain base values/i.test(text)),
+      optionEffectLabelVisible,
+      selectedSlotEffectVisible: /Thrust/i.test(selectedSlotEffects),
+      slotSearchableRendered,
+      compatibleTooltipShowsEffects: /Module effects/i.test(compatibleTooltipText)
+        && /Muon Spiker/i.test(compatibleTooltipText)
+        && /Thrust/i.test(compatibleTooltipText)
+        && /base/i.test(compatibleTooltipText)
+        && compatibleTooltipChips > 0,
+      incompatibleTooltipWarns: /unmet prerequisite/i.test(incompatibleTooltipText) && /hydrogenPropellant/.test(incompatibleTooltipText),
+      unsupportedPanelWarns: /rules not modeled/i.test(unsupportedPanelText) && /ECM/.test(unsupportedPanelText),
+      koreanPanelLocalized: !/Apply module performance effects|Source:/.test(koreanPanelText),
+    };
+  });
+  expect(moduleEffectUxChecks.panelExists, `${htmlFile}: module effects control panel is missing`);
+  expect(moduleEffectUxChecks.disabledChecked, `${htmlFile}: module effects checkbox did not sync disabled state`);
+  expect(moduleEffectUxChecks.disabledWarnsBase, `${htmlFile}: disabled module effects panel did not warn that base values are used`);
+  expect(moduleEffectUxChecks.enabledByClick, `${htmlFile}: module effects checkbox click did not update state`);
+  expect(moduleEffectUxChecks.enabledSummary, `${htmlFile}: enabled module effects summary did not describe source/selection/effect count`);
+  expect(moduleEffectUxChecks.activeChipCount >= 1, `${htmlFile}: active module-effect chip was not rendered`);
+  expect(moduleEffectUxChecks.mutedChipCount >= 1, `${htmlFile}: module without modeled performance effects was not visibly identified`);
+  expect(moduleEffectUxChecks.panelWarnsRequirements, `${htmlFile}: module effects panel did not show prerequisite warnings`);
+  expect(moduleEffectUxChecks.panelWarnsUnsupported, `${htmlFile}: module effects panel did not show unsupported rule warnings`);
+  expect(moduleEffectUxChecks.panelWarnsPowerBase, `${htmlFile}: module effects panel did not show power-side base-value warning`);
+  expect(moduleEffectUxChecks.optionEffectLabelVisible, `${htmlFile}: dry-mass module option labels did not identify module effects`);
+  expect(moduleEffectUxChecks.selectedSlotEffectVisible, `${htmlFile}: selected dry-mass module slot did not show effect chips`);
+  expect(moduleEffectUxChecks.slotSearchableRendered, `${htmlFile}: dry-mass module selector was not enhanced as searchable`);
+  expect(moduleEffectUxChecks.compatibleTooltipShowsEffects, `${htmlFile}: compatible drive tooltip did not show active module effects and base values`);
+  expect(moduleEffectUxChecks.incompatibleTooltipWarns, `${htmlFile}: incompatible drive tooltip did not show unmet prerequisite warning`);
+  expect(moduleEffectUxChecks.unsupportedPanelWarns, `${htmlFile}: unsupported-only module effect selection was silent`);
+  expect(moduleEffectUxChecks.koreanPanelLocalized, `${htmlFile}: module effects panel did not update when switching to Korean`);
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  const moduleEffectMobileLayout = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "manual";
+    state.moduleEffectModuleIds = ["MuonSpiker", "HydronTrap", "ElectronicCountermeasures1"];
+    syncUiFromState();
+    const classWithMuon = SHIP_CLASS_OPTIONS.find(shipClass => utilityModulesForShipClass(shipClass).some(item => item.dataName === "MuonSpiker"));
+    if (classWithMuon) {
+      dryMassCalcState.classId = classWithMuon.dataName;
+      normalizeDryMassCalcSlots();
+      if (dryMassCalcState.slotModules.length) dryMassCalcState.slotModules[0] = "MuonSpiker";
+      syncUiFromState();
+      document.getElementById("dryMassCalcModal")?.classList.add("is-open");
+    }
+    const panel = document.getElementById("moduleEffectsControl");
+    const dialog = document.querySelector("#dryMassCalcModal .modal-dialog");
+    const fitsInside = (container, selector) => {
+      if (!container) return false;
+      const box = container.getBoundingClientRect();
+      return [...container.querySelectorAll(selector)].every(element => {
+        const item = element.getBoundingClientRect();
+        return item.left >= box.left - 1 && item.right <= box.right + 1;
+      });
+    };
+    return {
+      panelFits: fitsInside(panel, ".effect-chip, .module-effects-warning"),
+      modalFits: fitsInside(dialog, ".calc-slot-effects .effect-chip"),
+    };
+  });
+  expect(moduleEffectMobileLayout.panelFits, `${htmlFile}: module-effect panel chips or warnings overflow on mobile`);
+  expect(moduleEffectMobileLayout.modalFits, `${htmlFile}: dry-mass module-effect chips overflow the modal on mobile`);
+  await page.locator("#dryMassCalcClose").click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
   await page.locator("#chartPresetActionsMenu > summary").click();
   const chartPresetMenuState = await page.evaluate(() => {
     const overflow = [...document.querySelectorAll("#presetClipboard .compact-command")]

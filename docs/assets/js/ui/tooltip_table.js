@@ -87,6 +87,13 @@ export function tooltipMetricsHtml(row, option = null) {
       const researchTotal = Math.max(driveResearch + projectResearch + powerResearch, 1e-9);
       const twrValue = option ? option.twr : (defaultTooltipOption(row)?.twr ?? NaN);
       const effective = effectiveDriveValues(row);
+      const baseThrustN = option && Number.isFinite(Number(option.baseThrustN)) ? Number(option.baseThrustN) : row.thrustN;
+      const effectiveThrustN = option && Number.isFinite(Number(option.effectiveThrustN)) ? Number(option.effectiveThrustN) : effective.thrustN;
+      const baseEvKps = option && Number.isFinite(Number(option.baseExhaustVelocityKps)) ? Number(option.baseExhaustVelocityKps) : row.exhaustVelocityKps;
+      const effectiveEvKps = option && Number.isFinite(Number(option.effectiveExhaustVelocityKps)) ? Number(option.effectiveExhaustVelocityKps) : effective.exhaustVelocityKps;
+      const thrustText = modifiedMetricText(effectiveThrustN / 1e6, baseThrustN / 1e6, " MN");
+      const evText = modifiedMetricText(effectiveEvKps, baseEvKps, " km/s");
+      const moduleEffects = moduleEffectTooltipHtml(option, effective);
       const researchRows = [
         [UI_LANG === "en" ? "Unlock research" : "개방 연구력", formatResearch(unlockResearch), true],
         [UI_LANG === "en" ? "Drive research" : "드라이브 연구", formatResearch(driveResearch), false],
@@ -94,9 +101,9 @@ export function tooltipMetricsHtml(row, option = null) {
         [UI_LANG === "en" ? "Power research" : "전원 연구", formatResearch(powerResearch), false],
       ];
       const performanceRows = [
-        [UI_LANG === "en" ? "Thrust" : "추력", formatNumber(effective.thrustN / 1e6, " MN")],
+        [UI_LANG === "en" ? "Thrust" : "추력", thrustText],
         [UI_LANG === "en" ? "TWR" : "TWR", formatTwr(twrValue, " g")],
-        [UI_LANG === "en" ? "Exhaust velocity" : "EV", formatNumber(effective.exhaustVelocityKps, " km/s")],
+        [UI_LANG === "en" ? "Exhaust velocity" : "EV", evText],
         [UI_LANG === "en" ? "Efficiency" : "효율", formatPercent(row.efficiency)],
         [UI_LANG === "en" ? "Power requirement" : "출력 요구량", formatNumber(row.powerRequirementGW, " GW")],
       ];
@@ -114,6 +121,7 @@ export function tooltipMetricsHtml(row, option = null) {
             </div>
           </div>
         </details>
+        ${moduleEffects}
         <details class="tooltip-section" open>
           <summary>${UI_LANG === "en" ? "Research detail" : "연구 상세"}</summary>
           <div class="tooltip-section-body">
@@ -134,6 +142,69 @@ export function tooltipMetricsHtml(row, option = null) {
                 </div>
               `).join("")}
             </div>
+          </div>
+        </details>
+      `;
+    }
+
+export function modifiedMetricText(effectiveValue, baseValue, suffix) {
+      const effective = formatNumber(effectiveValue, suffix);
+      if (!Number.isFinite(effectiveValue) || !Number.isFinite(baseValue)) return effective;
+      const scale = Math.max(Math.abs(baseValue), 1);
+      if (Math.abs(effectiveValue - baseValue) <= scale * 1e-9) return effective;
+      return `${effective} (${UI_LANG === "en" ? "base" : "기본"} ${formatNumber(baseValue, suffix)})`;
+    }
+
+export function effectTypeLabel(type) {
+      if (type === "thrustMultiplier") return UI_LANG === "en" ? "Thrust" : "추력";
+      if (type === "exhaustVelocityMultiplier") return UI_LANG === "en" ? "EV/Isp" : "EV/Isp";
+      return type || "";
+    }
+
+export function moduleEffectTooltipHtml(option, effective) {
+      const evaluation = effective && effective.moduleEffectEvaluation;
+      const activeEffects = option && Array.isArray(option.activeModuleEffects)
+        ? option.activeModuleEffects
+        : evaluation && Array.isArray(evaluation.activeEffects)
+          ? evaluation.activeEffects
+          : [];
+      const diagnostics = option && option.moduleEffectDiagnostics
+        ? option.moduleEffectDiagnostics
+        : evaluation && evaluation.diagnostics
+          ? evaluation.diagnostics
+          : null;
+      if (!activeEffects.length && !diagnostics) return "";
+
+      const chips = activeEffects.map(effect => {
+        const multiplier = Number(effect.multiplier);
+        const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
+        const moduleName = effect.moduleName || effect.moduleId || "";
+        return `<span class="effect-chip is-active">${escapeHtml(`${moduleName} · ${effectTypeLabel(effect.type)} ${value}`.trim())}</span>`;
+      });
+      const warnings = [];
+      if (diagnostics) {
+        (diagnostics.unmetRequirements || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unmet prerequisite" : "미충족 조건"} ${item.requirement}`);
+        });
+        (diagnostics.unsupportedRules || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unsupported rule" : "미지원 규칙"} ${item.rule}`);
+        });
+        (diagnostics.unsupportedEffects || []).forEach(item => {
+          warnings.push(`${item.moduleName || item.moduleId}: ${UI_LANG === "en" ? "unsupported effect" : "미지원 효과"} ${item.type || item.sourceRule}`);
+        });
+        if ((diagnostics.powerSideEffects || []).length && activeEffects.length) {
+          warnings.push(UI_LANG === "en"
+            ? "Power demand, waste heat, and radiator mass remain base values in this MVP."
+            : "이 MVP에서는 전력 요구량, 폐열, 라디에이터 질량이 기본값으로 유지됩니다.");
+        }
+      }
+      if (!chips.length && !warnings.length) return "";
+      return `
+        <details class="tooltip-section tooltip-module-effects" open>
+          <summary>${UI_LANG === "en" ? "Module effects" : "모듈 효과"}</summary>
+          <div class="tooltip-section-body">
+            ${chips.length ? `<div class="effect-chip-list">${chips.join("")}</div>` : ""}
+            ${warnings.length ? `<div class="module-effects-warnings">${warnings.map(item => `<div class="module-effects-warning">${escapeHtml(item)}</div>`).join("")}</div>` : ""}
           </div>
         </details>
       `;

@@ -1,7 +1,132 @@
 import { isBandMetric } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
-import { UI_LANG, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, state } from "../state/core.js";
 import { formatNumber, formatTwrDynamicUnit } from "./formatting.js";
+
+function utilityModuleById(id) {
+  const modules = DATA.shipCatalog && Array.isArray(DATA.shipCatalog.utilityModules)
+    ? DATA.shipCatalog.utilityModules
+    : [];
+  return modules.find(item => item && item.dataName === id) || null;
+}
+
+function moduleDisplayName(module) {
+  if (!module) return "";
+  const display = module.displayName;
+  if (display && typeof display === "object") {
+    return UI_LANG === "en"
+      ? display.en || display.kor || display.ko || module.friendlyName || module.dataName
+      : display.kor || display.ko || display.en || module.friendlyName || module.dataName;
+  }
+  return module.friendlyName || module.dataName || "";
+}
+
+function effectSummary(effect) {
+  const multiplier = Number(effect && effect.multiplier);
+  const value = Number.isFinite(multiplier) ? `x${Number(multiplier.toPrecision(3))}` : "";
+  if (effect && effect.type === "thrustMultiplier") return `${localText("추력", "Thrust")} ${value}`.trim();
+  if (effect && effect.type === "exhaustVelocityMultiplier") return `${localText("EV/Isp", "EV/Isp")} ${value}`.trim();
+  return effect && effect.type ? `${effect.type} ${value}`.trim() : "";
+}
+
+function requirementSummary(requirement) {
+  const labels = {
+    fissionDrive: localText("핵분열 드라이브 필요", "requires fission drive"),
+    fusionDrive: localText("핵융합 드라이브 필요", "requires fusion drive"),
+    nuclearDrive: localText("핵 드라이브 필요", "requires nuclear drive"),
+    hydrogenPropellant: localText("수소 추진제 필요", "requires hydrogen propellant"),
+    nonIsruDrive: localText("ISRU 추진제 제외", "requires non-ISRU propellant"),
+  };
+  return labels[requirement && requirement.type] || (requirement && requirement.type) || "";
+}
+
+function moduleEffectSummaries(module) {
+  return Array.isArray(module && module.effects)
+    ? module.effects.map(effectSummary).filter(Boolean)
+    : [];
+}
+
+function moduleRequirementSummaries(module) {
+  return Array.isArray(module && module.effectRequirements)
+    ? module.effectRequirements.map(requirementSummary).filter(Boolean)
+    : [];
+}
+
+function moduleUnmodeledRules(module) {
+  return Array.isArray(module && module.unmodeledRules)
+    ? module.unmodeledRules.map(rule => rule && rule.rule).filter(Boolean)
+    : [];
+}
+
+function appendChip(container, text, className = "") {
+  const chip = document.createElement("span");
+  chip.className = `effect-chip${className ? ` ${className}` : ""}`;
+  chip.textContent = text;
+  container.appendChild(chip);
+}
+
+function appendWarning(container, text) {
+  const item = document.createElement("div");
+  item.className = "module-effects-warning";
+  item.textContent = text;
+  container.appendChild(item);
+}
+
+export function updateModuleEffectsPanel() {
+  const checkbox = document.getElementById("moduleEffectsEnabled");
+  const label = document.getElementById("moduleEffectsEnabledLabel");
+  const summary = document.getElementById("moduleEffectsSummary");
+  const chips = document.getElementById("moduleEffectsChips");
+  const warnings = document.getElementById("moduleEffectsWarnings");
+  if (!checkbox || !label || !summary || !chips || !warnings) return;
+
+  const assumptions = currentModuleEffectAssumptions();
+  checkbox.checked = !!assumptions.moduleEffectsEnabled;
+  label.textContent = localText("모듈 성능 효과 적용", "Apply module performance effects");
+  chips.innerHTML = "";
+  warnings.innerHTML = "";
+
+  const sourceLabel = assumptions.moduleEffectSource === "manual"
+    ? localText("수동 프리셋 목록", "manual preset list")
+    : localText("건조질량 계산기 선택", "dry-mass calculator selection");
+  const modules = assumptions.activeModuleIds.map(utilityModuleById).filter(Boolean);
+  const effectModules = modules.filter(module => moduleEffectSummaries(module).length);
+  summary.textContent = assumptions.moduleEffectsEnabled
+    ? `${localText("소스", "Source")}: ${sourceLabel} · ${localText("선택", "Selected")} ${modules.length} · ${localText("효과", "Effects")} ${effectModules.length}`
+    : `${localText("비활성", "Disabled")} · ${localText("소스", "Source")}: ${sourceLabel}`;
+
+  if (!modules.length) {
+    appendChip(chips, localText("성능 모듈 선택 없음", "No performance modules selected"), "is-muted");
+  } else {
+    modules.forEach(module => {
+      const effects = moduleEffectSummaries(module);
+      if (effects.length) {
+        appendChip(chips, `${moduleDisplayName(module)} · ${effects.join(", ")}`, "is-active");
+      } else {
+        appendChip(chips, `${moduleDisplayName(module)} · ${localText("성능 효과 없음", "no performance effect")}`, "is-muted");
+      }
+    });
+  }
+
+  if (!assumptions.moduleEffectsEnabled) {
+    appendWarning(warnings, localText("현재 차트는 기본 드라이브 값을 사용합니다.", "Charts currently use base drive values."));
+    return;
+  }
+
+  modules.forEach(module => {
+    const requirements = moduleRequirementSummaries(module);
+    const unmodeled = moduleUnmodeledRules(module);
+    if (requirements.length && moduleEffectSummaries(module).length) {
+      appendWarning(warnings, `${moduleDisplayName(module)}: ${requirements.join(", ")}.`);
+    }
+    if (unmodeled.length) {
+      appendWarning(warnings, `${moduleDisplayName(module)}: ${localText("MVP에서 아직 모델링하지 않는 규칙", "rules not modeled in the MVP")} (${unmodeled.join(", ")}).`);
+    }
+  });
+  if (effectModules.length) {
+    appendWarning(warnings, localText("전력 요구량, 폐열, 라디에이터 질량은 아직 기본값으로 유지됩니다.", "Power demand, waste heat, and radiator mass remain base values for now."));
+  }
+}
 
 export function updateChartControls() {
   const fuelUnitBlock = document.getElementById("chartFuelUnit");
@@ -24,6 +149,7 @@ export function updateChartControls() {
   }
   const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
   if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
+  updateModuleEffectsPanel();
   syncMinTwrInputs();
   syncMinDvInputs();
 }

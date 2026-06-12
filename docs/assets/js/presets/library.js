@@ -141,6 +141,7 @@ export function applyDryMassPresetEntry(entry, { showStatus = true } = {}) {
         return false;
       }
       presetRuntimeApi.renderDryMassCalcModal();
+      if (state.moduleEffectsEnabled) presetRuntimeApi.render();
       if (showStatus) showDryMassPresetStatus(localText(`“${entry.name}” 설계 프리셋을 적용했습니다. 적용 버튼으로 차트에 반영하세요.`, `Applied design preset “${entry.name}”. Use an apply button to update the chart.`));
       return true;
     }
