@@ -2,8 +2,8 @@
   "format": "ti-engine-chart-built-in-presets/v1",
   "chartPresets": [
     {
-      "id": "missile-battleship-advanced-defense-chart",
-      "name": "Missile Battleship - Advanced Defense",
+      "id": "example-preset-1",
+      "name": "Example",
       "settings": {
         "format": "ti-engine-chart-preset/v1",
         "lang": "en",
