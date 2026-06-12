@@ -571,10 +571,17 @@ export function updateHoverFromPointer(event) {
 export function updatePinnedTooltipHoverFocus(event) {
       const pinned = pinnedFocusTooltipRefs();
       const point = svgPointFromEvent(event);
+      const applyRefs = refs => {
+        setHoverPoints(refs);
+        if (!sameTooltipRefs(refs, state.lastTooltipItems)) {
+          state.lastTooltipItems = refs;
+          refreshTooltip(currentChartRows);
+        }
+      };
       if (!pointInPlot(point)) {
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
-        setHoverPoints(pinned);
+        applyRefs(pinned);
         return;
       }
 
@@ -587,12 +594,12 @@ export function updatePinnedTooltipHoverFocus(event) {
             state.hoverHitSignature = signature;
             state.dismissedTooltipKeys.clear();
           }
-          setHoverPoints(mergePinnedFocusTooltipRefs(resolveLadderHoverRefs(ladderHits)));
+          applyRefs(mergePinnedFocusTooltipRefs(resolveLadderHoverRefs(ladderHits)));
           return;
         }
         state.hoverHitSignature = "";
         state.dismissedTooltipKeys.clear();
-        setHoverPoints(pinned);
+        applyRefs(pinned);
         return;
       }
 
@@ -601,7 +608,7 @@ export function updatePinnedTooltipHoverFocus(event) {
         state.hoverHitSignature = signature;
         state.dismissedTooltipKeys.clear();
       }
-      setHoverPoints(mergePinnedFocusTooltipRefs(hits.filter(hit => !state.dismissedTooltipKeys.has(hit.key))));
+      applyRefs(mergePinnedFocusTooltipRefs(hits.filter(hit => !state.dismissedTooltipKeys.has(hit.key))));
     }
 
 export function handleChartClick(point) {

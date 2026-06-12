@@ -2125,6 +2125,52 @@ const dryMassActionLayout = await page.evaluate(() => {
   expect(cardCountAfterHover > 0, `${htmlFile}: hover did not create detail card`);
   expect(await page.locator("#chart .point-state-ring.is-hovered").count() > 0, `${htmlFile}: hover did not render a separate point-state overlay`);
 
+  const hoverCardOrderingChecks = await page.evaluate(() => {
+    const candidates = currentChartRows
+      .filter(row => chartMassOptions(row).length > 0)
+      .slice(0, 3);
+    if (candidates.length < 3) return { checked: false };
+    const refs = candidates.map(row => tooltipRef(row.id, chartMassOptions(row)[0].id));
+    state.tooltipPinned = true;
+    state.pinnedTooltipItems = [refs[0]];
+    state.hoverPoints = [refs[0], refs[1], refs[2]];
+    state.lastTooltipItems = [refs[0], refs[1], refs[2]];
+    refreshTooltip(currentChartRows);
+    const orderA = [...document.querySelectorAll("#tooltip .tooltip-item")]
+      .map(item => item.getAttribute("data-tooltip-key"));
+    state.hoverPoints = [refs[0], refs[2], refs[1]];
+    state.lastTooltipItems = [refs[0], refs[2], refs[1]];
+    refreshTooltip(currentChartRows);
+    const orderB = [...document.querySelectorAll("#tooltip .tooltip-item")]
+      .map(item => item.getAttribute("data-tooltip-key"));
+    return {
+      checked: true,
+      pinnedFirstA: orderA[0] === refs[0].key,
+      pinnedFirstB: orderB[0] === refs[0].key,
+      hoverOrderA: orderA.slice(1, 3).join("|"),
+      hoverOrderB: orderB.slice(1, 3).join("|"),
+      expectedA: `${refs[1].key}|${refs[2].key}`,
+      expectedB: `${refs[2].key}|${refs[1].key}`,
+    };
+  });
+  expect(hoverCardOrderingChecks.checked, `${htmlFile}: not enough tooltip candidates for hover card ordering verification`);
+  expect(hoverCardOrderingChecks.pinnedFirstA && hoverCardOrderingChecks.pinnedFirstB, `${htmlFile}: pinned tooltip card did not stay fixed above hover cards`);
+  expect(hoverCardOrderingChecks.hoverOrderA === hoverCardOrderingChecks.expectedA, `${htmlFile}: initial hover card order did not follow hover-hit order`);
+  expect(hoverCardOrderingChecks.hoverOrderB === hoverCardOrderingChecks.expectedB, `${htmlFile}: hover card order did not update when hover-hit order changed`);
+
+  await page.evaluate(() => {
+    state.tooltipPinned = false;
+    state.tooltipPinnedItems = [];
+    state.pinnedTooltipItems = [];
+    state.lastTooltipItems = [];
+    state.hoverPoints = [];
+    state.dismissedTooltipKeys.clear();
+    state.hoverHitSignature = "";
+    refreshTooltip(currentChartRows);
+  });
+
+
+
   if (pointBox) {
     await page.mouse.click(pointBox.x + pointBox.width / 2, pointBox.y + pointBox.height / 2);
   }

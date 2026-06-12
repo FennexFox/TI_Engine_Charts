@@ -35,8 +35,9 @@ export function pinTooltipItems(items) {
         return;
       }
       state.tooltipPinned = true;
+      state.tooltipPinnedItems = refs;
       state.dismissedTooltipKeys.clear();
-      const nextRefs = dedupeTooltipRefs([...state.lastTooltipItems, ...refs]);
+      const nextRefs = mergePinnedFocusTooltipRefs(refs);
       state.hoverHitSignature = nextRefs.map(item => item.key).join("|");
       state.lastTooltipItems = nextRefs;
       setHoverPoints(nextRefs);
@@ -45,6 +46,7 @@ export function pinTooltipItems(items) {
 
 export function unpinTooltip() {
       state.tooltipPinned = false;
+      state.tooltipPinnedItems = [];
       state.hoverHitSignature = "";
       state.dismissedTooltipKeys.clear();
       refreshTooltip(currentChartRows);
@@ -53,7 +55,6 @@ export function unpinTooltip() {
 export function unpinTooltipItemByKey(key) {
       if (!key || !isPinnedTooltipKey(key)) return false;
       state.pinnedTooltipItems = state.pinnedTooltipItems.filter(item => item.key !== key);
-      if (!state.pinnedTooltipItems.length) state.tooltipPinned = false;
       state.lastTooltipItems = mergePinnedTooltipRefs(state.lastTooltipItems);
       setHoverPoints(mergePinnedTooltipRefs(state.hoverPoints));
       refreshTooltip(currentChartRows);

@@ -265,10 +265,12 @@ export function mergePinnedTooltipRefs(items) {
     }
 
 export function pinnedFocusTooltipRefs() {
-      if (state.tooltipPinned) {
-        return dedupeTooltipRefs([...state.lastTooltipItems, ...state.pinnedTooltipItems]);
-      }
-      return pinnedTooltipRefs();
+      const explicitPinned = pinnedTooltipRefs();
+      const explicitKeys = new Set(explicitPinned.map(item => item.key));
+      const focusPinned = state.tooltipPinned
+        ? dedupeTooltipRefs(state.tooltipPinnedItems || state.lastTooltipItems).filter(item => !explicitKeys.has(item.key))
+        : [];
+      return [...explicitPinned, ...focusPinned];
     }
 
 export function mergePinnedFocusTooltipRefs(items) {
