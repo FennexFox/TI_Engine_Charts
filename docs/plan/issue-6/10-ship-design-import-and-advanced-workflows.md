@@ -95,7 +95,11 @@ npm run verify
 
 ## Progress
 
-- [ ] Not started.
+- [x] Added explicit browser-native ship assumption import payload support.
+- [x] Mapped imported dry-mass calculator selections and module-effect assumptions into existing app state.
+- [x] Added compact base-vs-modified badges for non-band table metrics affected by module effects.
+- [x] Extended browser verification for ship assumption import, named preset reapply, clean-profile export/import, and table delta display.
+- [x] Regenerated UI-only docs output and completed verification.
 
 ## Decision Log
 
@@ -103,8 +107,25 @@ npm run verify
   Reason: Import workflows should not hard-code transitional calculation assumptions.
 - Decision: Keep automatic optimization out of scope.
   Reason: Issue #6 explicitly excludes automatic module choice optimization for the first pass.
+- Decision: Define the phase-10 import boundary as `ti-engine-chart-ship-assumption/v1`, not as a Terra Invicta save-file parser.
+  Reason: The app can safely import explicit browser-native assumptions now, while game save parsing still needs a separate schema and compatibility foundation.
+- Decision: Keep base-vs-modified comparison in table badges and existing tooltip detail instead of adding a chart overlay.
+  Reason: The chart is already dense; a compact table affordance provides discoverability without adding visual clutter.
+- Decision: Do not add built-in module-effect assumption presets in this phase.
+  Reason: Current dry-mass selection plus named chart/design presets already cover reusable assumptions, and built-in presets would add catalog-maintenance burden without changing defaults.
+- Decision: Treat Phase 09 warning diagnostics as the advanced warning summary baseline for this phase.
+  Reason: Unsupported, incompatible, ignored, and missing-data states are already explicit in the module-effect panel and tooltip diagnostics.
 
 ## Outcomes
 
-- Pending.
+- `tools/drive_comparison_client/presets/library.js` now accepts `ti-engine-chart-ship-assumption/v1` payloads with a dry-mass calculator object and optional `moduleEffects` block.
+- Importing that payload applies calculator slots, notes, simulation defaults, and module-effect source/enabled/manual-ID assumptions without parsing game saves.
+- Exported chart presets continue to preserve dry-mass calculator and module-effect assumptions, so imported ship scenarios can be saved, reloaded, and re-imported on a clean profile.
+- `tools/drive_comparison_client/ui/tooltip_table.js` now shows a small base-value badge on thrust, fuel-efficiency, or power-requirement table cells when module effects change the displayed value.
+- Browser verification covers representative ship assumption import, dry-mass mapping, module-effect mapping, base-vs-modified table display, named preset reapply, and clean-profile export/import.
+- Validation completed:
+  - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
+  - `node tools/verify_drive_comparison_browser.mjs docs/index.html`
+  - `npm run verify`
+  - In-app Browser smoke confirmed generated `docs/index.html` loads with chart points, table rows, dry-mass entry point, and no runtime errors.
 

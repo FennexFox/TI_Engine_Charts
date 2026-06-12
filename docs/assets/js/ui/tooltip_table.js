@@ -670,12 +670,42 @@ export function metricCell(row, domain) {
       const value = metricDefs[state.metric].value(row);
       if (!Number.isFinite(value)) return "-";
       const position = sparkPosition(value, domain);
+      const deltaBadge = tableMetricDeltaBadge(row, value);
       return `
-        <div class="cell-viz" title="${metricDefs[state.metric].format(value)}${domain.log ? " · log sparkline" : ""}">
+        <div class="cell-viz${deltaBadge ? " has-delta" : ""}" title="${metricDefs[state.metric].format(value)}${domain.log ? " · log sparkline" : ""}">
           <span class="cell-value">${metricDefs[state.metric].format(value)}</span>
+          ${deltaBadge}
           <div class="sparkbar" aria-hidden="true"><span class="spark-fill" style="width:${position.toFixed(2)}%"></span></div>
         </div>
       `;
+    }
+
+export function tableBaseMetricValue(row) {
+      if (state.metric === "thrustMN") return Number(row.thrustN) / 1e6;
+      if (state.metric === "fuelEfficiency") {
+        return state.fuelEfficiencyUnit === "seconds"
+          ? Number(row.specificImpulseSeconds)
+          : Number(row.exhaustVelocityKps);
+      }
+      if (state.metric === "powerRequirementGW") return Number(row.powerRequirementGW);
+      return NaN;
+    }
+
+export function tableMetricDeltaBadge(row, value) {
+      if (!state.moduleEffectsEnabled) return "";
+      const base = tableBaseMetricValue(row);
+      if (!Number.isFinite(value) || !Number.isFinite(base)) return "";
+      const scale = Math.max(Math.abs(base), 1);
+      if (Math.abs(value - base) <= scale * 1e-9) return "";
+      const ratio = base !== 0 ? value / base - 1 : NaN;
+      const ratioText = Number.isFinite(ratio)
+        ? `${ratio > 0 ? "+" : ""}${formatPercent(ratio)}`
+        : "";
+      const text = [
+        `${UI_LANG === "en" ? "base" : "기본"} ${metricDefs[state.metric].format(base)}`,
+        ratioText,
+      ].filter(Boolean).join(" · ");
+      return `<span class="metric-delta-badge">${escapeHtml(text)}</span>`;
     }
 
 export function optionRange(row) {

@@ -1754,6 +1754,18 @@
       margin-bottom: 5px;
       white-space: nowrap;
     }
+    .cell-viz.has-delta .cell-value {
+      margin-bottom: 2px;
+    }
+    .metric-delta-badge {
+      display: block;
+      margin-bottom: 5px;
+      color: #9fd6ca;
+      font-size: 10px;
+      font-weight: 650;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
     .sparkbar,
     .sparkrange {
       position: relative;

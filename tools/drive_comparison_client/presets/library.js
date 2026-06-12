@@ -49,6 +49,8 @@ import {
   serializePayloadObject,
 } from "./codec.js";
 
+export const SHIP_ASSUMPTION_IMPORT_FORMAT = "ti-engine-chart-ship-assumption/v1";
+
 export { registerPresetRuntimeApi } from "./runtime.js";
 export {
   applyHelp,
@@ -395,6 +397,60 @@ export function extractDryMassCalculatorFromImport(raw) {
       return hasCalculatorField ? raw : null;
     }
 
+export function normalizeShipAssumptionModuleEffects(raw) {
+      const moduleEffects = raw && raw.moduleEffects && typeof raw.moduleEffects === "object"
+        ? raw.moduleEffects
+        : {};
+      const source = Object.keys(moduleEffects).length ? moduleEffects : (raw || {});
+      const hasEnabled = Object.prototype.hasOwnProperty.call(source, "enabled")
+        || Object.prototype.hasOwnProperty.call(source, "moduleEffectsEnabled");
+      const moduleIds = Array.isArray(source.moduleEffectModuleIds)
+        ? source.moduleEffectModuleIds
+        : Array.isArray(source.moduleIds)
+          ? source.moduleIds
+          : Array.isArray(source.modules)
+            ? source.modules
+            : [];
+      return normalizeModuleEffectPresetState({
+        moduleEffectsEnabled: hasEnabled
+          ? (source.enabled === true || source.moduleEffectsEnabled === true)
+          : true,
+        moduleEffectSource: typeof source.source === "string" ? source.source : source.moduleEffectSource,
+        moduleEffectModuleIds: moduleIds,
+      });
+    }
+
+export function extractShipAssumptionImport(raw) {
+      if (!raw || typeof raw !== "object" || raw.format !== SHIP_ASSUMPTION_IMPORT_FORMAT) return null;
+      const calculator = extractDryMassCalculatorFromImport(raw);
+      if (!calculator) return null;
+      return {
+        name: typeof raw.name === "string" ? raw.name : "",
+        calculator,
+        moduleEffects: normalizeShipAssumptionModuleEffects(raw),
+      };
+    }
+
+export function applyShipAssumptionImport(raw, { promptToSaveCurrent = true } = {}) {
+      const imported = extractShipAssumptionImport(raw);
+      if (!imported || !presetRuntimeApi.applyDryMassCalculatorPreset(imported.calculator)) {
+        return { ok: false, message: localText("함선 가정 payload를 가져오지 못했습니다.", "Failed to import ship assumption payload.") };
+      }
+      applyModuleEffectPresetState(imported.moduleEffects);
+      presetRuntimeApi.renderDryMassCalcModal();
+      presetRuntimeApi.updateChartControls();
+      if (state.moduleEffectsEnabled) presetRuntimeApi.render();
+      if (promptToSaveCurrent && window.confirm(localText("가져온 함선 가정을 이름 있는 설계 프리셋으로 저장할까요?", "Save imported ship assumptions as a named design preset?"))) {
+        const name = promptPresetName(
+          localText("설계 프리셋 이름", "Design preset name"),
+          imported.name || localText("가져온 함선 가정", "Imported ship assumptions"),
+          showDryMassPresetStatus,
+        );
+        if (name) saveDryMassPresetFromCalculator(name, presetRuntimeApi.exportedDryMassCalculatorPreset());
+      }
+      return { ok: true, message: localText("함선 가정을 가져왔습니다.", "Ship assumptions imported.") };
+    }
+
 export async function handleImportedPresetObject(raw, { preferredKind = "chart", promptToSaveCurrent = true } = {}) {
       if (!raw || typeof raw !== "object") {
         return { ok: false, message: localText("설정 형식을 인식하지 못했습니다.", "Unrecognized preset format.") };
@@ -422,6 +478,10 @@ export async function handleImportedPresetObject(raw, { preferredKind = "chart",
         return { ok: count > 0, message: count > 0
           ? localText(`설계 프리셋 ${count}개를 가져왔습니다.`, `Imported ${count} design presets.`)
           : localText("가져올 설계 프리셋이 없습니다.", "No design presets to import.") };
+      }
+
+      if (raw.format === SHIP_ASSUMPTION_IMPORT_FORMAT) {
+        return applyShipAssumptionImport(raw, { promptToSaveCurrent });
       }
 
       if (raw.format === "ti-engine-chart-named-preset/v1") {

@@ -1229,6 +1229,227 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartControls, `${htmlFile}: chart preset management controls missing`);
   expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
 
+  const shipAssumptionWorkflow = await page.evaluate(async () => {
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    setLanguage("en", { rerender: false });
+    renderPresetLibraryControls();
+
+    const requestedModules = ["MuonSpiker", "HydronTrap"];
+    const testClass = SHIP_CLASS_OPTIONS.find(item => {
+      const slots = Number(item.utilitySlots ?? item.internalModules) || 0;
+      const allowedIds = new Set(utilityModulesForShipClass(item).map(module => module.dataName));
+      return slots >= requestedModules.length && requestedModules.every(id => allowedIds.has(id));
+    });
+    if (!testClass) return { classFound: false };
+
+    const radiatorId = DATA.radiators[0] ? DATA.radiators[0].id : state.radiatorId;
+    const payload = {
+      format: "ti-engine-chart-ship-assumption/v1",
+      name: "Phase 10 imported ship",
+      dryMassCalculator: {
+        classId: testClass.dataName,
+        slotModules: requestedModules,
+        notes: "phase 10 ship assumption import",
+        simulationDefaults: {
+          targetDvKps: 222,
+          minTwr: 0.33,
+          radiatorId,
+        },
+      },
+      moduleEffects: {
+        enabled: true,
+        source: "dryMassCalculator",
+      },
+    };
+    const importResult = await handleImportedPresetObject(payload, {
+      preferredKind: "dryMass",
+      promptToSaveCurrent: false,
+    });
+    const importedCalculator = exportedDryMassCalculatorPreset();
+    const importedAssumptions = currentModuleEffectAssumptions();
+    const calculatorMapped = importedCalculator.classId === testClass.dataName
+      && importedCalculator.notes === "phase 10 ship assumption import"
+      && requestedModules.every((id, index) => importedCalculator.slotModules[index] === id);
+    const assumptionsMapped = importedAssumptions.moduleEffectsEnabled === true
+      && importedAssumptions.moduleEffectSource === "dryMassCalculator"
+      && importedAssumptions.activeModuleIds.join("|") === requestedModules.join("|")
+      && importedAssumptions.moduleIds.join("|") === requestedModules.join("|");
+    const defaultsMapped = Math.abs(importedCalculator.simulationDefaults.targetDvKps - 222) < 1e-9
+      && Math.abs(importedCalculator.simulationDefaults.minTwr - 0.33) < 1e-9
+      && importedCalculator.simulationDefaults.radiatorId === radiatorId;
+
+    state.dryMassTons = dryMassCalcTotalTons();
+    state.targetDvKps = importedCalculator.simulationDefaults.targetDvKps;
+    state.minTwr = importedCalculator.simulationDefaults.minTwr;
+    state.radiatorId = importedCalculator.simulationDefaults.radiatorId;
+    DATA.categories.forEach(category => { state.categories[category.key] = true; });
+    DATA.subfamilies.forEach(family => { state.families[family.key] = true; });
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectSource = "dryMassCalculator";
+
+    let modifiedDrive = null;
+    let baseDriveValues = null;
+    let modifiedDriveValues = null;
+    let modifiedMetric = "";
+    const visibleCandidateRows = DATA.drives.filter(row => {
+      const research = Number(row.unlockCumulativeResearch || row.cumulativeResearch) || 0;
+      return research > 0 && row.categoryKey !== "Alien";
+    });
+    for (const row of visibleCandidateRows) {
+      state.moduleEffectsEnabled = false;
+      const base = effectiveDriveValues(row);
+      state.moduleEffectsEnabled = true;
+      const modified = effectiveDriveValues(row);
+      const thrustChanged = Number.isFinite(base.thrustN)
+        && Number.isFinite(modified.thrustN)
+        && Math.abs(modified.thrustN - base.thrustN) > Math.max(Math.abs(base.thrustN), 1) * 1e-9;
+      const evChanged = Number.isFinite(base.exhaustVelocityKps)
+        && Number.isFinite(modified.exhaustVelocityKps)
+        && Math.abs(modified.exhaustVelocityKps - base.exhaustVelocityKps) > Math.max(Math.abs(base.exhaustVelocityKps), 1) * 1e-9;
+      if (thrustChanged || evChanged) {
+        modifiedDrive = row;
+        baseDriveValues = base;
+        modifiedDriveValues = modified;
+        modifiedMetric = thrustChanged ? "thrustMN" : "fuelEfficiency";
+        if (thrustChanged) break;
+      }
+    }
+    if (modifiedDrive && modifiedMetric !== "thrustMN") {
+      for (const row of visibleCandidateRows) {
+        state.moduleEffectsEnabled = false;
+        const base = effectiveDriveValues(row);
+        state.moduleEffectsEnabled = true;
+        const modified = effectiveDriveValues(row);
+        const thrustChanged = Number.isFinite(base.thrustN)
+          && Number.isFinite(modified.thrustN)
+          && Math.abs(modified.thrustN - base.thrustN) > Math.max(Math.abs(base.thrustN), 1) * 1e-9;
+        if (thrustChanged) {
+          modifiedDrive = row;
+          baseDriveValues = base;
+          modifiedDriveValues = modified;
+          modifiedMetric = "thrustMN";
+          break;
+        }
+      }
+    }
+    if (!modifiedDrive) {
+      for (const row of visibleCandidateRows) {
+        state.moduleEffectsEnabled = false;
+        const base = effectiveDriveValues(row);
+        state.moduleEffectsEnabled = true;
+        const modified = effectiveDriveValues(row);
+        const powerChanged = Number.isFinite(base.powerRequirementGW)
+          && Number.isFinite(modified.powerRequirementGW)
+          && Math.abs(modified.powerRequirementGW - base.powerRequirementGW) > Math.max(Math.abs(base.powerRequirementGW), 1) * 1e-9;
+        if (powerChanged) {
+          modifiedDrive = row;
+          baseDriveValues = base;
+          modifiedDriveValues = modified;
+          modifiedMetric = "powerRequirementGW";
+          break;
+        }
+      }
+    }
+    state.moduleEffectsEnabled = true;
+
+    let tableBadgeText = "";
+    if (modifiedDrive) {
+      state.metric = modifiedMetric || "thrustMN";
+      state.thrusters = modifiedDrive.thrusterCount;
+      state.searchTerm = modifiedDrive.displayName.toLocaleLowerCase();
+      syncUiFromState();
+      render();
+      tableBadgeText = document.querySelector("#tableBody .metric-delta-badge")?.textContent || "";
+    }
+    const valuesDiffer = !!modifiedDrive && !!baseDriveValues && !!modifiedDriveValues
+      && (
+        modifiedDriveValues.thrustN !== baseDriveValues.thrustN
+        || modifiedDriveValues.exhaustVelocityKps !== baseDriveValues.exhaustVelocityKps
+        || modifiedDriveValues.powerRequirementGW !== baseDriveValues.powerRequirementGW
+      );
+
+    const savedChart = saveChartPresetFromSettings("Imported ship smoke", exportedPreset());
+    const selectedChartPayload = await serializePayloadObject(chartPresetExportObject(savedChart));
+    chartPresetLibrary = [];
+    saveChartPresetLibrary();
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    const selectedChartImport = await handleImportedPresetObject(await parsePresetPayload(selectedChartPayload), {
+      promptToSaveCurrent: false,
+    });
+    const loadedChart = chartPresetLibrary.find(item => item.name === "Imported ship smoke");
+    const reapplySavedChart = !!loadedChart && applyPresetToState(loadedChart.settings);
+    const reloadedAssumptions = currentModuleEffectAssumptions();
+    const savedChartReapplied = reapplySavedChart
+      && dryMassCalcState.notes === "phase 10 ship assumption import"
+      && Math.abs(state.targetDvKps - 222) < 1e-9
+      && reloadedAssumptions.moduleEffectsEnabled === true
+      && reloadedAssumptions.moduleEffectSource === "dryMassCalculator"
+      && reloadedAssumptions.activeModuleIds.join("|") === requestedModules.join("|");
+
+    const cleanScenarioPayload = await serializePayloadObject(exportedPreset());
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    saveChartPresetLibrary();
+    saveDryMassPresetLibrary();
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    const cleanScenarioImport = await handleImportedPresetObject(await parsePresetPayload(cleanScenarioPayload), {
+      promptToSaveCurrent: false,
+    });
+    const cleanAssumptions = currentModuleEffectAssumptions();
+    const cleanScenarioRoundTrip = cleanScenarioImport.ok === true
+      && dryMassCalcState.notes === "phase 10 ship assumption import"
+      && cleanAssumptions.moduleEffectsEnabled === true
+      && cleanAssumptions.moduleEffectSource === "dryMassCalculator"
+      && cleanAssumptions.activeModuleIds.join("|") === requestedModules.join("|");
+
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    renderPresetLibraryControls();
+    syncUiFromState();
+    render();
+
+    return {
+      classFound: true,
+      importOk: importResult.ok === true,
+      calculatorMapped,
+      assumptionsMapped,
+      defaultsMapped,
+      valuesDiffer,
+      tableBadgeText,
+      selectedChartImportOk: selectedChartImport.ok === true,
+      savedChartReapplied,
+      cleanScenarioRoundTrip,
+    };
+  });
+  expect(shipAssumptionWorkflow.classFound, `${htmlFile}: no ship class could host the ship-assumption test modules`);
+  expect(shipAssumptionWorkflow.importOk, `${htmlFile}: ship assumption payload import failed`);
+  expect(shipAssumptionWorkflow.calculatorMapped, `${htmlFile}: ship assumption import did not map calculator fields`);
+  expect(shipAssumptionWorkflow.assumptionsMapped, `${htmlFile}: ship assumption import did not map module-effect assumptions`);
+  expect(shipAssumptionWorkflow.defaultsMapped, `${htmlFile}: ship assumption import did not preserve simulation defaults`);
+  expect(shipAssumptionWorkflow.valuesDiffer, `${htmlFile}: imported ship module assumptions did not affect base-vs-modified values`);
+  expect(/base/i.test(shipAssumptionWorkflow.tableBadgeText), `${htmlFile}: table metric cell did not expose a base-value delta badge`);
+  expect(shipAssumptionWorkflow.selectedChartImportOk, `${htmlFile}: saved imported-ship chart preset could not be imported`);
+  expect(shipAssumptionWorkflow.savedChartReapplied, `${htmlFile}: saved imported-ship chart preset did not reapply calculator and module assumptions`);
+  expect(shipAssumptionWorkflow.cleanScenarioRoundTrip, `${htmlFile}: imported ship scenario did not round-trip through a clean profile`);
+
   const footerLayout = await page.evaluate(() => {
     const footer = document.querySelector("#dryMassCalcModal .dry-mass-modal-footer");
     const summary = footer?.querySelector(".dry-mass-summary-row");
