@@ -6,6 +6,7 @@ export const NOTE_HTML = JSON.parse(document.getElementById("ti-note-html").text
 
 const metricCalculationHooks = {
   chartMassOptions: () => [],
+  effectiveDriveValues: row => row,
 };
 
 export function registerMetricCalculationHooks(hooks) {
@@ -440,7 +441,7 @@ export const metricDefs = {
       thrustMN: {
         label: "추력 (MN)",
         hint: "템플릿 thrust_N을 MN으로 환산",
-        value: row => row.thrustN / 1e6,
+        value: row => metricCalculationHooks.effectiveDriveValues(row).thrustN / 1e6,
         format: value => formatNumber(value, " MN"),
       },
       fuelEfficiency: {
@@ -452,7 +453,10 @@ export const metricDefs = {
             ? "EV_kps * 1000 / 9.80665"
             : "템플릿 EV_kps";
         },
-        value: row => state.fuelEfficiencyUnit === "seconds" ? row.specificImpulseSeconds : row.exhaustVelocityKps,
+        value: row => {
+          const effective = metricCalculationHooks.effectiveDriveValues(row);
+          return state.fuelEfficiencyUnit === "seconds" ? effective.specificImpulseSeconds : effective.exhaustVelocityKps;
+        },
         format: value => formatNumber(value, state.fuelEfficiencyUnit === "seconds" ? " s" : " km/s"),
       },
       powerRequirementGW: {

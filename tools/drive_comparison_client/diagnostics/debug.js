@@ -1,5 +1,5 @@
 import { setLanguage, resetApplicationStateToDefaults } from "../app/controller.js";
-import { chartMassOptions } from "../calc/filtering.js";
+import { chartMassOptions, effectiveDriveValues, moduleEffectEvaluationForDrive } from "../calc/filtering.js";
 import {
   applyDryMassCalculatorPreset,
   armorMaxPoints,
@@ -58,6 +58,7 @@ import {
   dryMassCalcState,
   leftPanelLayout,
   loadLeftPanelLayout,
+  metricDefs,
   normalizeModuleEffectModuleIds,
   resetChartStateToDefaults,
   selectedDryMassUtilityModuleIds,
@@ -101,11 +102,14 @@ export function installDebugHooks() {
     dryMassCalcTotalTons,
     dryMassPresetExportObject,
     dryMassPresetLibraryExportObject,
+    effectiveDriveValues,
     exportedDryMassCalculatorPreset,
     exportedPreset,
     handleImportedPresetObject,
     hardpointCapacity,
     loadLeftPanelLayout,
+    metricDefs,
+    moduleEffectEvaluationForDrive,
     normalizeDryMassCalcSlots,
     normalizeModuleEffectModuleIds,
     parsePresetPayload,
@@ -173,6 +177,7 @@ export function installDebugHooks() {
       configurable: true,
     },
     dryMassPresetLibraryExportObject: { value: dryMassPresetLibraryExportObject, configurable: true },
+    effectiveDriveValues: { value: effectiveDriveValues, configurable: true },
     exportedDryMassCalculatorPreset: { value: exportedDryMassCalculatorPreset, configurable: true },
     exportedPreset: { value: exportedPreset, configurable: true },
     handleImportedPresetObject: { value: handleImportedPresetObject, configurable: true },
@@ -183,6 +188,8 @@ export function installDebugHooks() {
       configurable: true,
     },
     loadLeftPanelLayout: { value: loadLeftPanelLayout, configurable: true },
+    metricDefs: { value: metricDefs, configurable: true },
+    moduleEffectEvaluationForDrive: { value: moduleEffectEvaluationForDrive, configurable: true },
     normalizeDryMassCalcSlots: { value: normalizeDryMassCalcSlots, configurable: true },
     normalizeModuleEffectModuleIds: { value: normalizeModuleEffectModuleIds, configurable: true },
     parsePresetPayload: { value: parsePresetPayload, configurable: true },

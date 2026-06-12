@@ -1,4 +1,4 @@
-import { chartMassOptions, chartSummaryMassOptions, isImpracticalOption, massOptions, rowCategoryLabel, rowFamilyLabel, rowProjectLabel, rowUnlockResearchValue } from "../calc/filtering.js";
+import { chartMassOptions, chartSummaryMassOptions, effectiveDriveValues, isImpracticalOption, massOptions, rowCategoryLabel, rowFamilyLabel, rowProjectLabel, rowUnlockResearchValue } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
 import { currentChartRows, currentDiagnostics } from "../chart/context.js";
@@ -86,6 +86,7 @@ export function tooltipMetricsHtml(row, option = null) {
       const unlockResearch = Math.max(0, driveResearch + projectResearch + powerResearch);
       const researchTotal = Math.max(driveResearch + projectResearch + powerResearch, 1e-9);
       const twrValue = option ? option.twr : (defaultTooltipOption(row)?.twr ?? NaN);
+      const effective = effectiveDriveValues(row);
       const researchRows = [
         [UI_LANG === "en" ? "Unlock research" : "개방 연구력", formatResearch(unlockResearch), true],
         [UI_LANG === "en" ? "Drive research" : "드라이브 연구", formatResearch(driveResearch), false],
@@ -93,9 +94,9 @@ export function tooltipMetricsHtml(row, option = null) {
         [UI_LANG === "en" ? "Power research" : "전원 연구", formatResearch(powerResearch), false],
       ];
       const performanceRows = [
-        [UI_LANG === "en" ? "Thrust" : "추력", formatNumber(row.thrustN / 1e6, " MN")],
+        [UI_LANG === "en" ? "Thrust" : "추력", formatNumber(effective.thrustN / 1e6, " MN")],
         [UI_LANG === "en" ? "TWR" : "TWR", formatTwr(twrValue, " g")],
-        [UI_LANG === "en" ? "Exhaust velocity" : "EV", formatNumber(row.exhaustVelocityKps, " km/s")],
+        [UI_LANG === "en" ? "Exhaust velocity" : "EV", formatNumber(effective.exhaustVelocityKps, " km/s")],
         [UI_LANG === "en" ? "Efficiency" : "효율", formatPercent(row.efficiency)],
         [UI_LANG === "en" ? "Power requirement" : "출력 요구량", formatNumber(row.powerRequirementGW, " GW")],
       ];

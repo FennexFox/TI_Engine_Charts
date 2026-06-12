@@ -91,7 +91,15 @@ npm run verify
 
 ## Progress
 
-- [ ] Not started.
+- [x] Added effective drive value resolution for module-effect-enabled chart calculations.
+- [x] Wired `massOptions(row)` and mass-ratio diagnostics to effective thrust and exhaust velocity.
+- [x] Preserved base power demand, power plant mass, waste heat, radiator mass, and drive mass.
+- [x] Attached active effect summaries and diagnostics to returned mass option objects.
+- [x] Routed thrust and fuel-efficiency metric definitions through the effective-value hook.
+- [x] Kept tooltip performance values consistent with effective thrust and exhaust velocity.
+- [x] Extended browser verification for disabled parity, thrust effects, EV effects, unmet prerequisites, unsupported rules, and base power preservation.
+- [x] Rebuilt generated UI assets.
+- [x] Ran validation commands and manual smoke tests.
 
 ## Decision Log
 
@@ -99,8 +107,50 @@ npm run verify
   Reason: Issue #6 lists power demand as follow-up scope and the first pass should remain narrow.
 - Decision: Attach effect summaries to calculated options.
   Reason: Tooltips and warnings can consume summaries without re-evaluating module behavior.
+- Decision: Register `effectiveDriveValues(row)` through the existing metric calculation hook pattern.
+  Reason: `state/core.js` metric definitions can use effective thrust and EV without importing calculation modules directly or adding an import cycle.
+- Decision: Recompute module effects on demand instead of caching them.
+  Reason: Module assumptions can change through dry-mass selections, manual preset fields, and preset import; recomputation is simpler and avoids invalidation bugs for the MVP.
+- Decision: Add an explicit `powerSideEffects` diagnostic while preserving base power fields.
+  Reason: Later UI phases can explain that thrust/EV effects are active while power demand, power plant mass, waste heat, and radiator mass are still base values.
+- Decision: Update tooltip performance rows to use effective thrust and exhaust velocity.
+  Reason: Once chart metrics use effective values, the detail surface should not show contradictory base thrust/EV values.
 
 ## Outcomes
 
-- Pending.
+- Added `moduleEffectEvaluationForDrive(row)` and `effectiveDriveValues(row)` in `tools/drive_comparison_client/calc/filtering.js`.
+- `massOptions(row)` now uses effective exhaust velocity for mass ratio, propellant mass, total mass, and maximum practical dV when module effects are enabled.
+- `massOptions(row)` now uses effective thrust for TWR when module effects are enabled.
+- Disabled module effects preserve previous base behavior.
+- Power-side values remain base values and include diagnostics stating that power demand, power plant mass, waste heat, and radiator mass are preserved.
+- `metricDefs.thrustMN` and `metricDefs.fuelEfficiency` now read effective values through registered metric hooks.
+- Tooltip performance details now display effective thrust and exhaust velocity.
+- Debug hooks expose effective-value helpers for verification.
+- `tools/verify_drive_comparison_browser.mjs` now verifies:
+  - disabled parity.
+  - thrust multiplier TWR increase.
+  - EV multiplier propellant/total mass reduction and max practical dV increase.
+  - unmet prerequisite skip diagnostics.
+  - unsupported rule diagnostics.
+  - power-side base-value diagnostics.
+  - effective thrust and fuel-efficiency metric values.
+- Generated UI assets under `docs/assets/js/` were rebuilt.
+- Validation passed:
+  - `node tools/verify_module_effects.mjs`
+  - `node tools/verify_axis_ticks.mjs`
+  - `node tools/verify_drive_comparison_client_syntax.mjs`
+  - `node tools/verify_drive_comparison_import_graph.mjs --show-boundary-warnings`
+  - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
+  - `npm run verify`
+- Manual smoke passed in Playwright:
+  - Compared a familiar drive with module effects disabled.
+  - Enabled Antimatter Spiker on a compatible nuclear drive and confirmed TWR increased.
+  - Enabled Hydron Trap on a hydrogen-propellant drive and confirmed total/fuel mass decreased.
+  - Enabled an incompatible Muon Spiker on a fission drive and confirmed the effect did not apply.
+  - Toggled module effects off and confirmed values returned to base behavior.
+
+## Retrospective
+
+- Reusing the existing metric hook avoided a state-to-calc import cycle and kept Phase 04 scoped to calculation plumbing.
+- The main residual risk is user comprehension: active thrust/EV effects now change numbers while power demand stays base. Phase 05 should surface warnings and source controls clearly before this becomes normal user-facing workflow.
 

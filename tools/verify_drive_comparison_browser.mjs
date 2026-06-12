@@ -182,6 +182,93 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
 
+  const moduleEffectCalculationChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    state.metric = "totalMassTons";
+    state.dryMassTons = 1000;
+    state.targetDvKps = 50;
+    state.minTwr = 0.0001;
+    state.showImpracticalCandidates = true;
+    state.moduleEffectSource = "manual";
+    const fusionHydrogen = DATA.drives.find(row => (
+      row.categoryKey === "Fusion"
+      && row.propellant === "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const fissionHydrogen = DATA.drives.find(row => (
+      row.categoryKey === "Fission"
+      && row.propellant === "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const firstOption = row => chartMassOptions(row)[0] || null;
+    if (!fusionHydrogen || !fissionHydrogen) return { missingFixture: true };
+
+    state.moduleEffectsEnabled = false;
+    state.moduleEffectModuleIds = ["MuonSpiker", "HydronTrap"];
+    const base = firstOption(fusionHydrogen);
+    const disabled = firstOption(fusionHydrogen);
+
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectModuleIds = ["MuonSpiker"];
+    const thrust = firstOption(fusionHydrogen);
+    const thrustMetric = metricDefs.thrustMN.value(fusionHydrogen);
+
+    state.moduleEffectModuleIds = ["HydronTrap"];
+    const ev = firstOption(fusionHydrogen);
+    state.fuelEfficiencyUnit = "kps";
+    const evMetric = metricDefs.fuelEfficiency.value(fusionHydrogen);
+    state.fuelEfficiencyUnit = "seconds";
+    const ispMetric = metricDefs.fuelEfficiency.value(fusionHydrogen);
+
+    state.moduleEffectModuleIds = ["MuonSpiker"];
+    state.moduleEffectsEnabled = false;
+    const fissionBase = firstOption(fissionHydrogen);
+    state.moduleEffectsEnabled = true;
+    const incompatible = firstOption(fissionHydrogen);
+
+    state.moduleEffectModuleIds = ["ElectronicCountermeasures1"];
+    const unsupported = firstOption(fusionHydrogen);
+
+    return {
+      missingFixture: false,
+      disabledParity: !!base && !!disabled
+        && Math.abs(base.totalMassTons - disabled.totalMassTons) < 1e-9
+        && Math.abs(base.propellantTons - disabled.propellantTons) < 1e-9
+        && Math.abs(base.twr - disabled.twr) < 1e-12,
+      thrustApplied: !!base && !!thrust
+        && Math.abs(base.totalMassTons - thrust.totalMassTons) < 1e-9
+        && thrust.twr > base.twr * 1.09
+        && thrust.effectiveThrustN > thrust.baseThrustN,
+      evApplied: !!base && !!ev
+        && ev.propellantTons < base.propellantTons
+        && ev.totalMassTons < base.totalMassTons
+        && ev.maxPracticalDvKps > base.maxPracticalDvKps
+        && ev.effectiveExhaustVelocityKps > ev.baseExhaustVelocityKps,
+      incompatibleSkipped: !!fissionBase && !!incompatible
+        && Math.abs(fissionBase.totalMassTons - incompatible.totalMassTons) < 1e-9
+        && Math.abs(fissionBase.twr - incompatible.twr) < 1e-12
+        && incompatible.moduleEffectDiagnostics.unmetRequirements.length > 0
+        && incompatible.moduleEffectDiagnostics.skippedEffects.length > 0,
+      unsupportedDiagnosed: !!unsupported
+        && unsupported.moduleEffectDiagnostics.unsupportedRules.some(item => item.rule === "ECM"),
+      powerPreservedDiagnostic: !!thrust
+        && thrust.moduleEffectDiagnostics.powerSideEffects.some(item => item.status === "baseValuesPreserved"),
+      thrustMetricEffective: Math.abs(thrustMetric - fusionHydrogen.thrustN * 1.1 / 1e6) < 1e-9,
+      evMetricEffective: Math.abs(evMetric - fusionHydrogen.exhaustVelocityKps * 1.5) < 1e-9,
+      ispMetricEffective: ispMetric > fusionHydrogen.specificImpulseSeconds * 1.49,
+    };
+  });
+  expect(!moduleEffectCalculationChecks.missingFixture, `${htmlFile}: module-effect calculation fixture drives were not found`);
+  expect(moduleEffectCalculationChecks.disabledParity, `${htmlFile}: module effects disabled did not preserve base mass options`);
+  expect(moduleEffectCalculationChecks.thrustApplied, `${htmlFile}: thrust multiplier did not update TWR/effective thrust`);
+  expect(moduleEffectCalculationChecks.evApplied, `${htmlFile}: EV multiplier did not update propellant/total mass/max practical dV`);
+  expect(moduleEffectCalculationChecks.incompatibleSkipped, `${htmlFile}: incompatible module effect was not skipped with diagnostics`);
+  expect(moduleEffectCalculationChecks.unsupportedDiagnosed, `${htmlFile}: unsupported module rule was not carried as diagnostics`);
+  expect(moduleEffectCalculationChecks.powerPreservedDiagnostic, `${htmlFile}: power-side base-value diagnostic missing`);
+  expect(moduleEffectCalculationChecks.thrustMetricEffective, `${htmlFile}: thrust metric did not use effective thrust`);
+  expect(moduleEffectCalculationChecks.evMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective exhaust velocity`);
+  expect(moduleEffectCalculationChecks.ispMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective specific impulse`);
+
   await page.locator("#chartPresetActionsMenu > summary").click();
   const chartPresetMenuState = await page.evaluate(() => {
     const overflow = [...document.querySelectorAll("#presetClipboard .compact-command")]

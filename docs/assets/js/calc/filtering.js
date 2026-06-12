@@ -1,5 +1,6 @@
 import { isBandMetric, optionMetricValue } from "./metrics.js";
-import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, UI_LANG, metricDefs, powerResearchActive, state } from "../state/core.js";
+import { evaluateModuleEffectsForDrive } from "./module_effects.js";
+import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, UI_LANG, currentModuleEffectAssumptions, metricDefs, powerResearchActive, state } from "../state/core.js";
 import { clamp } from "../shared/math.js";
 
 export function rowCategoryLabel(row) {
@@ -149,7 +150,7 @@ export function bandMetricHiddenReasons(row) {
 
 export function massRatioDiagnostics(row) {
       const targetDv = Number(state.targetDvKps);
-      const exhaustVelocity = Number(row.exhaustVelocityKps);
+      const exhaustVelocity = Number(effectiveDriveValues(row).exhaustVelocityKps);
       if (!Number.isFinite(targetDv) || !Number.isFinite(exhaustVelocity) || exhaustVelocity <= 0) {
         return { invalid: true, overflow: false, extreme: false, massRatio: NaN };
       }
@@ -193,12 +194,40 @@ export function selectedRadiator() {
       return DATA.radiators.find(item => item.id === state.radiatorId) || DATA.radiators[0] || null;
     }
 
+export function moduleEffectEvaluationForDrive(row) {
+      const assumptions = currentModuleEffectAssumptions();
+      if (!assumptions.moduleEffectsEnabled) return null;
+      return evaluateModuleEffectsForDrive(row, assumptions.activeModuleIds, {
+        utilityModules: DATA.shipCatalog && DATA.shipCatalog.utilityModules,
+      });
+    }
+
+export function effectiveDriveValues(row) {
+      const evaluation = moduleEffectEvaluationForDrive(row);
+      if (!evaluation) {
+        return {
+          thrustN: row.thrustN,
+          exhaustVelocityKps: row.exhaustVelocityKps,
+          specificImpulseSeconds: row.specificImpulseSeconds,
+          moduleEffectEvaluation: null,
+        };
+      }
+      return {
+        thrustN: evaluation.effectiveThrustN,
+        exhaustVelocityKps: evaluation.effectiveExhaustVelocityKps,
+        specificImpulseSeconds: evaluation.effectiveSpecificImpulseSeconds,
+        moduleEffectEvaluation: evaluation,
+      };
+    }
+
 export function massOptions(row) {
       const baseDryTons = state.dryMassTons;
       const targetDv = state.targetDvKps;
       const radiator = selectedRadiator();
       const radiatorSpecificPower = radiator ? Number(radiator.specificPowerKWPerKg) : NaN;
-      const massRatioMinusOne = Math.exp(targetDv / row.exhaustVelocityKps) - 1;
+      const effective = effectiveDriveValues(row);
+      const effectEvaluation = effective.moduleEffectEvaluation;
+      const massRatioMinusOne = Math.exp(targetDv / effective.exhaustVelocityKps) - 1;
       if (!Number.isFinite(massRatioMinusOne) || massRatioMinusOne < 0) return [];
       const massRatio = massRatioMinusOne + 1;
       const options = row.powerOptions || row.reactorOptions || [];
@@ -213,7 +242,23 @@ export function massOptions(row) {
         const dryWithHardwareTons = baseDryTons + hardwareMassTons;
         const propellantTons = dryWithHardwareTons * massRatioMinusOne;
         const totalMassTons = dryWithHardwareTons + propellantTons;
-        const twr = row.thrustN / (totalMassTons * 1000 * STANDARD_GRAVITY_MPS2);
+        const twr = effective.thrustN / (totalMassTons * 1000 * STANDARD_GRAVITY_MPS2);
+        const moduleEffectFields = effectEvaluation ? {
+          baseThrustN: effectEvaluation.baseThrustN,
+          effectiveThrustN: effectEvaluation.effectiveThrustN,
+          baseExhaustVelocityKps: effectEvaluation.baseExhaustVelocityKps,
+          effectiveExhaustVelocityKps: effectEvaluation.effectiveExhaustVelocityKps,
+          baseSpecificImpulseSeconds: effectEvaluation.baseSpecificImpulseSeconds,
+          effectiveSpecificImpulseSeconds: effectEvaluation.effectiveSpecificImpulseSeconds,
+          activeModuleEffects: effectEvaluation.activeEffects,
+          moduleEffectDiagnostics: {
+            ...effectEvaluation.diagnostics,
+            powerSideEffects: [{
+              status: "baseValuesPreserved",
+              fields: ["powerRequirementGW", "powerPlantMassTons", "wasteHeatGW", "radiatorMassTons"],
+            }],
+          },
+        } : {};
         return {
           ...option,
           reactorMassTons: powerPlantMassTons,
@@ -226,9 +271,10 @@ export function massOptions(row) {
           propellantTons,
           totalMassTons,
           twr,
-          maxPracticalDvKps: row.exhaustVelocityKps * Math.log(EXTREME_MASS_RATIO),
+          maxPracticalDvKps: effective.exhaustVelocityKps * Math.log(EXTREME_MASS_RATIO),
           massRatio,
           massRatioMinusOne,
+          ...moduleEffectFields,
         };
       });
       return actualPowerFrontier(row, computed);
