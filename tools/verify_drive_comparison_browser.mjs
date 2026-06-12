@@ -200,6 +200,10 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       && row.propellant === "Hydrogen"
       && (row.powerOptions || row.reactorOptions || []).length
     ));
+    const selfContainedDrive = DATA.drives.find(row => (
+      Number(row.powerRequirementGW) <= 0
+      && (row.powerOptions || row.reactorOptions || []).some(option => option && option.selfContained)
+    ));
     const firstOption = row => chartMassOptions(row)[0] || null;
     const installVerifierHeatModule = () => {
       const modules = DATA.shipCatalog && Array.isArray(DATA.shipCatalog.utilityModules)
@@ -219,7 +223,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         });
       }
     };
-    if (!fusionHydrogen || !fissionHydrogen) return { missingFixture: true };
+    if (!fusionHydrogen || !fissionHydrogen || !selfContainedDrive) return { missingFixture: true };
     installVerifierHeatModule();
 
     state.moduleEffectsEnabled = false;
@@ -261,6 +265,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const powerAux = firstOption(fusionHydrogen);
     const powerMetric = metricDefs.powerRequirementGW.value(fusionHydrogen);
 
+    state.moduleEffectsEnabled = false;
+    state.moduleEffectModuleIds = [];
+    const selfContainedBase = firstOption(selfContainedDrive);
+    state.moduleEffectsEnabled = true;
+    state.moduleEffectModuleIds = ["LaserEngine"];
+    const selfContainedAux = firstOption(selfContainedDrive);
+    const selfContainedPowerMetric = metricDefs.powerRequirementGW.value(selfContainedDrive);
+
     state.moduleEffectModuleIds = ["VerifierHeatSink"];
     const heat = heatFixtureDrive ? firstOption(heatFixtureDrive) : null;
 
@@ -299,6 +311,15 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         && powerAux.radiatorMassTons > powerAux.baseRadiatorMassTons
         && powerAux.wasteHeatGW > base.wasteHeatGW
         && powerAux.moduleEffectDiagnostics.powerWarnings.some(item => item.rule === "LaserPowerBonus"),
+      selfContainedAuxIgnored: !!selfContainedBase && !!selfContainedAux
+        && Math.abs(selfContainedAux.moduleAuxiliaryPowerGW) < 1e-12
+        && Math.abs(selfContainedAux.modifiedPowerRequirementGW - selfContainedAux.basePowerRequirementGW) < 1e-12
+        && Math.abs(selfContainedPowerMetric - selfContainedDrive.powerRequirementGW) < 1e-12
+        && Math.abs(selfContainedAux.powerPlantMassTons - selfContainedBase.powerPlantMassTons) < 1e-9
+        && Math.abs(selfContainedAux.radiatorMassTons - selfContainedBase.radiatorMassTons) < 1e-9
+        && Math.abs(selfContainedAux.totalMassTons - selfContainedBase.totalMassTons) < 1e-9
+        && Math.abs(selfContainedAux.twr - selfContainedBase.twr) < 1e-12
+        && selfContainedAux.moduleEffectDiagnostics.powerWarnings.some(item => item.reason === "selfContainedDriveAuxiliaryPower"),
       heatApplied: !!heatBase && !!heat
         && Math.abs(heat.wasteHeatMultiplier - 0.5) < 1e-12
         && heat.modifiedWasteHeatGW < heat.baseWasteHeatGW
@@ -318,6 +339,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectCalculationChecks.outOfScopeUnsupportedSuppressed, `${htmlFile}: out-of-scope unsupported module rule was carried as chart diagnostics`);
   expect(moduleEffectCalculationChecks.mutualExclusionSkipped, `${htmlFile}: mutually exclusive module effects were not skipped with diagnostics`);
   expect(moduleEffectCalculationChecks.powerAuxApplied, `${htmlFile}: auxiliary module power did not update power demand and mass options`);
+  expect(moduleEffectCalculationChecks.selfContainedAuxIgnored, `${htmlFile}: self-contained drive auxiliary power was not explicitly ignored with stable mass/TWR`);
   expect(moduleEffectCalculationChecks.heatApplied, `${htmlFile}: waste heat multiplier did not update heat and radiator mass options`);
   expect(moduleEffectCalculationChecks.thrustMetricEffective, `${htmlFile}: thrust metric did not use effective thrust`);
   expect(moduleEffectCalculationChecks.evMetricEffective, `${htmlFile}: fuel-efficiency metric did not use effective exhaust velocity`);

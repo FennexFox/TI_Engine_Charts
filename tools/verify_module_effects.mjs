@@ -30,6 +30,15 @@ const fusionHydrogenDrive = {
   powerRequirementGW: 1,
 };
 
+const selfContainedDrive = {
+  ...fusionHydrogenDrive,
+  id: "fixtureSelfContained",
+  categoryKey: "Chemical",
+  classification: "Chemical",
+  requiredPowerPlantClass: "None",
+  powerRequirementGW: 0,
+};
+
 const fissionHydrogenDrive = {
   ...fusionHydrogenDrive,
   id: "fixtureFissionHydrogen",
@@ -332,6 +341,21 @@ function fixtureMassSummary(row, modules = [], { enabled = true } = {}) {
   assert.ok(powered.wasteHeatGW > base.wasteHeatGW, "auxiliary power increases waste heat fixture");
   assert.ok(powered.radiatorMassTons > base.radiatorMassTons, "auxiliary power increases radiator mass fixture");
   assert.ok(powered.totalMassTons > base.totalMassTons, "auxiliary power increases total mass fixture");
+}
+
+{
+  const result = evaluateModuleEffectsForDrive(selfContainedDrive, [laserEngine]);
+  const base = fixtureMassSummary(selfContainedDrive, []);
+  const powered = fixtureMassSummary(selfContainedDrive, [laserEngine]);
+  assertClose(result.moduleAuxiliaryPowerGW, 0, "self-contained drive ignores auxiliary module power");
+  assertClose(result.modifiedPowerRequirementGW, 0, "self-contained drive keeps base power demand");
+  assert.equal(result.powerContributions.length, 0, "ignored auxiliary power is not exposed as an applied contribution");
+  assert.ok(
+    result.diagnostics.powerWarnings.some(item => item.reason === "selfContainedDriveAuxiliaryPower" && item.rule === "AuxiliaryPower"),
+    "self-contained auxiliary power emits an explicit diagnostic",
+  );
+  assertClose(powered.totalMassTons, base.totalMassTons, "ignored auxiliary power keeps self-contained total mass");
+  assertClose(powered.twr, base.twr, "ignored auxiliary power keeps self-contained TWR");
 }
 
 {

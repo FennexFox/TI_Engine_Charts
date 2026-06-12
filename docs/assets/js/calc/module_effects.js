@@ -424,10 +424,29 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
     });
   });
 
-  const moduleAuxiliaryPowerGW = powerContributions.reduce(
+  const rawModuleAuxiliaryPowerGW = powerContributions.reduce(
     (total, item) => total + item.powerRequirementGW,
     0,
   );
+  const ignoresAuxiliaryPower = base.powerRequirementGW <= 0 && rawModuleAuxiliaryPowerGW > 0;
+  if (ignoresAuxiliaryPower) {
+    powerContributions.forEach(item => {
+      diagnostics.powerWarnings.push(diagnosticFields({
+        dataName: item.moduleId,
+        friendlyName: item.moduleName,
+      }, {
+        severity: "warning",
+        rule: "AuxiliaryPower",
+        category: "powerDemand",
+        messageKey: "moduleEffect.power.selfContainedAuxiliaryPower",
+        applied: false,
+        reason: "selfContainedDriveAuxiliaryPower",
+        powerRequirementGW: item.powerRequirementGW,
+      }));
+    });
+  }
+  const appliedPowerContributions = ignoresAuxiliaryPower ? [] : powerContributions;
+  const moduleAuxiliaryPowerGW = ignoresAuxiliaryPower ? 0 : rawModuleAuxiliaryPowerGW;
   effective.powerRequirementGW = base.powerRequirementGW + moduleAuxiliaryPowerGW;
 
   return {
@@ -442,7 +461,7 @@ export function evaluateModuleEffectsForDrive(row, selectedModules = [], options
     basePowerRequirementGW: base.powerRequirementGW,
     modifiedPowerRequirementGW: effective.powerRequirementGW,
     moduleAuxiliaryPowerGW,
-    powerContributions,
+    powerContributions: appliedPowerContributions,
     baseWasteHeatGW: null,
     modifiedWasteHeatGW: null,
     wasteHeatMultiplier: multipliers.wasteHeat,
