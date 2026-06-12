@@ -735,14 +735,22 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     };
 
     const expected = JSON.stringify(exportedDryMassCalculatorPreset());
-    const serialized = await serializePresetPayload();
-    const parsed = await parsePresetPayload(serialized);
-    const exportedModuleEffects = {
-      moduleEffectsEnabled: parsed.moduleEffectsEnabled,
-      moduleEffectSource: parsed.moduleEffectSource,
-      moduleEffectModuleIds: parsed.moduleEffectModuleIds,
+    const exportedObject = exportedPreset();
+    const compressedPayload = await serializePresetPayload();
+    const parsedCompressed = await parsePresetPayload(compressedPayload);
+    const jsonPayload = JSON.stringify(exportedObject, null, 2);
+    const parsedJson = await parsePresetPayload(jsonPayload);
+    const compressedModuleEffects = {
+      moduleEffectsEnabled: parsedCompressed.moduleEffectsEnabled,
+      moduleEffectSource: parsedCompressed.moduleEffectSource,
+      moduleEffectModuleIds: parsedCompressed.moduleEffectModuleIds,
     };
-    const oldPreset = JSON.parse(JSON.stringify(parsed));
+    const jsonModuleEffects = {
+      moduleEffectsEnabled: parsedJson.moduleEffectsEnabled,
+      moduleEffectSource: parsedJson.moduleEffectSource,
+      moduleEffectModuleIds: parsedJson.moduleEffectModuleIds,
+    };
+    const oldPreset = JSON.parse(JSON.stringify(parsedCompressed));
     delete oldPreset.moduleEffectsEnabled;
     delete oldPreset.moduleEffectSource;
     delete oldPreset.moduleEffectModuleIds;
@@ -753,9 +761,13 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const oldModuleEffects = currentModuleEffectAssumptions();
     resetDryMassCalcState();
     resetChartStateToDefaults();
-    const applied = applyPresetToState(parsed);
+    const compressedApplied = applyPresetToState(parsedCompressed);
     const actual = JSON.stringify(exportedDryMassCalculatorPreset());
-    const importedModuleEffects = currentModuleEffectAssumptions();
+    const compressedModuleEffectsApplied = currentModuleEffectAssumptions();
+    resetDryMassCalcState();
+    resetChartStateToDefaults();
+    const jsonApplied = applyPresetToState(parsedJson);
+    const jsonModuleEffectsApplied = currentModuleEffectAssumptions();
     dryMassCalcState.slotModules = ["MuonSpiker", "Empty", "HydronTrap"];
     const dryMassSourceAssumptions = currentModuleEffectAssumptions({
       moduleEffectsEnabled: true,
@@ -763,15 +775,23 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       moduleEffectModuleIds: ["NeutroniumSpiker"],
     });
     return {
-      applied,
+      compressedApplied,
+      jsonApplied,
       expected,
       actual,
-      exportedField: !!parsed.dryMassCalculator,
-      moduleFieldsExported: JSON.stringify(exportedModuleEffects) === JSON.stringify(expectedModuleEffects),
-      moduleFieldsRoundTrip: importedModuleEffects.moduleEffectsEnabled === true
-        && importedModuleEffects.moduleEffectSource === "manual"
-        && importedModuleEffects.moduleEffectModuleIds.join("|") === "MuonSpiker|HydronTrap"
-        && importedModuleEffects.moduleIds.join("|") === "MuonSpiker|HydronTrap",
+      exportedField: !!parsedCompressed.dryMassCalculator && !!parsedJson.dryMassCalculator,
+      compressedPayloadEncoded: compressedPayload.startsWith("ticp1:") || compressedPayload.startsWith("tijp1:"),
+      jsonPayloadPlain: jsonPayload.trim().startsWith("{") && jsonPayload.includes("\"moduleEffectsEnabled\""),
+      compressedModuleFieldsExported: JSON.stringify(compressedModuleEffects) === JSON.stringify(expectedModuleEffects),
+      jsonModuleFieldsExported: JSON.stringify(jsonModuleEffects) === JSON.stringify(expectedModuleEffects),
+      compressedModuleFieldsRoundTrip: compressedModuleEffectsApplied.moduleEffectsEnabled === true
+        && compressedModuleEffectsApplied.moduleEffectSource === "manual"
+        && compressedModuleEffectsApplied.moduleEffectModuleIds.join("|") === "MuonSpiker|HydronTrap"
+        && compressedModuleEffectsApplied.moduleIds.join("|") === "MuonSpiker|HydronTrap",
+      jsonModuleFieldsRoundTrip: jsonModuleEffectsApplied.moduleEffectsEnabled === true
+        && jsonModuleEffectsApplied.moduleEffectSource === "manual"
+        && jsonModuleEffectsApplied.moduleEffectModuleIds.join("|") === "MuonSpiker|HydronTrap"
+        && jsonModuleEffectsApplied.moduleIds.join("|") === "MuonSpiker|HydronTrap",
       oldPresetApplied: oldApplied,
       oldPresetDefaults: oldModuleEffects.moduleEffectsEnabled === false
         && oldModuleEffects.moduleEffectSource === "dryMassCalculator"
@@ -781,9 +801,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     };
   });
   expect(presetRoundTrip.exportedField, `${htmlFile}: exported preset did not include dry-mass calculator state`);
-  expect(presetRoundTrip.applied, `${htmlFile}: preset with dry-mass calculator state was not accepted`);
-  expect(presetRoundTrip.moduleFieldsExported, `${htmlFile}: exported preset did not include validated module-effect fields`);
-  expect(presetRoundTrip.moduleFieldsRoundTrip, `${htmlFile}: module-effect fields did not round-trip through preset import/export`);
+  expect(presetRoundTrip.compressedApplied, `${htmlFile}: compressed preset with dry-mass calculator state was not accepted`);
+  expect(presetRoundTrip.jsonApplied, `${htmlFile}: JSON preset with dry-mass calculator state was not accepted`);
+  expect(presetRoundTrip.compressedPayloadEncoded, `${htmlFile}: compressed preset export did not use an encoded payload format`);
+  expect(presetRoundTrip.jsonPayloadPlain, `${htmlFile}: JSON preset export did not include plain module-effect fields`);
+  expect(presetRoundTrip.compressedModuleFieldsExported, `${htmlFile}: compressed preset export did not include validated module-effect fields`);
+  expect(presetRoundTrip.jsonModuleFieldsExported, `${htmlFile}: JSON preset export did not include validated module-effect fields`);
+  expect(presetRoundTrip.compressedModuleFieldsRoundTrip, `${htmlFile}: module-effect fields did not round-trip through compressed preset import/export`);
+  expect(presetRoundTrip.jsonModuleFieldsRoundTrip, `${htmlFile}: module-effect fields did not round-trip through JSON preset import/export`);
   expect(presetRoundTrip.oldPresetApplied, `${htmlFile}: old preset without module-effect fields was not accepted`);
   expect(presetRoundTrip.oldPresetDefaults, `${htmlFile}: old preset without module-effect fields did not reset to safe defaults`);
   expect(presetRoundTrip.dryMassSourceIds === "MuonSpiker|HydronTrap", `${htmlFile}: dry-mass source module-effect assumptions did not derive selected utility IDs`);
@@ -837,6 +862,19 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     dryMassPresetLibrary = [];
     saveDryMassPresetLibrary();
     const chartApplied = !!loadedChart && applyPresetToState(loadedChart.settings);
+    const effectDrive = DATA.drives.find(row => (
+      row.categoryKey === "Fusion"
+      && row.propellant === "Hydrogen"
+      && (row.powerOptions || row.reactorOptions || []).length
+    ));
+    const modifiedOption = effectDrive && chartApplied ? chartMassOptions(effectDrive)[0] : null;
+    state.moduleEffectsEnabled = false;
+    const baseOption = effectDrive && chartApplied ? chartMassOptions(effectDrive)[0] : null;
+    const chartPresetAffectsValues = !!modifiedOption && !!baseOption
+      && modifiedOption.propellantTons < baseOption.propellantTons
+      && modifiedOption.totalMassTons < baseOption.totalMassTons
+      && modifiedOption.twr > baseOption.twr;
+    if (loadedChart) applyPresetToState(loadedChart.settings);
     const chartLoadedAfterManualApply = {
       dryMass: state.dryMassTons,
       dv: state.targetDvKps,
@@ -1008,6 +1046,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       chartLoadedDesignDv: chartLoadedAfterManualApply.designDv,
       chartLoadedDesignMinTwr: chartLoadedAfterManualApply.designMinTwr,
       chartLoadedModuleEffects: chartLoadedAfterManualApply.moduleEffects,
+      chartPresetAffectsValues,
       selectedChartImportOk: selectedChartImport.ok,
       selectedChartCount: chartPresetLibrary.length,
       startupSaved,
@@ -1046,6 +1085,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartLoadedDv === 321, `${htmlFile}: named chart preset did not restore target dV`);
   expect(namedPresetRoundTrip.chartLoadedThrusters === 4, `${htmlFile}: named chart preset did not restore engine count`);
   expect(namedPresetRoundTrip.chartLoadedSearch === "alpha", `${htmlFile}: named chart preset did not restore search filter`);
+  expect(namedPresetRoundTrip.chartPresetAffectsValues, `${htmlFile}: named chart preset module effects did not affect chart mass/TWR values after apply`);
   expect(namedPresetRoundTrip.chartLoadedDesignCount === 1, `${htmlFile}: named chart preset did not restore design preset library`);
   expect(namedPresetRoundTrip.chartLoadedDesignNotes === "snapshot design notes", `${htmlFile}: named chart preset did not restore design preset content`);
   expect(namedPresetRoundTrip.chartLoadedDesignDv === 777, `${htmlFile}: named chart preset did not restore design preset simulation defaults`);

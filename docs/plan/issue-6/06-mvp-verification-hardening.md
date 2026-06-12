@@ -89,7 +89,19 @@ npm run verify
 
 ## Progress
 
-- [ ] Not started.
+- [x] Added deterministic no-op parity checks for disabled module effects and unsupported-only module selections.
+- [x] Added deterministic thrust summary checks for effective thrust, unchanged mass ratio/propellant/total mass, and increased TWR.
+- [x] Added deterministic EV summary checks for mass ratio, propellant mass, total mass, and max practical dV.
+- [x] Extended browser preset round-trip coverage for both encoded compressed payloads and plain JSON payloads.
+- [x] Kept legacy payload coverage and verified missing module-effect fields reset to safe defaults.
+- [x] Extended named chart preset coverage so restored module-effect fields must also affect chart mass/TWR values.
+- [x] Confirmed existing UI warning assertions from Phase 05 remain in browser verification.
+- [x] Validation passed:
+  - `node tools/verify_module_effects.mjs`
+  - `node tools/verify_drive_comparison_browser.mjs docs/index.html`
+  - `python scripts/rebuild_pages.py --ui-only --input-html-data docs/index.html --no-commit --no-push`
+  - `npm run verify`
+- [x] Manual smoke passed in a fresh Playwright browser context for default parity, compatible tooltip, JSON/compressed import, named preset reload/apply, and legacy import defaults.
 
 ## Decision Log
 
@@ -97,8 +109,19 @@ npm run verify
   Reason: The MVP changes calculation, UI, and persistence together; a separate hardening pass keeps the implementation phases reviewable.
 - Decision: Prefer embedded-page browser fixtures.
   Reason: Normal contributors should not need local Terra Invicta template files to validate this feature.
+- Decision: Keep deterministic mass/TWR checks inside `tools/verify_module_effects.mjs` instead of adding a new fixture file.
+  Reason: The fixture math is small, explicit, and easier to review inline.
+- Decision: Verify JSON payloads with `JSON.stringify(exportedPreset())` and compressed payloads with the existing serializer.
+  Reason: This exercises both parser paths without depending on clipboard or modal UI state.
 
 ## Outcomes
 
-- Pending.
+- MVP module-effect behavior is now locked by deterministic evaluator checks plus browser integration checks.
+- Browser verification covers JSON and encoded preset payloads, legacy missing fields, named preset persistence, UI warnings, and restored chart-value effects.
+- The phase did not add new product behavior or generated asset changes.
+
+## Retrospective
+
+- Most Phase 06 acceptance criteria were already partly covered by prior phases, so the final hardening stayed focused on explicit payload-format and no-op/math assertions.
+- Keeping the checks fixture-based avoided broad catalog sweeps while still protecting the MVP contracts future phases will refactor.
 
