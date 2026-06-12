@@ -1,7 +1,7 @@
 import { isBandMetric } from "../calc/metrics.js";
 import { isModuleRuleRelevantToDriveChart } from "../calc/module_effects.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, powerResearchViewLabel, state } from "../state/core.js";
 import { formatNumber, formatTwrDynamicUnit } from "./formatting.js";
 
 function utilityModuleById(id) {
@@ -212,6 +212,9 @@ export function updateChartControls() {
   powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
   const powerResearchViewSelect = document.getElementById("powerResearchView");
   if (powerResearchViewSelect) {
+    [...powerResearchViewSelect.options].forEach(option => {
+      option.textContent = powerResearchViewLabel(option.value);
+    });
     powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
   }
   const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");

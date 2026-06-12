@@ -929,7 +929,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: Power view options are not exactly focus/all/best`,
   );
   expect(
-    JSON.stringify(powerViewChecks.defaultMode.options.map(option => option.label)) === JSON.stringify(["Base", "All ladders", "Best Available"]),
+    JSON.stringify(powerViewChecks.defaultMode.options.map(option => option.label)) === JSON.stringify(["Base power", "All compatible power", "Best available power"]),
     `${htmlFile}: Power view labels are not exactly the expected English labels`,
   );
   expect(!powerViewChecks.defaultMode.options.some(option => /envelope/i.test(option.label) || option.value === "off" || option.value === "envelope"), `${htmlFile}: removed Power view option still appears`);
@@ -953,14 +953,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(powerViewChecks.pinnedHoverFocus.focusedDriveCount >= 3, `${htmlFile}: Base mode did not focus every pinned drive plus hovered drive`);
   expect(powerViewChecks.pinnedHoverFocus.includesPinnedAndHover, `${htmlFile}: Base mode focused ladders did not include every pinned and hovered drive`);
   expect(powerViewChecks.pinnedHoverFocus.hoverPointPreserved, `${htmlFile}: redraw dropped the hovered drive while tooltip cards were pinned`);
-  expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All ladders Power view did not select all mode`);
-  expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All ladders mode did not render extra points`);
-  expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All ladders mode did not apply subdued point styling`);
-  expect(powerViewChecks.allMode.ladderLines > 0 && powerViewChecks.allMode.subduedLines > 0, `${htmlFile}: All ladders mode did not render subdued ladder lines`);
-  expect(powerViewChecks.allMode.dashedLines === powerViewChecks.allMode.ladderLines, `${htmlFile}: All ladders mode did not render dashed ladder lines`);
-  expect(powerViewChecks.allMode.bandSurfaces === 0, `${htmlFile}: All ladders mode rendered old power band surfaces`);
-  expect(nearlySameDomain(powerViewChecks.allMode.xDomain, powerViewChecks.focusIdle.xDomain), `${htmlFile}: All ladders mode changed the default X viewport instead of fitting base points`);
-  expect(nearlySameDomain(powerViewChecks.allMode.yDomain, powerViewChecks.focusIdle.yDomain), `${htmlFile}: All ladders mode changed the default Y viewport instead of fitting base points`);
+  expect(powerViewChecks.allMode.selected === "all", `${htmlFile}: All compatible power view did not select all mode`);
+  expect(powerViewChecks.allMode.extraPoints > 0, `${htmlFile}: All compatible power mode did not render extra points`);
+  expect(powerViewChecks.allMode.subduedExtraPoints > 0, `${htmlFile}: All compatible power mode did not apply subdued point styling`);
+  expect(powerViewChecks.allMode.ladderLines > 0 && powerViewChecks.allMode.subduedLines > 0, `${htmlFile}: All compatible power mode did not render subdued ladder lines`);
+  expect(powerViewChecks.allMode.dashedLines === powerViewChecks.allMode.ladderLines, `${htmlFile}: All compatible power mode did not render dashed ladder lines`);
+  expect(powerViewChecks.allMode.bandSurfaces === 0, `${htmlFile}: All compatible power mode rendered old power band surfaces`);
+  expect(nearlySameDomain(powerViewChecks.allMode.xDomain, powerViewChecks.focusIdle.xDomain), `${htmlFile}: All compatible power mode changed the default X viewport instead of fitting base points`);
+  expect(nearlySameDomain(powerViewChecks.allMode.yDomain, powerViewChecks.focusIdle.yDomain), `${htmlFile}: All compatible power mode changed the default Y viewport instead of fitting base points`);
   expect(powerViewChecks.bestMode.selected === "best", `${htmlFile}: Best Available Power view did not select best mode`);
   expect(powerViewChecks.bestMode.basePoints > 0, `${htmlFile}: Best Available did not preserve first-compatible baseline points`);
   expect(powerViewChecks.bestMode.bestPoints > 0 && powerViewChecks.bestMode.bestLines > 1, `${htmlFile}: Best Available did not render best points and lines for multiple drives`);
@@ -1348,6 +1348,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   }));
   expect(dryMassPresetMenuOnlyClosed.menuClosed, `${htmlFile}: dry-mass preset management menu did not close after an in-modal outside click`);
   expect(dryMassPresetMenuOnlyClosed.dryMassModalOpen, `${htmlFile}: dry-mass modal closed when only the preset management menu should close`);
+  await page.locator("#dryMassCalcReset").click();
+  await page.waitForTimeout(100);
   expect(await page.locator('#dryMassCalcArmor select[data-armor-field="type"]').count() === 3, `${htmlFile}: dry-mass calculator armor type controls missing`);
   expect(await page.locator('#dryMassCalcArmor input[data-armor-field="points"]').count() === 3, `${htmlFile}: dry-mass calculator armor point controls missing`);
   const initialCalcMass = await page.evaluate(() => dryMassCalcTotalTons());
@@ -1671,13 +1673,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const restoredSearchCount = dryMassSearchable
       ? dryMassSearchable.querySelectorAll(".searchable-select-option").length
       : -1;
+    const expectedRestoredSearchCount = dryMassSelect.querySelectorAll("option").length;
     const dryMassSearchableOk = !!dryMassSearchable
       && sortedDryMassLabels.join("|") === "Alpha|Beta|Zulu"
       && sortedDryMassKoreanLabels.join("|") === "가가|나나|다다"
       && alphaMatches.length === 1
       && alphaMatches[0] === "Alpha"
       && hiddenMatches === 0
-      && restoredSearchCount === 3;
+      && restoredSearchCount === expectedRestoredSearchCount;
 
     const chartControls = [
       "#chartPresetSelect",
@@ -2178,6 +2181,20 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.waitForTimeout(100);
   const zoomReset = await page.evaluate(() => window.TI_ENGINE_CHART_DEBUG.axisSnapshot());
   expect(!!zoomReset && !zoomReset.zoomed, `${htmlFile}: reset zoom did not clear zoom state`);
+  await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    render();
+    state.tooltipPinned = false;
+    state.tooltipPinnedItems = [];
+    state.pinnedTooltipItems = [];
+    state.lastTooltipItems = [];
+    state.hoverPoints = [];
+    state.dismissedTooltipKeys.clear();
+    state.hoverHitSignature = "";
+    refreshTooltip(currentChartRows);
+  });
 
   const firstPoint = page.locator("#chart .data-point").first();
   const pointBox = await firstPoint.boundingBox();
@@ -2285,7 +2302,8 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.locator(".tooltip-close").click();
   expect(await page.locator("#tooltip .tooltip-item.is-pinned").count() > 0, `${htmlFile}: clear-all removed pinned cards`);
   await page.locator("#tooltip .tooltip-item-close").first().click();
-  expect(await page.locator("#tooltip .usage-panel").count() > 0, `${htmlFile}: removing final pinned card did not restore usage panel`);
+  expect(await page.locator("#tooltip.tooltip-empty").count() > 0, `${htmlFile}: removing final pinned card did not restore an empty detail panel`);
+  expect(await page.locator("#tooltip .tooltip-item").count() === 0, `${htmlFile}: removing final pinned card left stale detail cards behind`);
 
   expect(consoleErrors.length === 0, `${htmlFile}: console errors: ${consoleErrors.join(" | ")}`);
   expect(pageErrors.length === 0, `${htmlFile}: page errors: ${pageErrors.join(" | ")}`);

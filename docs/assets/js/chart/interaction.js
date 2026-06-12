@@ -251,7 +251,8 @@ export function renderChartGuide() {
       appendItem("is-warning", localText("경고 링: 낮은 TWR/극단 질량비", "Warning ring: low TWR/extreme mass"));
       appendItem("is-pin", localText("윤곽선: 호버/선택/고정, 재클릭 해제", "Outline: hover/select/pin; click again unpins"));
       if (isBandMetric()) {
-        appendItem("is-power", localText("전원 보기: 사다리/Best Available", "Power view: ladders/Best Available"));
+        appendItem("is-power", localText("전원 보기: 호환 전원 전체/최적 가용 전원", "Power view: all compatible power/Best available power"));
+        appendItem("is-power", localText("점 호버: 더 나은 호환 반응로/전원 조합과 비교", "Hover a point: compare better compatible reactor/power options"));
       }
     }
 
