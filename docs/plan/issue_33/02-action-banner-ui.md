@@ -98,14 +98,26 @@ npm run verify
 
 ## Progress
 
-- Status: Not started.
+- Status: Completed.
 - Notes:
   - Depends on phase 1 diagnostic summaries.
+  - Added `filterActionBanner` markup and responsive styles.
+  - Added banner model/rendering/action handling in `chart/interaction.js`.
+  - Added actions for reset acceleration threshold, show impractical candidates, reset minimum dV, reset drive filters, reset engine count, and clear search.
+  - Regenerated published output with `npm run build`.
 
 ## Decision Log
 
 - 2026-06-13: Keep banner separate from `chartDiagnostic` so existing zero-family warnings remain behaviorally isolated.
+- 2026-06-13: Suppress the generic banner for the normal loaded built-in chart preset; generic hidden warnings appear only after actionable scenario/filter changes, while search-specific hidden-match banners can appear immediately.
+- 2026-06-13: Use the built-in chart preset as the generic-banner baseline for minimum acceleration, target dV, engine count, and drive filters, so the default page does not look broken.
+- 2026-06-13: Use `syncUiFromState()` after every banner action to keep inputs, checkboxes, summaries, and render state synchronized through the existing app path.
 
 ## Outcomes / Retrospective
 
-- Pending.
+- `npm run build` passed and regenerated `docs/index.html` plus `docs/assets/js/**`.
+- `npm run verify` passed, including browser verification.
+- Manual smoke: default banner is hidden with the built-in preset (`minTwr` 0.02); raising minimum acceleration to 10 shows an acceleration-threshold banner with reset/show actions; reset acceleration returns the input to `0.0001`; show impractical checks the checkbox and clears the banner.
+- Manual smoke: searching for `Nerva` under a high acceleration threshold shows search-specific hidden-match copy, lists matching sample names, and includes reset/show/clear actions; clear search empties the search input and removes the search-specific message.
+- Manual smoke: Korean mode updates banner/action text and does not expose the English action labels tested.
+- Residual risk: Phase 3 should lock these behaviors with browser verifier coverage so future wording/layout changes do not regress the banner.
