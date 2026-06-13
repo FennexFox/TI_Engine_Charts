@@ -1,7 +1,7 @@
 import { chartSummaryMassOptions, computeDriveDiagnostics, filteredRows } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
-import { localLabel, syncUiFromState } from "../presets/library.js";
+import { localLabel, selectedChartPresetEntry, syncUiFromState } from "../presets/library.js";
 import { CHART_CLICK_TOLERANCE_PX, CHART_HIT_RADIUS_PX, CHART_LADDER_HIT_RADIUS_PX, CONNECTION_LINE_MODES, DATA, DEFAULT_MIN_TWR, UI_LANG, chart, connectionLineModeLabel, localText, metricDefs, metricHint, metricLabel, normalizeConnectionLineMode, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state, updateLeftPanelCardSummaries } from "../state/core.js";
 import { updateChartControls } from "../ui/control_state.js";
 import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip, unpinTooltipItemByKey } from "../ui/tooltip_table.js";
@@ -19,8 +19,8 @@ export function render() {
       document.getElementById("metricColumn").textContent = metricLabel(state.metric);
       updateChartControls();
       renderFamilyDiagnostics(diagnostics);
-      renderChartDiagnostic(diagnostics);
       updateFilterActionBanner(diagnostics);
+      renderChartDiagnostic(diagnostics, { suppress: true });
       renderLegend(rows);
       renderConnectionLineControls();
       renderChartGuide();
@@ -35,6 +35,8 @@ export function redrawChartOnly() {
       const diagnostics = computeDriveDiagnostics();
       setCurrentDiagnostics(diagnostics);
       const rows = diagnostics.visibleRows;
+      updateFilterActionBanner(diagnostics);
+      renderChartDiagnostic(diagnostics, { suppress: true });
       renderChart(rows);
       updateZoomButton();
       refreshTooltip(rows);
@@ -96,10 +98,28 @@ export function renderFamilyDiagnostics(diagnostics) {
       });
     }
 
-export function renderChartDiagnostic(diagnostics) {
+export function renderChartDiagnostic(_diagnostics, { suppress = true } = {}) {
       const banner = document.getElementById("chartDiagnostic");
       if (!banner) return;
-      if (!diagnostics.zeroFamilies.length) {
+      banner.hidden = true;
+      banner.textContent = "";
+    }
+= {}) {
+      const banner = document.getElementById("chartDiagnostic");
+      if (!banner) return;
+      banner.hidden = true;
+      banner.textContent = "";
+    }
+= {}) {
+      const banner = document.getElementById("chartDiagnostic");
+      if (!banner) return;
+      banner.hidden = true;
+      banner.textContent = "";
+    }
+= {}) {
+      const banner = document.getElementById("chartDiagnostic");
+      if (!banner) return;
+      if (suppress || !diagnostics.zeroFamilies.length) {
         banner.hidden = true;
         banner.textContent = "";
         return;
@@ -113,7 +133,7 @@ export function renderChartDiagnostic(diagnostics) {
 
 export function updateFilterActionBanner(diagnostics) {
       const banner = document.getElementById("filterActionBanner");
-      if (!banner) return;
+      if (!banner) return false;
       const title = document.getElementById("filterActionBannerTitle");
       const detail = document.getElementById("filterActionBannerDetail");
       const actionsRoot = document.getElementById("filterActionBannerActions");
@@ -123,12 +143,12 @@ export function updateFilterActionBanner(diagnostics) {
         if (title) title.textContent = "";
         if (detail) detail.textContent = "";
         if (actionsRoot) actionsRoot.innerHTML = "";
-        return;
+        return false;
       }
       banner.hidden = false;
       if (title) title.textContent = model.title;
       if (detail) detail.textContent = model.detail;
-      if (!actionsRoot) return;
+      if (!actionsRoot) return true;
       actionsRoot.innerHTML = "";
       model.actions.forEach(actionKey => {
         const button = document.createElement("button");
@@ -140,6 +160,7 @@ export function updateFilterActionBanner(diagnostics) {
         });
         actionsRoot.appendChild(button);
       });
+      return true;
     }
 
 export function filterActionBannerModel(diagnostics) {
@@ -160,21 +181,45 @@ export function filterActionBannerModel(diagnostics) {
           actions: hiddenReasonActions(reason, { includeClearSearch: true }),
         };
       }
+      if (!searchSummary.active) {
+        const impracticalModel = impracticalCandidatesBannerModel();
+        if (impracticalModel) return impracticalModel;
+      }
       const hiddenSummary = diagnostics.hiddenSummary || {};
-      if (!searchSummary.active && shouldShowGenericHiddenBanner(hiddenSummary)) {
+      if (!searchSummary.active && hiddenSummary.totalHidden > 0) {
         const reason = hiddenSummary.dominantReason || "other";
-        const actions = hiddenReasonActions(reason);
-        if (!actions.length) return null;
         return {
           title: localText("일부 드라이브가 현재 설정 때문에 숨겨져 있습니다.", "Some drives are hidden by current settings."),
           detail: localText(
             `${driveCountTextKo(hiddenSummary.totalHidden)}가 현재 설정 때문에 숨겨져 있습니다. 주요 원인: ${hiddenReasonLabel(reason)}.`,
             `${driveCountTextEn(hiddenSummary.totalHidden)} are hidden by current settings. Main reason: ${hiddenReasonLabel(reason)}.`,
           ),
-          actions,
+          actions: hiddenReasonActions(reason),
         };
       }
       return null;
+    }
+
+function impracticalCandidatesBannerModel() {
+      if (!impracticalStateDiffersFromDefault()) return null;
+      if (state.showImpracticalCandidates) {
+        return {
+          title: localText("비현실 후보가 표시되고 있습니다.", "Impractical candidates are shown."),
+          detail: localText(
+            "최소 가속도 또는 극단적 질량비 때문에 보통 숨겨지는 후보도 차트에 표시됩니다.",
+            "Candidates normally hidden by minimum acceleration or extreme mass ratio are currently shown.",
+          ),
+          actions: ["hideImpractical"],
+        };
+      }
+      return {
+        title: localText("비현실 후보가 숨겨져 있습니다.", "Impractical candidates are hidden."),
+        detail: localText(
+          "최소 가속도 또는 극단적 질량비 때문에 숨겨진 후보를 다시 표시할 수 있습니다.",
+          "You can show candidates hidden by minimum acceleration or extreme mass ratio.",
+        ),
+        actions: ["showImpractical"],
+      };
     }
 
 function searchHiddenDetail(searchSummary, reason, { allHidden }) {
@@ -204,17 +249,14 @@ function driveCountTextKo(count) {
     }
 
 function shouldShowGenericHiddenBanner(hiddenSummary) {
-      if (!hiddenSummary || hiddenSummary.totalHidden <= 0) return false;
-      const reason = hiddenSummary.dominantReason || "other";
-      if (reason === "minTwr") return state.minTwr > defaultBannerMinTwr() * (1 + 1e-9);
-      if (reason === "minDv") return state.minDvKps > 0;
-      if (reason === "targetDvOrMassRatio") return numberDiffersFromDefault(state.targetDvKps, defaultBannerTargetDv());
-      if (reason === "familyFilter") return driveFiltersDifferFromDefaults();
-      if (reason === "thrusterCountFilter") return numberDiffersFromDefault(state.thrusters, defaultBannerThrusterCount());
-      return false;
+      return !!hiddenSummary && hiddenSummary.totalHidden > 0;
     }
 
 function defaultBannerSettings() {
+      const selectedEntry = selectedChartPresetEntry();
+      if (selectedEntry && selectedEntry.settings && typeof selectedEntry.settings === "object") {
+        return selectedEntry.settings;
+      }
       return (DATA.presetLibrary
         && Array.isArray(DATA.presetLibrary.chartPresets)
         && DATA.presetLibrary.chartPresets[0]
@@ -237,6 +279,15 @@ function defaultBannerTargetDv() {
 
 function defaultBannerThrusterCount() {
       return defaultBannerNumber("thrusters", DATA.defaults.thrusterCount);
+    }
+
+function defaultBannerShowImpracticalCandidates() {
+      const value = defaultBannerSettings().showImpracticalCandidates;
+      return typeof value === "boolean" ? value : false;
+    }
+
+function impracticalStateDiffersFromDefault() {
+      return !!state.showImpracticalCandidates !== defaultBannerShowImpracticalCandidates();
     }
 
 function numberDiffersFromDefault(value, defaultValue) {
@@ -269,6 +320,50 @@ function hiddenReasonActions(reason, { includeClearSearch = false } = {}) {
         if (!actions.includes(actionKey)) actions.push(actionKey);
       };
       if (reason === "minTwr") {
+        if (numberDiffersFromDefault(state.minTwr, defaultBannerMinTwr())) add("resetAcceleration");
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "minDv") {
+        if (state.minDvKps > 0) add("resetMinDv");
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "targetDvOrMassRatio") {
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "familyFilter") {
+        if (driveFiltersDifferFromDefaults()) add("resetDriveFilters");
+      } else if (reason === "thrusterCountFilter") {
+        if (numberDiffersFromDefault(state.thrusters, defaultBannerThrusterCount())) add("resetThrusterCount");
+      }
+      if (state.showImpracticalCandidates) add("hideImpractical");
+      if (includeClearSearch) add("clearSearch");
+      return actions;
+    }
+= {}) {
+      const actions = [];
+      const add = actionKey => {
+        if (!actions.includes(actionKey)) actions.push(actionKey);
+      };
+      if (reason === "minTwr") {
+        if (numberDiffersFromDefault(state.minTwr, defaultBannerMinTwr())) add("resetAcceleration");
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "minDv") {
+        if (state.minDvKps > 0) add("resetMinDv");
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "targetDvOrMassRatio") {
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "familyFilter") {
+        if (driveFiltersDifferFromDefaults()) add("resetDriveFilters");
+      } else if (reason === "thrusterCountFilter") {
+        if (numberDiffersFromDefault(state.thrusters, defaultBannerThrusterCount())) add("resetThrusterCount");
+      }
+      if (state.showImpracticalCandidates) add("hideImpractical");
+      if (includeClearSearch) add("clearSearch");
+      return actions;
+    }
+= {}) {
+      const actions = [];
+      const add = actionKey => {
+        if (!actions.includes(actionKey)) actions.push(actionKey);
+      };
+      if (reason === "minTwr") {
         if (state.minTwr > DEFAULT_MIN_TWR) add("resetAcceleration");
         if (!state.showImpracticalCandidates) add("showImpractical");
       } else if (reason === "minDv") {
@@ -289,6 +384,8 @@ function filterActionLabel(actionKey) {
       const labels = {
         resetAcceleration: localText("가속도 기준 초기화", "Reset acceleration threshold"),
         showImpractical: localText("비현실 후보 표시", "Show impractical candidates"),
+        hideImpractical: localText("비현실 후보 숨기기", "Hide impractical candidates"),
+        hideImpractical: localText("비현실 후보 숨기기", "Hide impractical candidates"),
         resetMinDv: localText("최소 dV 초기화", "Reset minimum dV"),
         resetDriveFilters: localText("드라이브 필터 초기화", "Reset drive filters"),
         resetThrusterCount: localText("엔진 수 초기화", "Reset engine count"),
@@ -299,9 +396,11 @@ function filterActionLabel(actionKey) {
 
 function applyFilterAction(actionKey) {
       if (actionKey === "resetAcceleration") {
-        state.minTwr = DEFAULT_MIN_TWR;
+        state.minTwr = defaultBannerMinTwr();
       } else if (actionKey === "showImpractical") {
         state.showImpracticalCandidates = true;
+      } else if (actionKey === "hideImpractical") {
+        state.showImpracticalCandidates = false;
       } else if (actionKey === "resetMinDv") {
         state.minDvKps = 0;
       } else if (actionKey === "resetDriveFilters") {
@@ -312,7 +411,7 @@ function applyFilterAction(actionKey) {
           state.families[family.key] = defaultBannerFamilyVisible(family);
         });
       } else if (actionKey === "resetThrusterCount") {
-        state.thrusters = DATA.defaults.thrusterCount;
+        state.thrusters = defaultBannerThrusterCount();
       } else if (actionKey === "clearSearch") {
         state.searchTerm = "";
       }

@@ -246,7 +246,6 @@ export function leftPanelCardSummary(key) {
           parts.push(`dV ≥ ${formatNumber(state.minDvKps, " km/s")}`);
         }
         if (state.paretoHighlight) parts.push(localText("파레토 ON", "Pareto ON"));
-        if (state.showImpracticalCandidates) parts.push(localText("비현실 후보 ON", "Impractical ON"));
         if (state.logX || state.logY) {
           parts.push([
             state.logX ? localText("X축 로그", "Log X") : "",

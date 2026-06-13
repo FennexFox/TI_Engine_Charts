@@ -92,35 +92,46 @@ export function computeDriveDiagnostics() {
         hiddenReasons: {},
       }]));
       const visibleRows = [];
-      const hiddenReasons = {};
-      const searchSummary = {
-        active: !!state.searchTerm,
-        term: state.searchTerm || "",
-        totalMatches: 0,
-        visibleMatches: 0,
-        hiddenMatches: 0,
-        hiddenByReason: {},
-        dominantReason: "other",
-        sampleNames: [],
-      };
-      const searchSampleNames = new Set();
+      const baseVisibility = new Map();
+      const searchMatchesByBaseKey = new Map();
+
       DATA.drives.forEach(row => {
         const evaluation = evaluateDriveVisibility(row);
         if (evaluation.visible) visibleRows.push(row);
-        if (!evaluation.visible) {
-          countHiddenReasons(hiddenReasons, evaluation.reasons);
+
+        const baseKey = row.baseKey || row.id;
+        if (!baseVisibility.has(baseKey)) {
+          baseVisibility.set(baseKey, {
+            key: baseKey,
+            name: row.baseDisplayName || row.displayName || baseKey,
+            visible: false,
+            hiddenReasons: {},
+          });
         }
-        if (searchSummary.active && rowMatchesSearch(row)) {
-          searchSummary.totalMatches += 1;
+        const baseInfo = baseVisibility.get(baseKey);
+        if (evaluation.visible) {
+          baseInfo.visible = true;
+        } else {
+          countHiddenReasons(baseInfo.hiddenReasons, evaluation.reasons);
+        }
+
+        if (state.searchTerm && rowMatchesSearch(row)) {
+          if (!searchMatchesByBaseKey.has(baseKey)) {
+            searchMatchesByBaseKey.set(baseKey, {
+              key: baseKey,
+              name: row.baseDisplayName || row.displayName || baseKey,
+              visible: false,
+              hiddenReasons: {},
+            });
+          }
+          const match = searchMatchesByBaseKey.get(baseKey);
           if (evaluation.visible) {
-            searchSummary.visibleMatches += 1;
+            match.visible = true;
           } else {
-            searchSummary.hiddenMatches += 1;
-            countHiddenReasons(searchSummary.hiddenByReason, evaluation.reasons.filter(reason => reason !== "searchFilter"));
-            const name = row.baseDisplayName || row.displayName;
-            if (name && searchSampleNames.size < 3) searchSampleNames.add(name);
+            countHiddenReasons(match.hiddenReasons, evaluation.reasons);
           }
         }
+
         if (!rowInFamilyDiagnosticScope(row)) return;
         const stats = familyStats.get(row.familyKey);
         if (!stats) return;
@@ -135,10 +146,37 @@ export function computeDriveDiagnostics() {
           });
         }
       });
-      searchSummary.sampleNames = Array.from(searchSampleNames);
-      searchSummary.dominantReason = dominantHiddenReason(searchSummary.hiddenByReason);
+
+      const hiddenBaseEntries = Array.from(baseVisibility.values()).filter(item => !item.visible);
+      const hiddenReasons = {};
+      hiddenBaseEntries.forEach(item => {
+        Object.keys(item.hiddenReasons).forEach(reason => {
+          hiddenReasons[reason] = (hiddenReasons[reason] || 0) + 1;
+        });
+      });
+
+      const searchMatches = Array.from(searchMatchesByBaseKey.values());
+      const hiddenSearchMatches = searchMatches.filter(match => !match.visible);
+      const searchHiddenReasons = {};
+      hiddenSearchMatches.forEach(match => {
+        Object.keys(match.hiddenReasons).forEach(reason => {
+          searchHiddenReasons[reason] = (searchHiddenReasons[reason] || 0) + 1;
+        });
+      });
+
+      const searchSummary = {
+        active: !!state.searchTerm,
+        term: state.searchTerm || "",
+        totalMatches: searchMatches.length,
+        visibleMatches: searchMatches.filter(match => match.visible).length,
+        hiddenMatches: hiddenSearchMatches.length,
+        hiddenByReason: searchHiddenReasons,
+        dominantReason: dominantHiddenReason(searchHiddenReasons),
+        sampleNames: hiddenSearchMatches.map(match => match.name).filter(Boolean).slice(0, 3),
+      };
+
       const hiddenSummary = {
-        totalHidden: DATA.drives.length - visibleRows.length,
+        totalHidden: hiddenBaseEntries.length,
         byReason: hiddenReasons,
         dominantReason: dominantHiddenReason(hiddenReasons),
       };

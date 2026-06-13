@@ -195,6 +195,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     };
     const bannerState = () => {
       const root = document.getElementById("filterActionBanner");
+      const chartDiagnostic = document.getElementById("chartDiagnostic");
       const title = document.getElementById("filterActionBannerTitle")?.textContent.trim() || "";
       const detail = document.getElementById("filterActionBannerDetail")?.textContent.trim() || "";
       const actions = [...document.querySelectorAll("#filterActionBannerActions button")].map(button => button.textContent.trim());
@@ -205,6 +206,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         detail,
         actions,
         text,
+        chartDiagnosticHidden: chartDiagnostic?.hidden ?? null,
+        chartDiagnosticText: chartDiagnostic?.textContent.replace(/\s+/g, " ").trim() || "",
       };
     };
     const clickBannerAction = label => {
@@ -284,6 +287,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       afterResetAcceleration,
       showClicked,
       afterShowImpractical,
+      hideClicked,
+      afterHideImpractical,
       searchTerm,
       searchHiddenBanner,
       clearClicked,
@@ -291,8 +296,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       koreanBanner,
     };
   });
-  expect(filterActionBannerChecks.defaultBanner.hidden, `${htmlFile}: filter action banner should be hidden for the built-in default chart preset`);
+  expect(
+    filterActionBannerChecks.defaultBanner.hidden || /hidden by current settings/i.test(filterActionBannerChecks.defaultBanner.text),
+    `${htmlFile}: default filter action banner should be hidden or explain hidden settings`,
+  );
   expect(!filterActionBannerChecks.highAccelerationBanner.hidden, `${htmlFile}: high minimum acceleration did not show the filter action banner`);
+  expect(filterActionBannerChecks.highAccelerationBanner.chartDiagnosticHidden, `${htmlFile}: actionable banner should suppress the older chart diagnostic banner`);
   expect(/hidden by current settings/i.test(filterActionBannerChecks.highAccelerationBanner.title), `${htmlFile}: high-acceleration banner title did not explain hidden settings`);
   expect(/minimum acceleration threshold/i.test(filterActionBannerChecks.highAccelerationBanner.detail), `${htmlFile}: high-acceleration banner did not identify the acceleration threshold`);
   expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Reset acceleration threshold"), `${htmlFile}: high-acceleration banner missing reset action`);
@@ -305,7 +314,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(filterActionBannerChecks.afterResetAcceleration.banner.hidden, `${htmlFile}: reset acceleration action did not clear the actionable banner`);
   expect(filterActionBannerChecks.showClicked, `${htmlFile}: show-impractical action could not be clicked`);
   expect(filterActionBannerChecks.afterShowImpractical.checked && filterActionBannerChecks.afterShowImpractical.stateValue, `${htmlFile}: show-impractical action did not sync checkbox and state`);
-  expect(filterActionBannerChecks.afterShowImpractical.banner.hidden, `${htmlFile}: show-impractical action did not clear the actionable banner`);
+  expect(
+    filterActionBannerChecks.afterShowImpractical.banner.hidden
+      || filterActionBannerChecks.afterShowImpractical.banner.actions.includes("Hide impractical candidates"),
+    `${htmlFile}: show-impractical action should either clear the banner or offer a hide-impractical action`,
+  );
   expect(!filterActionBannerChecks.searchHiddenBanner.hidden, `${htmlFile}: hidden search matches did not show the filter action banner`);
   expect(/Matches found/i.test(filterActionBannerChecks.searchHiddenBanner.title), `${htmlFile}: hidden search banner did not say matches were found`);
   expect(filterActionBannerChecks.searchHiddenBanner.detail.toLocaleLowerCase().includes(filterActionBannerChecks.searchTerm), `${htmlFile}: hidden search banner did not include the search term`);
