@@ -182,6 +182,142 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
 
+  const filterActionBannerChecks = await page.evaluate(() => {
+    const builtInSettings = DATA.presetLibrary?.chartPresets?.[0]?.settings;
+    const applyBuiltInBaseline = () => {
+      if (builtInSettings) {
+        applyPresetToState(builtInSettings);
+      } else {
+        resetChartStateToDefaults();
+      }
+      setLanguage("en", { rerender: false });
+      syncUiFromState();
+    };
+    const bannerState = () => {
+      const root = document.getElementById("filterActionBanner");
+      const title = document.getElementById("filterActionBannerTitle")?.textContent.trim() || "";
+      const detail = document.getElementById("filterActionBannerDetail")?.textContent.trim() || "";
+      const actions = [...document.querySelectorAll("#filterActionBannerActions button")].map(button => button.textContent.trim());
+      const text = root?.textContent.replace(/\s+/g, " ").trim() || "";
+      return {
+        hidden: root?.hidden ?? null,
+        title,
+        detail,
+        actions,
+        text,
+      };
+    };
+    const clickBannerAction = label => {
+      const button = [...document.querySelectorAll("#filterActionBannerActions button")]
+        .find(item => item.textContent.trim() === label);
+      if (!button) return false;
+      button.click();
+      return true;
+    };
+    const highAccelerationScenario = () => {
+      Object.assign(state, {
+        metric: "totalMassTons",
+        minTwr: 10,
+        minDvKps: 0,
+        showImpracticalCandidates: false,
+        searchTerm: "",
+      });
+      syncUiFromState();
+    };
+
+    applyBuiltInBaseline();
+    const defaultBanner = bannerState();
+
+    highAccelerationScenario();
+    const highAccelerationBanner = bannerState();
+    const resetClicked = clickBannerAction("Reset acceleration threshold");
+    const afterResetAcceleration = {
+      minTwr: state.minTwr,
+      inputValue: document.getElementById("minTwrNumber")?.value || "",
+      readout: document.getElementById("minTwrReadout")?.textContent.trim() || "",
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    highAccelerationScenario();
+    const showClicked = clickBannerAction("Show impractical candidates");
+    const afterShowImpractical = {
+      checked: document.getElementById("showImpracticalCandidates")?.checked === true,
+      stateValue: state.showImpracticalCandidates === true,
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    const fixture = DATA.drives.find(row => /Nerva/i.test(`${row.displayName || ""} ${row.baseDisplayName || ""}`))
+      || DATA.drives.find(row => row && (row.baseDisplayName || row.displayName));
+    const searchTerm = String((fixture && (fixture.baseDisplayName || fixture.displayName)) || "Drive").split(/\s+/)[0].toLocaleLowerCase();
+    Object.assign(state, {
+      metric: "totalMassTons",
+      minTwr: 10,
+      minDvKps: 0,
+      showImpracticalCandidates: false,
+      searchTerm,
+    });
+    syncUiFromState();
+    const searchHiddenBanner = bannerState();
+    const clearClicked = clickBannerAction("Clear search");
+    const afterClearSearch = {
+      stateSearch: state.searchTerm,
+      inputValue: document.getElementById("nameSearch")?.value || "",
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    highAccelerationScenario();
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const koreanBanner = bannerState();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+
+    applyBuiltInBaseline();
+
+    return {
+      defaultBanner,
+      highAccelerationBanner,
+      resetClicked,
+      afterResetAcceleration,
+      showClicked,
+      afterShowImpractical,
+      searchTerm,
+      searchHiddenBanner,
+      clearClicked,
+      afterClearSearch,
+      koreanBanner,
+    };
+  });
+  expect(filterActionBannerChecks.defaultBanner.hidden, `${htmlFile}: filter action banner should be hidden for the built-in default chart preset`);
+  expect(!filterActionBannerChecks.highAccelerationBanner.hidden, `${htmlFile}: high minimum acceleration did not show the filter action banner`);
+  expect(/hidden by current settings/i.test(filterActionBannerChecks.highAccelerationBanner.title), `${htmlFile}: high-acceleration banner title did not explain hidden settings`);
+  expect(/minimum acceleration threshold/i.test(filterActionBannerChecks.highAccelerationBanner.detail), `${htmlFile}: high-acceleration banner did not identify the acceleration threshold`);
+  expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Reset acceleration threshold"), `${htmlFile}: high-acceleration banner missing reset action`);
+  expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Show impractical candidates"), `${htmlFile}: high-acceleration banner missing show-impractical action`);
+  expect(!/[가-힣]/u.test(filterActionBannerChecks.highAccelerationBanner.text), `${htmlFile}: English filter action banner contains Korean text`);
+  expect(filterActionBannerChecks.resetClicked, `${htmlFile}: reset acceleration action could not be clicked`);
+  expect(Math.abs(filterActionBannerChecks.afterResetAcceleration.minTwr - 0.0001) < 1e-12, `${htmlFile}: reset acceleration action did not restore default minimum acceleration`);
+  expect(filterActionBannerChecks.afterResetAcceleration.inputValue === "0.0001", `${htmlFile}: reset acceleration action did not sync the minimum acceleration input`);
+  expect(/0\.1mg/.test(filterActionBannerChecks.afterResetAcceleration.readout), `${htmlFile}: reset acceleration action did not sync the minimum acceleration readout`);
+  expect(filterActionBannerChecks.afterResetAcceleration.banner.hidden, `${htmlFile}: reset acceleration action did not clear the actionable banner`);
+  expect(filterActionBannerChecks.showClicked, `${htmlFile}: show-impractical action could not be clicked`);
+  expect(filterActionBannerChecks.afterShowImpractical.checked && filterActionBannerChecks.afterShowImpractical.stateValue, `${htmlFile}: show-impractical action did not sync checkbox and state`);
+  expect(filterActionBannerChecks.afterShowImpractical.banner.hidden, `${htmlFile}: show-impractical action did not clear the actionable banner`);
+  expect(!filterActionBannerChecks.searchHiddenBanner.hidden, `${htmlFile}: hidden search matches did not show the filter action banner`);
+  expect(/Matches found/i.test(filterActionBannerChecks.searchHiddenBanner.title), `${htmlFile}: hidden search banner did not say matches were found`);
+  expect(filterActionBannerChecks.searchHiddenBanner.detail.toLocaleLowerCase().includes(filterActionBannerChecks.searchTerm), `${htmlFile}: hidden search banner did not include the search term`);
+  expect(/minimum acceleration threshold/i.test(filterActionBannerChecks.searchHiddenBanner.detail), `${htmlFile}: hidden search banner did not identify the dominant hidden reason`);
+  expect(filterActionBannerChecks.searchHiddenBanner.actions.includes("Clear search"), `${htmlFile}: hidden search banner missing clear-search action`);
+  expect(filterActionBannerChecks.clearClicked, `${htmlFile}: clear-search action could not be clicked`);
+  expect(filterActionBannerChecks.afterClearSearch.stateSearch === "" && filterActionBannerChecks.afterClearSearch.inputValue === "", `${htmlFile}: clear-search action did not sync state and input`);
+  expect(!/Matches found/i.test(filterActionBannerChecks.afterClearSearch.banner.title), `${htmlFile}: clear-search action left the search-specific banner visible`);
+  expect(!filterActionBannerChecks.koreanBanner.hidden, `${htmlFile}: Korean filter action banner was unexpectedly hidden in high-acceleration scenario`);
+  expect(!/Reset acceleration threshold|Show impractical candidates|Clear search/.test(filterActionBannerChecks.koreanBanner.text), `${htmlFile}: Korean filter action banner contains English action labels`);
+  expect(/[가-힣]/u.test(filterActionBannerChecks.koreanBanner.text), `${htmlFile}: Korean filter action banner did not render Korean text`);
+
   const shipDesignerInitial = await page.evaluate(() => {
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });

@@ -85,14 +85,24 @@ npm run verify:browser
 
 ## Progress
 
-- Status: Not started.
+- Status: Completed.
 - Notes:
   - Depends on phase 2 UI behavior.
+  - Added browser verifier checks for default banner suppression, high-acceleration warnings, search-hidden warnings, action button state sync, and English/Korean banner text.
+  - Verified the new assertions with `npm run verify:browser`.
+  - Ran the required build; no generated page changes were produced by this verifier-only phase.
 
 ## Decision Log
 
 - 2026-06-13: Put verifier work in its own phase so behavior changes are reviewable before test expansion.
+- 2026-06-13: Use the built-in chart preset from `DATA.presetLibrary.chartPresets[0]` as the verifier baseline so tests match the page users see on initial load.
+- 2026-06-13: Assert key phrases, action labels, and state/input synchronization rather than exact full banner sentences.
+- 2026-06-13: Select the search fixture dynamically from `DATA.drives`, preferring Nerva when available, to avoid relying on a hard-coded catalog row id.
 
 ## Outcomes / Retrospective
 
-- Pending.
+- `npm run verify:browser` passed with the new assertions.
+- `npm run build` passed and reported no generated page changes.
+- `npm run verify` passed, including the full browser verifier.
+- Manual smoke: opened the generated page, reproduced the high-minimum-acceleration banner, reproduced the hidden-search banner for `Nerva`, clicked clear search, and confirmed Korean mode removes the English action labels.
+- Residual risk: wording can still evolve, but the verifier now covers behavior, key phrases, and state synchronization.
