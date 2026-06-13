@@ -82,14 +82,23 @@ npm run verify
 
 ## Progress
 
-- Status: Not started.
+- Status: Completed.
 - Notes:
   - Plan created before implementation.
+  - Split `familyFilter` into `familyFilter`, `thrusterCountFilter`, and `searchFilter` while preserving visibility semantics.
+  - Added `hiddenSummary` and `searchSummary` to `computeDriveDiagnostics()`.
+  - Updated hidden reason priority and existing warning labels.
+  - Regenerated published output with `npm run build`.
 
 ## Decision Log
 
 - 2026-06-13: Split diagnostics before UI so later banner work can be reviewed against a stable data model.
+- 2026-06-13: Kept `searchFilter` out of hidden reason counts so search diagnostics identify the setting that hides matching rows, not the search term itself.
+- 2026-06-13: Left existing zero-family/chart diagnostics in place; Phase 1 only expands the diagnostic model.
 
 ## Outcomes / Retrospective
 
-- Pending.
+- `npm run build` passed and regenerated `docs/index.html` plus `docs/assets/js/**`.
+- `npm run verify` passed, including Python compile checks, JS syntax/import graph checks, axis/link checks, and browser verification.
+- Manual smoke: opened `docs/index.html` through a local static server, raised minimum acceleration on total-mass view, confirmed visible rows dropped from 9 to 0 and existing diagnostics/family warnings rendered, then reset the threshold and searched for `Nerva`; chart/table remained usable with 4 visible points.
+- Residual risk: `hiddenSummary.totalHidden` includes all hidden rows; Phase 2 must avoid showing a generic banner while search is active and should choose copy/actions from the dominant non-search reason.

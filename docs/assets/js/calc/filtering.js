@@ -92,9 +92,35 @@ export function computeDriveDiagnostics() {
         hiddenReasons: {},
       }]));
       const visibleRows = [];
+      const hiddenReasons = {};
+      const searchSummary = {
+        active: !!state.searchTerm,
+        term: state.searchTerm || "",
+        totalMatches: 0,
+        visibleMatches: 0,
+        hiddenMatches: 0,
+        hiddenByReason: {},
+        dominantReason: "other",
+        sampleNames: [],
+      };
+      const searchSampleNames = new Set();
       DATA.drives.forEach(row => {
         const evaluation = evaluateDriveVisibility(row);
         if (evaluation.visible) visibleRows.push(row);
+        if (!evaluation.visible) {
+          countHiddenReasons(hiddenReasons, evaluation.reasons);
+        }
+        if (searchSummary.active && rowMatchesSearch(row)) {
+          searchSummary.totalMatches += 1;
+          if (evaluation.visible) {
+            searchSummary.visibleMatches += 1;
+          } else {
+            searchSummary.hiddenMatches += 1;
+            countHiddenReasons(searchSummary.hiddenByReason, evaluation.reasons.filter(reason => reason !== "searchFilter"));
+            const name = row.baseDisplayName || row.displayName;
+            if (name && searchSampleNames.size < 3) searchSampleNames.add(name);
+          }
+        }
         if (!rowInFamilyDiagnosticScope(row)) return;
         const stats = familyStats.get(row.familyKey);
         if (!stats) return;
@@ -109,6 +135,13 @@ export function computeDriveDiagnostics() {
           });
         }
       });
+      searchSummary.sampleNames = Array.from(searchSampleNames);
+      searchSummary.dominantReason = dominantHiddenReason(searchSummary.hiddenByReason);
+      const hiddenSummary = {
+        totalHidden: DATA.drives.length - visibleRows.length,
+        byReason: hiddenReasons,
+        dominantReason: dominantHiddenReason(hiddenReasons),
+      };
       const families = DATA.subfamilies.map(family => {
         const stats = familyStats.get(family.key);
         return {
@@ -120,14 +153,16 @@ export function computeDriveDiagnostics() {
         visibleRows,
         families,
         zeroFamilies: families.filter(family => family.selected && family.total > 0 && family.visible === 0),
+        hiddenSummary,
+        searchSummary,
       };
     }
 
 export function evaluateDriveVisibility(row) {
       const reasons = [];
-      if (!rowMatchesSelectedThrusterCount(row) || !rowMatchesSearch(row) || !rowFamilySelected(row)) {
-        reasons.push("familyFilter");
-      }
+      if (!rowMatchesSelectedThrusterCount(row)) reasons.push("thrusterCountFilter");
+      if (!rowMatchesSearch(row)) reasons.push("searchFilter");
+      if (!rowFamilySelected(row)) reasons.push("familyFilter");
       if (!Number.isFinite(rowUnlockResearchValue(row)) || rowUnlockResearchValue(row) <= 0) {
         reasons.push("researchFilter");
       }
@@ -228,6 +263,13 @@ export function isImpracticalOption(option) {
 
 export function dominantHiddenReason(hiddenReasons) {
       return HIDDEN_REASON_PRIORITY.find(reason => (hiddenReasons && hiddenReasons[reason] > 0)) || "other";
+    }
+
+export function countHiddenReasons(target, reasons) {
+      const effectiveReasons = reasons.filter(reason => reason !== "searchFilter");
+      (effectiveReasons.length ? effectiveReasons : ["other"]).forEach(reason => {
+        target[reason] = (target[reason] || 0) + 1;
+      });
     }
 
 export function rowUnlockResearchValue(row) {

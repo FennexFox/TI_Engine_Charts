@@ -547,12 +547,14 @@ export const HIDDEN_REASON_PRIORITY = [
       "minTwr",
       "minDv",
       "targetDvOrMassRatio",
+      "familyFilter",
+      "thrusterCountFilter",
       "researchFilter",
       "invalidPowerPlant",
       "invalidComputation",
       "axisRange",
       "other",
-      "familyFilter",
+      "searchFilter",
     ];
 export const HELP_TEXT = {
       showTwrInfo: {

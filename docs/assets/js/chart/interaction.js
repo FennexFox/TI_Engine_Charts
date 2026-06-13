@@ -121,20 +121,26 @@ export function familyWarningText(family) {
 export function hiddenReasonPhrase(reason, hiddenReasons = {}) {
       const reasonKey = reason || "other";
       if (reasonKey === "minTwr" && hiddenReasons.targetDvOrMassRatio) {
-        return UI_LANG === "en" ? "current dV / minimum acceleration settings" : "현재 dV / 최소 가속도 설정";
+        return localText("현재 dV / 최소 가속도 설정", "current dV / minimum acceleration settings");
       }
-      const phrases = {
-        minTwr: UI_LANG === "en" ? "the current minimum acceleration filter" : "현재 최소 가속도 필터",
-        minDv: UI_LANG === "en" ? "the current minimum dV filter" : "현재 최소 dV 필터",
-        targetDvOrMassRatio: UI_LANG === "en" ? "the current target dV / mass-ratio scenario" : "현재 목표 dV / 질량비 시나리오",
-        researchFilter: UI_LANG === "en" ? "research unlock constraints" : "연구 개방 조건",
-        invalidPowerPlant: UI_LANG === "en" ? "missing compatible power candidates" : "호환 전원 후보 부족",
-        invalidComputation: UI_LANG === "en" ? "non-finite mass or TWR calculations" : "계산 불능 질량 또는 TWR",
-        axisRange: UI_LANG === "en" ? "the current axis range or metric" : "현재 축 범위 또는 지표",
-        other: UI_LANG === "en" ? "other current filters" : "기타 현재 필터",
-        familyFilter: UI_LANG === "en" ? "family/category filters" : "대분류/계열 필터",
+      return hiddenReasonLabel(reasonKey);
+    }
+
+export function hiddenReasonLabel(reason) {
+      const labels = {
+        minTwr: localText("최소 가속도 기준", "minimum acceleration threshold"),
+        minDv: localText("최소 dV 기준", "minimum dV threshold"),
+        targetDvOrMassRatio: localText("목표 dV / 질량비 시나리오", "target dV / mass-ratio scenario"),
+        familyFilter: localText("드라이브 계열 필터", "drive family filters"),
+        thrusterCountFilter: localText("엔진 수 필터", "engine count filter"),
+        researchFilter: localText("연구 개방 조건", "research unlock constraints"),
+        axisRange: localText("차트 축 범위", "chart axis range"),
+        invalidPowerPlant: localText("호환 전원 조건", "compatible power plant constraints"),
+        invalidComputation: localText("계산 불가 결과", "invalid calculation result"),
+        searchFilter: localText("검색어", "search term"),
+        other: localText("현재 설정", "current settings"),
       };
-      return phrases[reasonKey] || phrases.other;
+      return labels[reason] || labels.other;
     }
 
 export function renderLegend(_rows) {
