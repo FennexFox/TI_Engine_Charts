@@ -271,7 +271,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         render();
       });
       if (showImpracticalCandidates) {
-        showImpracticalCandidates.addEventListener("change", () => {
+        showImpracticalCandidates?.addEventListener("change", () => {
           state.showImpracticalCandidates = showImpracticalCandidates.checked;
           render();
         });

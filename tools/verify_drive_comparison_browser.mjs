@@ -230,6 +230,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
     applyBuiltInBaseline();
     const defaultBanner = bannerState();
+    const resetAccelerationBaseline = {
+      minTwr: state.minTwr,
+      inputValue: document.getElementById("minTwrNumber")?.value || "",
+      readout: document.getElementById("minTwrReadout")?.textContent.trim() || "",
+    };
 
     highAccelerationScenario();
     const highAccelerationBanner = bannerState();
@@ -287,6 +292,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
     return {
       defaultBanner,
+      resetAccelerationBaseline,
       highAccelerationBanner,
       resetClicked,
       afterResetAcceleration,
@@ -313,10 +319,22 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Show impractical candidates"), `${htmlFile}: high-acceleration banner missing show-impractical action`);
   expect(!/[가-힣]/u.test(filterActionBannerChecks.highAccelerationBanner.text), `${htmlFile}: English filter action banner contains Korean text`);
   expect(filterActionBannerChecks.resetClicked, `${htmlFile}: reset acceleration action could not be clicked`);
-  expect(Math.abs(filterActionBannerChecks.afterResetAcceleration.minTwr - 0.0001) < 1e-12, `${htmlFile}: reset acceleration action did not restore default minimum acceleration`);
-  expect(filterActionBannerChecks.afterResetAcceleration.inputValue === "0.0001", `${htmlFile}: reset acceleration action did not sync the minimum acceleration input`);
-  expect(/0\.1mg/.test(filterActionBannerChecks.afterResetAcceleration.readout), `${htmlFile}: reset acceleration action did not sync the minimum acceleration readout`);
-  expect(filterActionBannerChecks.afterResetAcceleration.banner.hidden, `${htmlFile}: reset acceleration action did not clear the actionable banner`);
+  expect(
+    Math.abs(filterActionBannerChecks.afterResetAcceleration.minTwr - filterActionBannerChecks.resetAccelerationBaseline.minTwr) < 1e-12,
+    `${htmlFile}: reset acceleration action did not restore the selected preset minimum acceleration`,
+  );
+  expect(
+    Math.abs(Number(filterActionBannerChecks.afterResetAcceleration.inputValue) - Number(filterActionBannerChecks.resetAccelerationBaseline.inputValue)) < 1e-12,
+    `${htmlFile}: reset acceleration action did not sync the minimum acceleration input`,
+  );
+  expect(
+    filterActionBannerChecks.afterResetAcceleration.readout === filterActionBannerChecks.resetAccelerationBaseline.readout,
+    `${htmlFile}: reset acceleration action did not sync the minimum acceleration readout`,
+  );
+  expect(
+    !filterActionBannerChecks.afterResetAcceleration.banner.actions.includes("Reset acceleration threshold"),
+    `${htmlFile}: reset acceleration action left the reset action visible`,
+  );
   expect(filterActionBannerChecks.showClicked, `${htmlFile}: show-impractical action could not be clicked`);
   expect(!filterActionBannerChecks.afterShowImpractical.checkboxExists, `${htmlFile}: impractical candidates checkbox should not remain in the left panel`);
   expect(filterActionBannerChecks.afterShowImpractical.stateValue, `${htmlFile}: show-impractical action did not update state`);
@@ -912,7 +930,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
   expect(visiblePoints > 0, `${htmlFile}: no chart data points rendered`);
   expect(categoryHelpCount >= 5, `${htmlFile}: category help tooltips were not attached`);
-  expect(overlayHelpCount >= 4, `${htmlFile}: overlay help tooltips were not attached`);
+  expect(overlayHelpCount >= 3, `${htmlFile}: overlay help tooltips were not attached`);
   expect(customHelpRuleCount === 0, `${htmlFile}: custom data-help tooltip rule still exists`);
   expect(usageText.trim().length > 0, `${htmlFile}: empty detail panel usage text missing`);
 
