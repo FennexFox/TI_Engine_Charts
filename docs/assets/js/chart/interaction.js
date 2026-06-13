@@ -121,10 +121,10 @@ export function familyWarningText(family) {
 export function hiddenReasonPhrase(reason, hiddenReasons = {}) {
       const reasonKey = reason || "other";
       if (reasonKey === "minTwr" && hiddenReasons.targetDvOrMassRatio) {
-        return UI_LANG === "en" ? "current dV / minimum TWR settings" : "현재 dV / 최소 TWR 설정";
+        return UI_LANG === "en" ? "current dV / minimum acceleration settings" : "현재 dV / 최소 가속도 설정";
       }
       const phrases = {
-        minTwr: UI_LANG === "en" ? "the current minimum TWR filter" : "현재 최소 TWR 필터",
+        minTwr: UI_LANG === "en" ? "the current minimum acceleration filter" : "현재 최소 가속도 필터",
         minDv: UI_LANG === "en" ? "the current minimum dV filter" : "현재 최소 dV 필터",
         targetDvOrMassRatio: UI_LANG === "en" ? "the current target dV / mass-ratio scenario" : "현재 목표 dV / 질량비 시나리오",
         researchFilter: UI_LANG === "en" ? "research unlock constraints" : "연구 개방 조건",

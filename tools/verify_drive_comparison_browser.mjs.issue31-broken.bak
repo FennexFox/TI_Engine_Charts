@@ -173,7 +173,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   );
   expect(
     !/Acceleration/.test(cardSummaryChecks.twrSimulationSummary) && !/TWR/.test(cardSummaryChecks.twrSimulationSummary),
-    `${htmlFile}: acceleration metric simulation summary should not show the minimum acceleration threshold when that control is hidden`,
+    `${htmlFile}: TWR simulation summary should not show the minimum acceleration threshold when that control is hidden`,
   );
   expect(
     /X축 로그/.test(cardSummaryChecks.koreanFilterSummary)
@@ -1465,7 +1465,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       actual,
       exportedField: !!parsedCompressed.dryMassCalculator && !!parsedJson.dryMassCalculator,
       compressedPayloadEncoded: compressedPayload.startsWith("ticp1:") || compressedPayload.startsWith("tijp1:"),
-      jsonPayloadPlain: jsonPayload.trim().startsWith("{") && jsonPayload.includes("\"moduleEffectsEnabled\""),
+      jsonPayloadPlain: jsonPayload.trim().startsWith("{") && jsonPayload.includes(""moduleEffectsEnabled""),
       compressedModuleFieldsExported: JSON.stringify(compressedModuleEffects) === JSON.stringify(expectedModuleEffects),
       jsonModuleFieldsExported: JSON.stringify(jsonModuleEffects) === JSON.stringify(expectedModuleEffects),
       compressedModuleFieldsRoundTrip: compressedModuleEffectsApplied.moduleEffectsEnabled === true
@@ -1790,7 +1790,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartLoadedDesignCount === 1, `${htmlFile}: named chart preset did not restore design preset library`);
   expect(namedPresetRoundTrip.chartLoadedDesignNotes === "snapshot design notes", `${htmlFile}: named chart preset did not restore design preset content`);
   expect(namedPresetRoundTrip.chartLoadedDesignDv === 777, `${htmlFile}: named chart preset did not restore design preset simulation defaults`);
-  expect(Math.abs(namedPresetRoundTrip.chartLoadedDesignMinTwr - 0.42) < 1e-9, `${htmlFile}: named chart preset did not restore design preset minimum TWR`);
+  expect(Math.abs(namedPresetRoundTrip.chartLoadedDesignMinTwr - 0.42) < 1e-9, `${htmlFile}: named chart preset did not restore design preset minimum acceleration`);
   expect(
     namedPresetRoundTrip.chartLoadedModuleEffects
       && namedPresetRoundTrip.chartLoadedModuleEffects.moduleEffectsEnabled === true
@@ -2095,9 +2095,9 @@ const dryMassActionLayout = await page.evaluate(() => {
     syncUiFromState();
     return document.getElementById("minTwrReadout")?.textContent.trim();
   });
-  expect(Math.abs(dryMassDefaultMinTwr.calcMinTwr - 0.0001) < 1e-12, `${htmlFile}: dry-mass reset did not use the default minimum TWR`);
-  expect(dryMassDefaultMinTwr.inputValue === "0.1", `${htmlFile}: dry-mass minimum TWR input did not show the default mg value`);
-  expect(/0\.1mg/.test(defaultMinTwrReadout || ""), `${htmlFile}: default minimum TWR readout did not use mg`);
+  expect(Math.abs(dryMassDefaultMinTwr.calcMinTwr - 0.0001) < 1e-12, `${htmlFile}: dry-mass reset did not use the default minimum acceleration`);
+  expect(dryMassDefaultMinTwr.inputValue === "0.1", `${htmlFile}: dry-mass minimum acceleration input did not show the default mg value`);
+  expect(/0\.1mg/.test(defaultMinTwrReadout || ""), `${htmlFile}: default minimum acceleration readout did not use mg`);
 
   await page.locator("#shipPresetMinTwr").evaluate(input => {
     input.value = "370";
@@ -2106,7 +2106,7 @@ const dryMassActionLayout = await page.evaluate(() => {
   await page.locator("#dryMassCalcApplyWithDefaults").click();
   await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
   const minTwrAppliedFromDesignDefaults = await page.evaluate(() => Math.abs(state.minTwr - 0.37) < 1e-9);
-  expect(minTwrAppliedFromDesignDefaults, `${htmlFile}: dry-mass Apply with defaults did not apply minimum TWR`);
+  expect(minTwrAppliedFromDesignDefaults, `${htmlFile}: dry-mass Apply with defaults did not apply minimum acceleration`);
   await page.locator("#dryMassCalcButton").click();
   await page.waitForSelector("#dryMassCalcModal.is-open", { timeout: 5000 });
   const notesBox = await page.locator("#dryMassCalcNotes").boundingBox();

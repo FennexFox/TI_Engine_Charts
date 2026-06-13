@@ -678,8 +678,8 @@ export function scenarioExplanationText(family) {
       const reason = family.dominantReason;
       if (reason === "minTwr") {
         return UI_LANG === "en"
-          ? `At ${dryMass} dry mass and ${targetDv} target dV, ${familyName} drives exist, but none meet the current minimum TWR filter. In this scenario their propellant mass can become very large, lowering wet-mass TWR.`
-          : `건조질량 ${dryMass}, 목표 dV ${targetDv} 조건에서 ${familyName} 드라이브는 존재하지만 현재 최소 TWR 필터를 만족하지 못합니다. 이 시나리오에서는 추진체 질량이 매우 커져 습질량 TWR이 낮아질 수 있습니다.`;
+          ? `At ${dryMass} dry mass and ${targetDv} target dV, ${familyName} drives exist, but none meet the current minimum acceleration filter. In this scenario their propellant mass can become very large, lowering wet-mass TWR.`
+          : `건조질량 ${dryMass}, 목표 dV ${targetDv} 조건에서 ${familyName} 드라이브는 존재하지만 현재 최소 가속도 필터를 만족하지 못합니다. 이 시나리오에서는 추진체 질량이 매우 커져 습질량 TWR이 낮아질 수 있습니다.`;
       }
       if (reason === "targetDvOrMassRatio") {
         return UI_LANG === "en"
@@ -708,8 +708,8 @@ export function scenarioExplanationText(family) {
 
 export function scenarioSuggestions() {
       const suggestions = UI_LANG === "en"
-        ? ["Lower target dV", "Lower or disable the minimum TWR filter", "Use a lower-dV scenario for this drive family"]
-        : ["목표 dV 낮추기", "최소 TWR 필터 낮추기 또는 해제하기", "이 드라이브 계열에 맞는 낮은 dV 시나리오 사용하기"];
+        ? ["Lower target dV", "Lower or disable the minimum acceleration filter", "Use a lower-dV scenario for this drive family"]
+        : ["목표 dV 낮추기", "최소 가속도 필터 낮추기 또는 해제하기", "이 드라이브 계열에 맞는 낮은 dV 시나리오 사용하기"];
       suggestions.push(UI_LANG === "en" ? "Enable Show impractical candidates" : "비현실적 후보 표시 켜기");
       return suggestions;
     }

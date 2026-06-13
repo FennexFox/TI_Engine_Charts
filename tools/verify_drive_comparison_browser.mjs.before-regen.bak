@@ -125,7 +125,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/Game version/.test(englishSource), `${htmlFile}: English language switch did not update source note`);
   expect(
     englishMetricGroups.length === 2
-      && /Simulation \(total mass, fuel mass, acceleration\)/.test(englishMetricGroups[0] || "")
+      && /Simulation \(total mass, fuel mass, TWR\)/.test(englishMetricGroups[0] || "")
       && /Basic information \(thrust, efficiency, power\)/.test(englishMetricGroups[1] || ""),
     `${htmlFile}: English metric group labels were not localized`,
   );
@@ -160,20 +160,20 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     return { totalMassSimulationSummary, totalMassFilterSummary, twrSimulationSummary, twrFilterSummary, koreanFilterSummary };
   });
   expect(
-    /Acceleration/.test(cardSummaryChecks.totalMassSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.totalMassSimulationSummary),
-    `${htmlFile}: total-mass simulation summary should show the acceleration threshold`,
+    /TWR/.test(cardSummaryChecks.totalMassSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.totalMassSimulationSummary),
+    `${htmlFile}: total-mass simulation summary should show the TWR threshold`,
   );
   expect(
-    !/Acceleration/.test(cardSummaryChecks.totalMassFilterSummary) && !/TWR/.test(cardSummaryChecks.totalMassFilterSummary) && !/dV/.test(cardSummaryChecks.totalMassFilterSummary),
+    !/TWR/.test(cardSummaryChecks.totalMassFilterSummary) && !/dV/.test(cardSummaryChecks.totalMassFilterSummary),
     `${htmlFile}: total-mass filter summary should not show moved simulation thresholds`,
   );
   expect(
-    /dV/.test(cardSummaryChecks.twrFilterSummary) && !/Acceleration/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary),
-    `${htmlFile}: acceleration metric filter summary should show only the dV threshold`,
+    /dV/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary),
+    `${htmlFile}: TWR filter summary should show only the dV threshold`,
   );
   expect(
-    !/Acceleration/.test(cardSummaryChecks.twrSimulationSummary) && !/TWR/.test(cardSummaryChecks.twrSimulationSummary),
-    `${htmlFile}: acceleration metric simulation summary should not show the minimum acceleration threshold when that control is hidden`,
+    !/TWR/.test(cardSummaryChecks.twrSimulationSummary),
+    `${htmlFile}: TWR simulation summary should not show the minimum TWR threshold when that control is hidden`,
   );
   expect(
     /X축 로그/.test(cardSummaryChecks.koreanFilterSummary)

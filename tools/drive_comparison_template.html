@@ -23,7 +23,7 @@ __STYLES__
     </div>
     <div class="header-summary">
       <div class="subtle">
-        X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.
+        X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, 가속도(TWR), 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.
       </div>
     </div>
   </header>
@@ -51,10 +51,10 @@ __STYLES__
           <section class="control-block">
             <label class="label" for="metric">세로축</label>
             <select id="metric" data-searchable-select="true">
-              <optgroup label="시뮬레이션(총 질량, 연료질량, TWR)">
+              <optgroup label="시뮬레이션(총 질량, 연료질량, 가속도)">
                 <option value="totalMassTons">목표 Δv 달성 총질량 (t)</option>
                 <option value="fuelMassTons">목표 Δv 달성 연료질량 (t)</option>
-                <option value="twr">TWR</option>
+                <option value="twr">가속도 (TWR)</option>
               </optgroup>
               <optgroup label="기본 정보(추력, 효율, 출력)">
                 <option value="thrustMN">추력 (MN)</option>
@@ -135,12 +135,12 @@ __STYLES__
             </div>
           </section>
           <section id="minTwrControl" class="control-block">
-            <label class="label" for="minTwrExp">최소 TWR</label>
+            <label class="label" for="minTwrExp">최소 가속도</label>
             <div class="split">
               <input id="minTwrExp" type="range" min="-4" max="1" value="-4" step="0.1">
               <input id="minTwrNumber" type="number" min="0.0001" max="10" value="0.0001" step="0.0001">
             </div>
-            <div id="minTwrReadout" class="control-hint">표시: TWR >= 0.1mg</div>
+            <div id="minTwrReadout" class="control-hint">표시: 가속도 >= 0.1mg</div>
           </section>
           <section class="control-block">
             <label class="label" for="radiator">라디에이터</label>
@@ -165,8 +165,8 @@ __STYLES__
         </div>
         <div class="control-card-body">
         <section id="bandAnalysisControls" class="control-block">
-          <span class="label">총질량/연료질량/TWR 보조 표시</span>
-          <label id="showTwrInfoRow" class="check-row"><input id="showTwrInfo" type="checkbox" checked> TWR 정보 표시</label>
+          <span class="label">총질량/연료질량/가속도 보조 표시</span>
+          <label id="showTwrInfoRow" class="check-row"><input id="showTwrInfo" type="checkbox" checked> 가속도 정보 표시</label>
           <label id="showMassInfoRow" class="check-row" style="display: none;"><input id="showMassInfo" type="checkbox" checked> 총질량 정보 표시</label>
           <label class="check-row"><input id="paretoHighlight" type="checkbox" checked> 파레토 후보 강조</label>
           <label class="check-row"><input id="showImpracticalCandidates" type="checkbox"> 비현실적 후보 표시</label>
@@ -403,7 +403,7 @@ __STYLES__
           <div class="simulation-defaults-grid">
             <label id="shipPresetTargetDvLabel" class="label" for="shipPresetTargetDv">목표 dV (km/s)</label>
             <input id="shipPresetTargetDv" type="number" min="0" max="100000" step="1">
-            <label id="shipPresetMinTwrLabel" class="label" for="shipPresetMinTwr">최소 TWR (mg)</label>
+            <label id="shipPresetMinTwrLabel" class="label" for="shipPresetMinTwr">최소 가속도 (mg)</label>
             <input id="shipPresetMinTwr" type="number" min="0.1" max="10000" value="0.1" step="0.1">
             <label id="shipPresetRadiatorLabel" class="label" for="shipPresetRadiator">라디에이터</label>
             <select id="shipPresetRadiator" data-searchable-select="true"></select>
