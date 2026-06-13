@@ -80,7 +80,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
       applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));
       applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
-      applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
+      if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
       applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
 
@@ -270,10 +270,12 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         state.paretoHighlight = paretoHighlight.checked;
         render();
       });
-      showImpracticalCandidates.addEventListener("change", () => {
-        state.showImpracticalCandidates = showImpracticalCandidates.checked;
-        render();
-      });
+      if (showImpracticalCandidates) {
+        showImpracticalCandidates.addEventListener("change", () => {
+          state.showImpracticalCandidates = showImpracticalCandidates.checked;
+          render();
+        });
+      }
       if (powerResearchViewSelect) {
         powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
         powerResearchViewSelect.addEventListener("change", () => {

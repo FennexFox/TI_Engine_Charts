@@ -245,7 +245,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     highAccelerationScenario();
     const showClicked = clickBannerAction("Show impractical candidates");
     const afterShowImpractical = {
-      checked: document.getElementById("showImpracticalCandidates")?.checked === true,
+      checkboxExists: !!document.getElementById("showImpracticalCandidates"),
+      stateValue: state.showImpracticalCandidates === true,
+      banner: bannerState(),
+    };
+    const hideClicked = clickBannerAction("Hide impractical candidates");
+    const afterHideImpractical = {
       stateValue: state.showImpracticalCandidates === true,
       banner: bannerState(),
     };
@@ -313,12 +318,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/0\.1mg/.test(filterActionBannerChecks.afterResetAcceleration.readout), `${htmlFile}: reset acceleration action did not sync the minimum acceleration readout`);
   expect(filterActionBannerChecks.afterResetAcceleration.banner.hidden, `${htmlFile}: reset acceleration action did not clear the actionable banner`);
   expect(filterActionBannerChecks.showClicked, `${htmlFile}: show-impractical action could not be clicked`);
-  expect(filterActionBannerChecks.afterShowImpractical.checked && filterActionBannerChecks.afterShowImpractical.stateValue, `${htmlFile}: show-impractical action did not sync checkbox and state`);
-  expect(
-    filterActionBannerChecks.afterShowImpractical.banner.hidden
-      || filterActionBannerChecks.afterShowImpractical.banner.actions.includes("Hide impractical candidates"),
-    `${htmlFile}: show-impractical action should either clear the banner or offer a hide-impractical action`,
-  );
+  expect(!filterActionBannerChecks.afterShowImpractical.checkboxExists, `${htmlFile}: impractical candidates checkbox should not remain in the left panel`);
+  expect(filterActionBannerChecks.afterShowImpractical.stateValue, `${htmlFile}: show-impractical action did not update state`);
+  expect(!filterActionBannerChecks.afterShowImpractical.banner.hidden, `${htmlFile}: show-impractical action should leave the banner visible with a hide action`);
+  expect(filterActionBannerChecks.afterShowImpractical.banner.actions.includes("Hide impractical candidates"), `${htmlFile}: banner missing hide-impractical action after showing impractical candidates`);
+  expect(filterActionBannerChecks.hideClicked, `${htmlFile}: hide-impractical action could not be clicked`);
+  expect(!filterActionBannerChecks.afterHideImpractical.stateValue, `${htmlFile}: hide-impractical action did not update state`);
   expect(!filterActionBannerChecks.searchHiddenBanner.hidden, `${htmlFile}: hidden search matches did not show the filter action banner`);
   expect(/Matches found/i.test(filterActionBannerChecks.searchHiddenBanner.title), `${htmlFile}: hidden search banner did not say matches were found`);
   expect(filterActionBannerChecks.searchHiddenBanner.detail.toLocaleLowerCase().includes(filterActionBannerChecks.searchTerm), `${htmlFile}: hidden search banner did not include the search term`);

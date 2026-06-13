@@ -98,37 +98,11 @@ export function renderFamilyDiagnostics(diagnostics) {
       });
     }
 
-export function renderChartDiagnostic(_diagnostics, { suppress = true } = {}) {
+export function renderChartDiagnostic(_diagnostics, _options = {}) {
       const banner = document.getElementById("chartDiagnostic");
       if (!banner) return;
       banner.hidden = true;
       banner.textContent = "";
-    }
-= {}) {
-      const banner = document.getElementById("chartDiagnostic");
-      if (!banner) return;
-      banner.hidden = true;
-      banner.textContent = "";
-    }
-= {}) {
-      const banner = document.getElementById("chartDiagnostic");
-      if (!banner) return;
-      banner.hidden = true;
-      banner.textContent = "";
-    }
-= {}) {
-      const banner = document.getElementById("chartDiagnostic");
-      if (!banner) return;
-      if (suppress || !diagnostics.zeroFamilies.length) {
-        banner.hidden = true;
-        banner.textContent = "";
-        return;
-      }
-      const count = diagnostics.zeroFamilies.length;
-      banner.hidden = false;
-      banner.textContent = UI_LANG === "en"
-        ? `${count} selected drive ${count === 1 ? "family has" : "families have"} no visible candidates under the current scenario.`
-        : `선택된 드라이브 계열 ${count}개는 현재 시나리오에서 표시 후보가 없습니다.`;
     }
 
 export function updateFilterActionBanner(diagnostics) {
@@ -181,11 +155,11 @@ export function filterActionBannerModel(diagnostics) {
           actions: hiddenReasonActions(reason, { includeClearSearch: true }),
         };
       }
-      if (!searchSummary.active) {
-        const impracticalModel = impracticalCandidatesBannerModel();
-        if (impracticalModel) return impracticalModel;
-      }
+
       const hiddenSummary = diagnostics.hiddenSummary || {};
+      if (!searchSummary.active && state.showImpracticalCandidates !== defaultBannerShowImpracticalCandidates()) {
+        return impracticalCandidatesBannerModel();
+      }
       if (!searchSummary.active && hiddenSummary.totalHidden > 0) {
         const reason = hiddenSummary.dominantReason || "other";
         return {
@@ -201,7 +175,6 @@ export function filterActionBannerModel(diagnostics) {
     }
 
 function impracticalCandidatesBannerModel() {
-      if (!impracticalStateDiffersFromDefault()) return null;
       if (state.showImpracticalCandidates) {
         return {
           title: localText("비현실 후보가 표시되고 있습니다.", "Impractical candidates are shown."),
@@ -248,10 +221,6 @@ function driveCountTextKo(count) {
       return `${count}개 드라이브`;
     }
 
-function shouldShowGenericHiddenBanner(hiddenSummary) {
-      return !!hiddenSummary && hiddenSummary.totalHidden > 0;
-    }
-
 function defaultBannerSettings() {
       const selectedEntry = selectedChartPresetEntry();
       if (selectedEntry && selectedEntry.settings && typeof selectedEntry.settings === "object") {
@@ -284,10 +253,6 @@ function defaultBannerThrusterCount() {
 function defaultBannerShowImpracticalCandidates() {
       const value = defaultBannerSettings().showImpracticalCandidates;
       return typeof value === "boolean" ? value : false;
-    }
-
-function impracticalStateDiffersFromDefault() {
-      return !!state.showImpracticalCandidates !== defaultBannerShowImpracticalCandidates();
     }
 
 function numberDiffersFromDefault(value, defaultValue) {
@@ -336,55 +301,11 @@ function hiddenReasonActions(reason, { includeClearSearch = false } = {}) {
       if (includeClearSearch) add("clearSearch");
       return actions;
     }
-= {}) {
-      const actions = [];
-      const add = actionKey => {
-        if (!actions.includes(actionKey)) actions.push(actionKey);
-      };
-      if (reason === "minTwr") {
-        if (numberDiffersFromDefault(state.minTwr, defaultBannerMinTwr())) add("resetAcceleration");
-        if (!state.showImpracticalCandidates) add("showImpractical");
-      } else if (reason === "minDv") {
-        if (state.minDvKps > 0) add("resetMinDv");
-        if (!state.showImpracticalCandidates) add("showImpractical");
-      } else if (reason === "targetDvOrMassRatio") {
-        if (!state.showImpracticalCandidates) add("showImpractical");
-      } else if (reason === "familyFilter") {
-        if (driveFiltersDifferFromDefaults()) add("resetDriveFilters");
-      } else if (reason === "thrusterCountFilter") {
-        if (numberDiffersFromDefault(state.thrusters, defaultBannerThrusterCount())) add("resetThrusterCount");
-      }
-      if (state.showImpracticalCandidates) add("hideImpractical");
-      if (includeClearSearch) add("clearSearch");
-      return actions;
-    }
-= {}) {
-      const actions = [];
-      const add = actionKey => {
-        if (!actions.includes(actionKey)) actions.push(actionKey);
-      };
-      if (reason === "minTwr") {
-        if (state.minTwr > DEFAULT_MIN_TWR) add("resetAcceleration");
-        if (!state.showImpracticalCandidates) add("showImpractical");
-      } else if (reason === "minDv") {
-        if (state.minDvKps > 0) add("resetMinDv");
-        if (!state.showImpracticalCandidates) add("showImpractical");
-      } else if (reason === "targetDvOrMassRatio") {
-        if (!state.showImpracticalCandidates) add("showImpractical");
-      } else if (reason === "familyFilter") {
-        if (driveFiltersDifferFromDefaults()) add("resetDriveFilters");
-      } else if (reason === "thrusterCountFilter") {
-        if (Number(state.thrusters) !== Number(DATA.defaults.thrusterCount)) add("resetThrusterCount");
-      }
-      if (includeClearSearch) add("clearSearch");
-      return actions;
-    }
 
 function filterActionLabel(actionKey) {
       const labels = {
         resetAcceleration: localText("가속도 기준 초기화", "Reset acceleration threshold"),
         showImpractical: localText("비현실 후보 표시", "Show impractical candidates"),
-        hideImpractical: localText("비현실 후보 숨기기", "Hide impractical candidates"),
         hideImpractical: localText("비현실 후보 숨기기", "Hide impractical candidates"),
         resetMinDv: localText("최소 dV 초기화", "Reset minimum dV"),
         resetDriveFilters: localText("드라이브 필터 초기화", "Reset drive filters"),
