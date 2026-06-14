@@ -1,8 +1,8 @@
 import { chartSummaryMassOptions, computeDriveDiagnostics, filteredRows } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
-import { localLabel } from "../presets/library.js";
-import { CHART_CLICK_TOLERANCE_PX, CHART_HIT_RADIUS_PX, CHART_LADDER_HIT_RADIUS_PX, CONNECTION_LINE_MODES, DATA, UI_LANG, chart, connectionLineModeLabel, localText, metricDefs, metricHint, metricLabel, normalizeConnectionLineMode, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state, updateLeftPanelCardSummaries } from "../state/core.js";
+import { localLabel, selectedChartPresetEntry, syncUiFromState } from "../presets/library.js";
+import { CHART_CLICK_TOLERANCE_PX, CHART_HIT_RADIUS_PX, CHART_LADDER_HIT_RADIUS_PX, CONNECTION_LINE_MODES, DATA, DEFAULT_MIN_TWR, UI_LANG, chart, connectionLineModeLabel, localText, metricDefs, metricHint, metricLabel, normalizeConnectionLineMode, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state, updateLeftPanelCardSummaries } from "../state/core.js";
 import { updateChartControls } from "../ui/control_state.js";
 import { backgroundStyle, clearTooltip, pinTooltipItems, refreshTooltip, renderTable, unpinTooltip, unpinTooltipItemByKey } from "../ui/tooltip_table.js";
 import { axisSpaceValue, buildAxisTickPlan, makeScale, normalizeAxisDomain, valueFromAxisSpace } from "./axis.js";
@@ -19,7 +19,8 @@ export function render() {
       document.getElementById("metricColumn").textContent = metricLabel(state.metric);
       updateChartControls();
       renderFamilyDiagnostics(diagnostics);
-      renderChartDiagnostic(diagnostics);
+      updateFilterActionBanner(diagnostics);
+      renderChartDiagnostic(diagnostics, { suppress: true });
       renderLegend(rows);
       renderConnectionLineControls();
       renderChartGuide();
@@ -34,6 +35,8 @@ export function redrawChartOnly() {
       const diagnostics = computeDriveDiagnostics();
       setCurrentDiagnostics(diagnostics);
       const rows = diagnostics.visibleRows;
+      updateFilterActionBanner(diagnostics);
+      renderChartDiagnostic(diagnostics, { suppress: true });
       renderChart(rows);
       updateZoomButton();
       refreshTooltip(rows);
@@ -95,19 +98,245 @@ export function renderFamilyDiagnostics(diagnostics) {
       });
     }
 
-export function renderChartDiagnostic(diagnostics) {
+export function renderChartDiagnostic(_diagnostics, _options = {}) {
       const banner = document.getElementById("chartDiagnostic");
       if (!banner) return;
-      if (!diagnostics.zeroFamilies.length) {
+      banner.hidden = true;
+      banner.textContent = "";
+    }
+
+export function updateFilterActionBanner(diagnostics) {
+      const banner = document.getElementById("filterActionBanner");
+      if (!banner) return false;
+      const title = document.getElementById("filterActionBannerTitle");
+      const detail = document.getElementById("filterActionBannerDetail");
+      const actionsRoot = document.getElementById("filterActionBannerActions");
+      const model = filterActionBannerModel(diagnostics);
+      if (!model) {
         banner.hidden = true;
-        banner.textContent = "";
-        return;
+        if (title) title.textContent = "";
+        if (detail) detail.textContent = "";
+        if (actionsRoot) actionsRoot.innerHTML = "";
+        return false;
       }
-      const count = diagnostics.zeroFamilies.length;
       banner.hidden = false;
-      banner.textContent = UI_LANG === "en"
-        ? `${count} selected drive ${count === 1 ? "family has" : "families have"} no visible candidates under the current scenario.`
-        : `선택된 드라이브 계열 ${count}개는 현재 시나리오에서 표시 후보가 없습니다.`;
+      if (title) title.textContent = model.title;
+      if (detail) detail.textContent = model.detail;
+      if (!actionsRoot) return true;
+      actionsRoot.innerHTML = "";
+      model.actions.forEach(actionKey => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "compact-command";
+        button.textContent = filterActionLabel(actionKey);
+        button.addEventListener("click", () => {
+          applyFilterAction(actionKey);
+        });
+        actionsRoot.appendChild(button);
+      });
+      return true;
+    }
+
+export function filterActionBannerModel(diagnostics) {
+      const searchSummary = diagnostics.searchSummary || {};
+      if (searchSummary.active && searchSummary.totalMatches > 0 && searchSummary.visibleMatches === 0) {
+        const reason = searchSummary.dominantReason || "other";
+        return {
+          title: localText("검색 결과가 있지만 현재 설정 때문에 숨겨져 있습니다.", "Matches found, but hidden by current settings."),
+          detail: searchHiddenDetail(searchSummary, reason, { allHidden: true }),
+          actions: hiddenReasonActions(reason, { includeClearSearch: true }),
+        };
+      }
+      if (searchSummary.active && searchSummary.hiddenMatches > 0) {
+        const reason = searchSummary.dominantReason || "other";
+        return {
+          title: localText("일부 검색 결과가 현재 설정 때문에 숨겨져 있습니다.", "Some matching drives are hidden by current settings."),
+          detail: searchHiddenDetail(searchSummary, reason, { allHidden: false }),
+          actions: hiddenReasonActions(reason, { includeClearSearch: true }),
+        };
+      }
+
+      const hiddenSummary = diagnostics.hiddenSummary || {};
+      if (!searchSummary.active && state.showImpracticalCandidates !== defaultBannerShowImpracticalCandidates()) {
+        return impracticalCandidatesBannerModel();
+      }
+      if (!searchSummary.active && hiddenSummary.totalHidden > 0) {
+        const reason = hiddenSummary.dominantReason || "other";
+        return {
+          title: localText("일부 드라이브가 현재 설정 때문에 숨겨져 있습니다.", "Some drives are hidden by current settings."),
+          detail: localText(
+            `${driveCountTextKo(hiddenSummary.totalHidden)}가 현재 설정 때문에 숨겨져 있습니다. 주요 원인: ${hiddenReasonLabel(reason)}.`,
+            `${driveCountTextEn(hiddenSummary.totalHidden)} are hidden by current settings. Main reason: ${hiddenReasonLabel(reason)}.`,
+          ),
+          actions: hiddenReasonActions(reason),
+        };
+      }
+      return null;
+    }
+
+function impracticalCandidatesBannerModel() {
+      if (state.showImpracticalCandidates) {
+        return {
+          title: localText("비현실 후보가 표시되고 있습니다.", "Impractical candidates are shown."),
+          detail: localText(
+            "최소 가속도 또는 극단적 질량비 때문에 보통 숨겨지는 후보도 차트에 표시됩니다.",
+            "Candidates normally hidden by minimum acceleration or extreme mass ratio are currently shown.",
+          ),
+          actions: ["hideImpractical"],
+        };
+      }
+      return {
+        title: localText("비현실 후보가 숨겨져 있습니다.", "Impractical candidates are hidden."),
+        detail: localText(
+          "최소 가속도 또는 극단적 질량비 때문에 숨겨진 후보를 다시 표시할 수 있습니다.",
+          "You can show candidates hidden by minimum acceleration or extreme mass ratio.",
+        ),
+        actions: ["showImpractical"],
+      };
+    }
+
+function searchHiddenDetail(searchSummary, reason, { allHidden }) {
+      const term = searchSummary.term || "";
+      const reasonLabel = hiddenReasonLabel(reason);
+      const sampleText = searchSummary.sampleNames && searchSummary.sampleNames.length
+        ? localText(` 예: ${searchSummary.sampleNames.join(", ")}.`, ` Matches include: ${searchSummary.sampleNames.join(", ")}.`)
+        : "";
+      if (allHidden) {
+        return localText(
+          `"${term}" 검색 결과 ${searchSummary.totalMatches}개가 있지만 현재 설정 때문에 모두 숨겨져 있습니다. 주요 원인: ${reasonLabel}.${sampleText}`,
+          `${driveCountTextEn(searchSummary.totalMatches)} match "${term}" but all are hidden by current settings. Main reason: ${reasonLabel}.${sampleText}`,
+        );
+      }
+      return localText(
+        `"${term}" 검색 결과 중 ${searchSummary.hiddenMatches}개가 현재 설정 때문에 숨겨져 있습니다. 주요 원인: ${reasonLabel}.${sampleText}`,
+        `${driveCountTextEn(searchSummary.hiddenMatches)} matching "${term}" are hidden by current settings. Main reason: ${reasonLabel}.${sampleText}`,
+      );
+    }
+
+function driveCountTextEn(count) {
+      return `${count} drive${count === 1 ? "" : "s"}`;
+    }
+
+function driveCountTextKo(count) {
+      return `${count}개 드라이브`;
+    }
+
+function defaultBannerSettings() {
+      const selectedEntry = selectedChartPresetEntry();
+      if (selectedEntry && selectedEntry.settings && typeof selectedEntry.settings === "object") {
+        return selectedEntry.settings;
+      }
+      return (DATA.presetLibrary
+        && Array.isArray(DATA.presetLibrary.chartPresets)
+        && DATA.presetLibrary.chartPresets[0]
+        && DATA.presetLibrary.chartPresets[0].settings)
+        || {};
+    }
+
+function defaultBannerNumber(key, fallback) {
+      const value = Number(defaultBannerSettings()[key]);
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+function defaultBannerMinTwr() {
+      return Math.max(DEFAULT_MIN_TWR, defaultBannerNumber("minTwr", DEFAULT_MIN_TWR));
+    }
+
+function defaultBannerTargetDv() {
+      return defaultBannerNumber("targetDvKps", DATA.defaults.targetDvKps);
+    }
+
+function defaultBannerThrusterCount() {
+      return defaultBannerNumber("thrusters", DATA.defaults.thrusterCount);
+    }
+
+function defaultBannerShowImpracticalCandidates() {
+      const value = defaultBannerSettings().showImpracticalCandidates;
+      return typeof value === "boolean" ? value : false;
+    }
+
+function numberDiffersFromDefault(value, defaultValue) {
+      const current = Number(value);
+      const expected = Number(defaultValue);
+      if (!Number.isFinite(current) || !Number.isFinite(expected)) return current !== expected;
+      return Math.abs(current - expected) > Math.max(Math.abs(expected), 1) * 1e-9;
+    }
+
+function driveFiltersDifferFromDefaults() {
+      return DATA.categories.some(category => !!state.categories[category.key] !== defaultBannerCategoryVisible(category))
+        || DATA.subfamilies.some(family => !!state.families[family.key] !== defaultBannerFamilyVisible(family));
+    }
+
+function defaultBannerCategoryVisible(category) {
+      const categories = defaultBannerSettings().categories;
+      if (categories && typeof categories[category.key] === "boolean") return categories[category.key];
+      return !!category.defaultVisible;
+    }
+
+function defaultBannerFamilyVisible(family) {
+      const families = defaultBannerSettings().families;
+      if (families && typeof families[family.key] === "boolean") return families[family.key];
+      return true;
+    }
+
+function hiddenReasonActions(reason, { includeClearSearch = false } = {}) {
+      const actions = [];
+      const add = actionKey => {
+        if (!actions.includes(actionKey)) actions.push(actionKey);
+      };
+      if (reason === "minTwr") {
+        if (numberDiffersFromDefault(state.minTwr, defaultBannerMinTwr())) add("resetAcceleration");
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "minDv") {
+        if (state.minDvKps > 0) add("resetMinDv");
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "targetDvOrMassRatio") {
+        if (!state.showImpracticalCandidates) add("showImpractical");
+      } else if (reason === "familyFilter") {
+        if (driveFiltersDifferFromDefaults()) add("resetDriveFilters");
+      } else if (reason === "thrusterCountFilter") {
+        if (numberDiffersFromDefault(state.thrusters, defaultBannerThrusterCount())) add("resetThrusterCount");
+      }
+      if (state.showImpracticalCandidates) add("hideImpractical");
+      if (includeClearSearch) add("clearSearch");
+      return actions;
+    }
+
+function filterActionLabel(actionKey) {
+      const labels = {
+        resetAcceleration: localText("가속도 기준 초기화", "Reset acceleration threshold"),
+        showImpractical: localText("비현실 후보 표시", "Show impractical candidates"),
+        hideImpractical: localText("비현실 후보 숨기기", "Hide impractical candidates"),
+        resetMinDv: localText("최소 dV 초기화", "Reset minimum dV"),
+        resetDriveFilters: localText("드라이브 필터 초기화", "Reset drive filters"),
+        resetThrusterCount: localText("엔진 수 초기화", "Reset engine count"),
+        clearSearch: localText("검색 지우기", "Clear search"),
+      };
+      return labels[actionKey] || actionKey;
+    }
+
+function applyFilterAction(actionKey) {
+      if (actionKey === "resetAcceleration") {
+        state.minTwr = defaultBannerMinTwr();
+      } else if (actionKey === "showImpractical") {
+        state.showImpracticalCandidates = true;
+      } else if (actionKey === "hideImpractical") {
+        state.showImpracticalCandidates = false;
+      } else if (actionKey === "resetMinDv") {
+        state.minDvKps = 0;
+      } else if (actionKey === "resetDriveFilters") {
+        DATA.categories.forEach(category => {
+          state.categories[category.key] = defaultBannerCategoryVisible(category);
+        });
+        DATA.subfamilies.forEach(family => {
+          state.families[family.key] = defaultBannerFamilyVisible(family);
+        });
+      } else if (actionKey === "resetThrusterCount") {
+        state.thrusters = defaultBannerThrusterCount();
+      } else if (actionKey === "clearSearch") {
+        state.searchTerm = "";
+      }
+      syncUiFromState();
     }
 
 export function familyWarningText(family) {
@@ -121,20 +350,26 @@ export function familyWarningText(family) {
 export function hiddenReasonPhrase(reason, hiddenReasons = {}) {
       const reasonKey = reason || "other";
       if (reasonKey === "minTwr" && hiddenReasons.targetDvOrMassRatio) {
-        return UI_LANG === "en" ? "current dV / minimum TWR settings" : "현재 dV / 최소 TWR 설정";
+        return localText("현재 dV / 최소 가속도 설정", "current dV / minimum acceleration settings");
       }
-      const phrases = {
-        minTwr: UI_LANG === "en" ? "the current minimum TWR filter" : "현재 최소 TWR 필터",
-        minDv: UI_LANG === "en" ? "the current minimum dV filter" : "현재 최소 dV 필터",
-        targetDvOrMassRatio: UI_LANG === "en" ? "the current target dV / mass-ratio scenario" : "현재 목표 dV / 질량비 시나리오",
-        researchFilter: UI_LANG === "en" ? "research unlock constraints" : "연구 개방 조건",
-        invalidPowerPlant: UI_LANG === "en" ? "missing compatible power candidates" : "호환 전원 후보 부족",
-        invalidComputation: UI_LANG === "en" ? "non-finite mass or TWR calculations" : "계산 불능 질량 또는 TWR",
-        axisRange: UI_LANG === "en" ? "the current axis range or metric" : "현재 축 범위 또는 지표",
-        other: UI_LANG === "en" ? "other current filters" : "기타 현재 필터",
-        familyFilter: UI_LANG === "en" ? "family/category filters" : "대분류/계열 필터",
+      return hiddenReasonLabel(reasonKey);
+    }
+
+export function hiddenReasonLabel(reason) {
+      const labels = {
+        minTwr: localText("최소 가속도 기준", "minimum acceleration threshold"),
+        minDv: localText("최소 dV 기준", "minimum dV threshold"),
+        targetDvOrMassRatio: localText("목표 dV / 질량비 시나리오", "target dV / mass-ratio scenario"),
+        familyFilter: localText("드라이브 계열 필터", "drive family filters"),
+        thrusterCountFilter: localText("엔진 수 필터", "engine count filter"),
+        researchFilter: localText("연구 개방 조건", "research unlock constraints"),
+        axisRange: localText("차트 축 범위", "chart axis range"),
+        invalidPowerPlant: localText("호환 전원 조건", "compatible power plant constraints"),
+        invalidComputation: localText("계산 불가 결과", "invalid calculation result"),
+        searchFilter: localText("검색어", "search term"),
+        other: localText("현재 설정", "current settings"),
       };
-      return phrases[reasonKey] || phrases.other;
+      return labels[reason] || labels.other;
     }
 
 export function renderLegend(_rows) {

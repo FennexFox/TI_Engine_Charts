@@ -92,9 +92,46 @@ export function computeDriveDiagnostics() {
         hiddenReasons: {},
       }]));
       const visibleRows = [];
+      const baseVisibility = new Map();
+      const searchMatchesByBaseKey = new Map();
+
       DATA.drives.forEach(row => {
         const evaluation = evaluateDriveVisibility(row);
         if (evaluation.visible) visibleRows.push(row);
+
+        const baseKey = row.baseKey || row.id;
+        if (!baseVisibility.has(baseKey)) {
+          baseVisibility.set(baseKey, {
+            key: baseKey,
+            name: row.baseDisplayName || row.displayName || baseKey,
+            visible: false,
+            hiddenReasons: {},
+          });
+        }
+        const baseInfo = baseVisibility.get(baseKey);
+        if (evaluation.visible) {
+          baseInfo.visible = true;
+        } else {
+          countHiddenReasons(baseInfo.hiddenReasons, evaluation.reasons);
+        }
+
+        if (state.searchTerm && rowMatchesSearch(row)) {
+          if (!searchMatchesByBaseKey.has(baseKey)) {
+            searchMatchesByBaseKey.set(baseKey, {
+              key: baseKey,
+              name: row.baseDisplayName || row.displayName || baseKey,
+              visible: false,
+              hiddenReasons: {},
+            });
+          }
+          const match = searchMatchesByBaseKey.get(baseKey);
+          if (evaluation.visible) {
+            match.visible = true;
+          } else {
+            countHiddenReasons(match.hiddenReasons, evaluation.reasons);
+          }
+        }
+
         if (!rowInFamilyDiagnosticScope(row)) return;
         const stats = familyStats.get(row.familyKey);
         if (!stats) return;
@@ -109,6 +146,40 @@ export function computeDriveDiagnostics() {
           });
         }
       });
+
+      const hiddenBaseEntries = Array.from(baseVisibility.values()).filter(item => !item.visible);
+      const hiddenReasons = {};
+      hiddenBaseEntries.forEach(item => {
+        Object.keys(item.hiddenReasons).forEach(reason => {
+          hiddenReasons[reason] = (hiddenReasons[reason] || 0) + 1;
+        });
+      });
+
+      const searchMatches = Array.from(searchMatchesByBaseKey.values());
+      const hiddenSearchMatches = searchMatches.filter(match => !match.visible);
+      const searchHiddenReasons = {};
+      hiddenSearchMatches.forEach(match => {
+        Object.keys(match.hiddenReasons).forEach(reason => {
+          searchHiddenReasons[reason] = (searchHiddenReasons[reason] || 0) + 1;
+        });
+      });
+
+      const searchSummary = {
+        active: !!state.searchTerm,
+        term: state.searchTerm || "",
+        totalMatches: searchMatches.length,
+        visibleMatches: searchMatches.filter(match => match.visible).length,
+        hiddenMatches: hiddenSearchMatches.length,
+        hiddenByReason: searchHiddenReasons,
+        dominantReason: dominantHiddenReason(searchHiddenReasons),
+        sampleNames: hiddenSearchMatches.map(match => match.name).filter(Boolean).slice(0, 3),
+      };
+
+      const hiddenSummary = {
+        totalHidden: hiddenBaseEntries.length,
+        byReason: hiddenReasons,
+        dominantReason: dominantHiddenReason(hiddenReasons),
+      };
       const families = DATA.subfamilies.map(family => {
         const stats = familyStats.get(family.key);
         return {
@@ -120,14 +191,16 @@ export function computeDriveDiagnostics() {
         visibleRows,
         families,
         zeroFamilies: families.filter(family => family.selected && family.total > 0 && family.visible === 0),
+        hiddenSummary,
+        searchSummary,
       };
     }
 
 export function evaluateDriveVisibility(row) {
       const reasons = [];
-      if (!rowMatchesSelectedThrusterCount(row) || !rowMatchesSearch(row) || !rowFamilySelected(row)) {
-        reasons.push("familyFilter");
-      }
+      if (!rowMatchesSelectedThrusterCount(row)) reasons.push("thrusterCountFilter");
+      if (!rowMatchesSearch(row)) reasons.push("searchFilter");
+      if (!rowFamilySelected(row)) reasons.push("familyFilter");
       if (!Number.isFinite(rowUnlockResearchValue(row)) || rowUnlockResearchValue(row) <= 0) {
         reasons.push("researchFilter");
       }
@@ -228,6 +301,13 @@ export function isImpracticalOption(option) {
 
 export function dominantHiddenReason(hiddenReasons) {
       return HIDDEN_REASON_PRIORITY.find(reason => (hiddenReasons && hiddenReasons[reason] > 0)) || "other";
+    }
+
+export function countHiddenReasons(target, reasons) {
+      const effectiveReasons = reasons.filter(reason => reason !== "searchFilter");
+      (effectiveReasons.length ? effectiveReasons : ["other"]).forEach(reason => {
+        target[reason] = (target[reason] || 0) + 1;
+      });
     }
 
 export function rowUnlockResearchValue(row) {

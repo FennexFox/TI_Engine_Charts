@@ -263,7 +263,7 @@ export function renderDryMassCalcModal() {
       if (notesLabel) notesLabel.textContent = localText("메모", "Notes");
       if (simulationDefaultsLabel) simulationDefaultsLabel.textContent = localText("시뮬레이션 기본 조건", "Simulation defaults");
       if (targetDvLabel) targetDvLabel.textContent = localText("목표 dV (km/s)", "Target dV (km/s)");
-      if (minTwrLabel) minTwrLabel.textContent = localText("최소 TWR (mg)", "Minimum TWR (mg)");
+      if (minTwrLabel) minTwrLabel.textContent = localText("최소 가속도 (mg)", "Minimum acceleration (mg)");
       if (radiatorLabel) radiatorLabel.textContent = localText("라디에이터", "Radiator");
       const simulationDefaults = normalizeShipDesignSimulationDefaults();
       if (targetDvInput) targetDvInput.value = String(Math.round(simulationDefaults.targetDvKps));
