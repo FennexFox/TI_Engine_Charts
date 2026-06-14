@@ -136,7 +136,7 @@ export function tooltipMetricsHtml(row, option = null) {
       ];
       const performanceRows = [
         [UI_LANG === "en" ? "Thrust" : "추력", thrustHtml],
-        [UI_LANG === "en" ? "TWR" : "TWR", twrHtml],
+        [UI_LANG === "en" ? "Acceleration (TWR)" : "가속도 (TWR)", twrHtml],
         [UI_LANG === "en" ? "Exhaust velocity" : "EV", evHtml],
         [UI_LANG === "en" ? "Efficiency" : "효율", escapeHtml(formatPercent(row.efficiency))],
         [UI_LANG === "en" ? "Power requirement" : "출력 요구량", powerHtml],

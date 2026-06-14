@@ -573,8 +573,8 @@ export const HELP_TEXT = {
         en: "Keeps candidates that would normally be hidden by minimum acceleration or extreme mass ratio. Use it to inspect why a family disappears or to design lower-dV presets.",
       },
       minTwr: {
-        ko: "총질량 그래프에서 습질량 기준 TWR이 이 값보다 낮은 후보를 숨깁니다. 값을 낮추면 장거리 dV에는 가능하지만 가속이 매우 느린 조합까지 확인할 수 있습니다.",
-        en: "On total-mass charts, hides candidates whose wet-mass TWR is below this threshold. Lower it to inspect designs that can reach the dV but accelerate very slowly.",
+        ko: "총질량 그래프에서 Terra Invicta의 함선 acceleration, 즉 습질량 기준 TWR이 이 값보다 낮은 후보를 숨깁니다. 값을 낮추면 장거리 dV에는 가능하지만 가속이 매우 느린 조합까지 확인할 수 있습니다.",
+        en: "On total-mass charts, hides candidates whose Terra Invicta ship acceleration, equivalent to wet-mass TWR, is below this threshold. Lower it to inspect designs that can reach the dV but accelerate very slowly.",
       },
       minDv: {
         ko: "TWR 그래프에서 실용 질량비 한계(극단적 질량비 기준)로 계산한 최대 dV가 이 값보다 낮은 후보를 숨깁니다.",
