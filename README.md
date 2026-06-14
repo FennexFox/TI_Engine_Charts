@@ -8,8 +8,8 @@ The chart is generated from a local Terra Invicta install. It embeds the templat
 
 ## Current dashboard features
 
-* Compare Terra Invicta drives by research cost, total mass, propellant mass, TWR, thrust, efficiency, and power requirements.
-* Adjust simulation assumptions such as dry mass, target dV, radiator type, engine count, minimum TWR, and module effects.
+* Compare Terra Invicta drives by research cost, total mass, propellant mass, acceleration (TWR), thrust, efficiency, and power requirements.
+* Adjust simulation assumptions such as dry mass, target dV, radiator type, engine count, minimum acceleration, and module effects.
 * Use the Dry Mass Calculator and built-in ship design presets to compare practical ship configurations.
 * Inspect compatible power-plant steps, generated drive progression links, Pareto-dominated candidates, and impractical low-TWR or extreme-mass candidates.
 * Save and load chart and dry-mass presets in browser local storage.

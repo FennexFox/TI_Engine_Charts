@@ -125,7 +125,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/Game version/.test(englishSource), `${htmlFile}: English language switch did not update source note`);
   expect(
     englishMetricGroups.length === 2
-      && /Simulation \(total mass, fuel mass, TWR\)/.test(englishMetricGroups[0] || "")
+      && /Simulation \(total mass, fuel mass, acceleration\)/.test(englishMetricGroups[0] || "")
       && /Basic information \(thrust, efficiency, power\)/.test(englishMetricGroups[1] || ""),
     `${htmlFile}: English metric group labels were not localized`,
   );
@@ -160,20 +160,20 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     return { totalMassSimulationSummary, totalMassFilterSummary, twrSimulationSummary, twrFilterSummary, koreanFilterSummary };
   });
   expect(
-    /TWR/.test(cardSummaryChecks.totalMassSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.totalMassSimulationSummary),
-    `${htmlFile}: total-mass simulation summary should show the TWR threshold`,
+    /Acceleration/.test(cardSummaryChecks.totalMassSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.totalMassSimulationSummary),
+    `${htmlFile}: total-mass simulation summary should show the acceleration threshold`,
   );
   expect(
-    !/TWR/.test(cardSummaryChecks.totalMassFilterSummary) && !/dV/.test(cardSummaryChecks.totalMassFilterSummary),
+    !/Acceleration/.test(cardSummaryChecks.totalMassFilterSummary) && !/TWR/.test(cardSummaryChecks.totalMassFilterSummary) && !/dV/.test(cardSummaryChecks.totalMassFilterSummary),
     `${htmlFile}: total-mass filter summary should not show moved simulation thresholds`,
   );
   expect(
-    /dV/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary),
-    `${htmlFile}: TWR filter summary should show only the dV threshold`,
+    /dV/.test(cardSummaryChecks.twrFilterSummary) && !/Acceleration/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary),
+    `${htmlFile}: acceleration metric filter summary should show only the dV threshold`,
   );
   expect(
-    !/TWR/.test(cardSummaryChecks.twrSimulationSummary),
-    `${htmlFile}: TWR simulation summary should not show the minimum TWR threshold when that control is hidden`,
+    !/Acceleration/.test(cardSummaryChecks.twrSimulationSummary) && !/TWR/.test(cardSummaryChecks.twrSimulationSummary),
+    `${htmlFile}: acceleration metric simulation summary should not show the minimum acceleration threshold when that control is hidden`,
   );
   expect(
     /X축 로그/.test(cardSummaryChecks.koreanFilterSummary)
@@ -181,6 +181,178 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       && !/log X|log Y|Log X|Log Y/.test(cardSummaryChecks.koreanFilterSummary),
     `${htmlFile}: Korean filter summary should localize log axis labels`,
   );
+
+  const filterActionBannerChecks = await page.evaluate(() => {
+    const builtInSettings = DATA.presetLibrary?.chartPresets?.[0]?.settings;
+    const applyBuiltInBaseline = () => {
+      if (builtInSettings) {
+        applyPresetToState(builtInSettings);
+      } else {
+        resetChartStateToDefaults();
+      }
+      setLanguage("en", { rerender: false });
+      syncUiFromState();
+    };
+    const bannerState = () => {
+      const root = document.getElementById("filterActionBanner");
+      const chartDiagnostic = document.getElementById("chartDiagnostic");
+      const title = document.getElementById("filterActionBannerTitle")?.textContent.trim() || "";
+      const detail = document.getElementById("filterActionBannerDetail")?.textContent.trim() || "";
+      const actions = [...document.querySelectorAll("#filterActionBannerActions button")].map(button => button.textContent.trim());
+      const text = (root?.textContent || "").replace(/\s+/g, " ").trim();
+      return {
+        hidden: root?.hidden ?? null,
+        title,
+        detail,
+        actions,
+        text,
+        chartDiagnosticHidden: chartDiagnostic?.hidden ?? null,
+        chartDiagnosticText: (chartDiagnostic?.textContent || "").replace(/\s+/g, " ").trim(),
+      };
+    };
+    const clickBannerAction = label => {
+      const button = [...document.querySelectorAll("#filterActionBannerActions button")]
+        .find(item => item.textContent.trim() === label);
+      if (!button) return false;
+      button.click();
+      return true;
+    };
+    const highAccelerationScenario = () => {
+      Object.assign(state, {
+        metric: "totalMassTons",
+        minTwr: 10,
+        minDvKps: 0,
+        showImpracticalCandidates: false,
+        searchTerm: "",
+      });
+      syncUiFromState();
+    };
+
+    applyBuiltInBaseline();
+    const defaultBanner = bannerState();
+    const resetAccelerationBaseline = {
+      minTwr: state.minTwr,
+      inputValue: document.getElementById("minTwrNumber")?.value || "",
+      readout: document.getElementById("minTwrReadout")?.textContent.trim() || "",
+    };
+
+    highAccelerationScenario();
+    const highAccelerationBanner = bannerState();
+    const resetClicked = clickBannerAction("Reset acceleration threshold");
+    const afterResetAcceleration = {
+      minTwr: state.minTwr,
+      inputValue: document.getElementById("minTwrNumber")?.value || "",
+      readout: document.getElementById("minTwrReadout")?.textContent.trim() || "",
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    highAccelerationScenario();
+    const showClicked = clickBannerAction("Show impractical candidates");
+    const afterShowImpractical = {
+      checkboxExists: !!document.getElementById("showImpracticalCandidates"),
+      stateValue: state.showImpracticalCandidates === true,
+      banner: bannerState(),
+    };
+    const hideClicked = clickBannerAction("Hide impractical candidates");
+    const afterHideImpractical = {
+      stateValue: state.showImpracticalCandidates === true,
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    const fixture = DATA.drives.find(row => /Nerva/i.test(`${row.displayName || ""} ${row.baseDisplayName || ""}`))
+      || DATA.drives.find(row => row && (row.baseDisplayName || row.displayName));
+    const searchTerm = String((fixture && (fixture.baseDisplayName || fixture.displayName)) || "Drive").split(/\s+/)[0].toLocaleLowerCase();
+    Object.assign(state, {
+      metric: "totalMassTons",
+      minTwr: 10,
+      minDvKps: 0,
+      showImpracticalCandidates: false,
+      searchTerm,
+    });
+    syncUiFromState();
+    const searchHiddenBanner = bannerState();
+    const clearClicked = clickBannerAction("Clear search");
+    const afterClearSearch = {
+      stateSearch: state.searchTerm,
+      inputValue: document.getElementById("nameSearch")?.value || "",
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    highAccelerationScenario();
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const koreanBanner = bannerState();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+
+    applyBuiltInBaseline();
+
+    return {
+      defaultBanner,
+      resetAccelerationBaseline,
+      highAccelerationBanner,
+      resetClicked,
+      afterResetAcceleration,
+      showClicked,
+      afterShowImpractical,
+      hideClicked,
+      afterHideImpractical,
+      searchTerm,
+      searchHiddenBanner,
+      clearClicked,
+      afterClearSearch,
+      koreanBanner,
+    };
+  });
+  expect(
+    filterActionBannerChecks.defaultBanner.hidden || /hidden by current settings/i.test(filterActionBannerChecks.defaultBanner.text),
+    `${htmlFile}: default filter action banner should be hidden or explain hidden settings`,
+  );
+  expect(!filterActionBannerChecks.highAccelerationBanner.hidden, `${htmlFile}: high minimum acceleration did not show the filter action banner`);
+  expect(filterActionBannerChecks.highAccelerationBanner.chartDiagnosticHidden, `${htmlFile}: actionable banner should suppress the older chart diagnostic banner`);
+  expect(/hidden by current settings/i.test(filterActionBannerChecks.highAccelerationBanner.title), `${htmlFile}: high-acceleration banner title did not explain hidden settings`);
+  expect(/minimum acceleration threshold/i.test(filterActionBannerChecks.highAccelerationBanner.detail), `${htmlFile}: high-acceleration banner did not identify the acceleration threshold`);
+  expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Reset acceleration threshold"), `${htmlFile}: high-acceleration banner missing reset action`);
+  expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Show impractical candidates"), `${htmlFile}: high-acceleration banner missing show-impractical action`);
+  expect(!/[가-힣]/u.test(filterActionBannerChecks.highAccelerationBanner.text), `${htmlFile}: English filter action banner contains Korean text`);
+  expect(filterActionBannerChecks.resetClicked, `${htmlFile}: reset acceleration action could not be clicked`);
+  expect(
+    Math.abs(filterActionBannerChecks.afterResetAcceleration.minTwr - filterActionBannerChecks.resetAccelerationBaseline.minTwr) < 1e-12,
+    `${htmlFile}: reset acceleration action did not restore the selected preset minimum acceleration`,
+  );
+  expect(
+    Math.abs(Number(filterActionBannerChecks.afterResetAcceleration.inputValue) - Number(filterActionBannerChecks.resetAccelerationBaseline.inputValue)) < 1e-12,
+    `${htmlFile}: reset acceleration action did not sync the minimum acceleration input`,
+  );
+  expect(
+    filterActionBannerChecks.afterResetAcceleration.readout === filterActionBannerChecks.resetAccelerationBaseline.readout,
+    `${htmlFile}: reset acceleration action did not sync the minimum acceleration readout`,
+  );
+  expect(
+    !filterActionBannerChecks.afterResetAcceleration.banner.actions.includes("Reset acceleration threshold"),
+    `${htmlFile}: reset acceleration action left the reset action visible`,
+  );
+  expect(filterActionBannerChecks.showClicked, `${htmlFile}: show-impractical action could not be clicked`);
+  expect(!filterActionBannerChecks.afterShowImpractical.checkboxExists, `${htmlFile}: impractical candidates checkbox should not remain in the left panel`);
+  expect(filterActionBannerChecks.afterShowImpractical.stateValue, `${htmlFile}: show-impractical action did not update state`);
+  expect(!filterActionBannerChecks.afterShowImpractical.banner.hidden, `${htmlFile}: show-impractical action should leave the banner visible with a hide action`);
+  expect(filterActionBannerChecks.afterShowImpractical.banner.actions.includes("Hide impractical candidates"), `${htmlFile}: banner missing hide-impractical action after showing impractical candidates`);
+  expect(filterActionBannerChecks.hideClicked, `${htmlFile}: hide-impractical action could not be clicked`);
+  expect(!filterActionBannerChecks.afterHideImpractical.stateValue, `${htmlFile}: hide-impractical action did not update state`);
+  expect(!filterActionBannerChecks.searchHiddenBanner.hidden, `${htmlFile}: hidden search matches did not show the filter action banner`);
+  expect(/Matches found/i.test(filterActionBannerChecks.searchHiddenBanner.title), `${htmlFile}: hidden search banner did not say matches were found`);
+  expect(filterActionBannerChecks.searchHiddenBanner.detail.toLocaleLowerCase().includes(filterActionBannerChecks.searchTerm), `${htmlFile}: hidden search banner did not include the search term`);
+  expect(/minimum acceleration threshold/i.test(filterActionBannerChecks.searchHiddenBanner.detail), `${htmlFile}: hidden search banner did not identify the dominant hidden reason`);
+  expect(filterActionBannerChecks.searchHiddenBanner.actions.includes("Clear search"), `${htmlFile}: hidden search banner missing clear-search action`);
+  expect(filterActionBannerChecks.clearClicked, `${htmlFile}: clear-search action could not be clicked`);
+  expect(filterActionBannerChecks.afterClearSearch.stateSearch === "" && filterActionBannerChecks.afterClearSearch.inputValue === "", `${htmlFile}: clear-search action did not sync state and input`);
+  expect(!/Matches found/i.test(filterActionBannerChecks.afterClearSearch.banner.title), `${htmlFile}: clear-search action left the search-specific banner visible`);
+  expect(!filterActionBannerChecks.koreanBanner.hidden, `${htmlFile}: Korean filter action banner was unexpectedly hidden in high-acceleration scenario`);
+  expect(!/Reset acceleration threshold|Show impractical candidates|Clear search/.test(filterActionBannerChecks.koreanBanner.text), `${htmlFile}: Korean filter action banner contains English action labels`);
+  expect(/[가-힣]/u.test(filterActionBannerChecks.koreanBanner.text), `${htmlFile}: Korean filter action banner did not render Korean text`);
 
   const shipDesignerInitial = await page.evaluate(() => {
     resetChartStateToDefaults();
@@ -758,7 +930,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
   expect(visiblePoints > 0, `${htmlFile}: no chart data points rendered`);
   expect(categoryHelpCount >= 5, `${htmlFile}: category help tooltips were not attached`);
-  expect(overlayHelpCount >= 4, `${htmlFile}: overlay help tooltips were not attached`);
+  expect(overlayHelpCount >= 3, `${htmlFile}: overlay help tooltips were not attached`);
   expect(customHelpRuleCount === 0, `${htmlFile}: custom data-help tooltip rule still exists`);
   expect(usageText.trim().length > 0, `${htmlFile}: empty detail panel usage text missing`);
 

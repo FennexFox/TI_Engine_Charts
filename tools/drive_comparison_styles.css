@@ -1591,6 +1591,56 @@
     .diagnostic-banner[hidden] {
       display: none;
     }
+    .filter-action-banner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 10px;
+      padding: 9px 10px;
+      border: 1px solid rgba(20, 184, 166, 0.38);
+      border-radius: 7px;
+      background: rgba(20, 184, 166, 0.08);
+      color: #dffaf4;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .filter-action-banner[hidden] {
+      display: none;
+    }
+    .filter-action-banner-copy {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+    .filter-action-banner-copy strong {
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .filter-action-banner-copy div {
+      color: #b9d8d1;
+      overflow-wrap: anywhere;
+    }
+    .filter-action-banner-actions {
+      display: flex;
+      flex: 0 0 auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      max-width: min(420px, 48%);
+    }
+    .filter-action-banner-actions .compact-command {
+      border-color: rgba(20, 184, 166, 0.48);
+      background: rgba(20, 184, 166, 0.14);
+      color: #dffaf4;
+      white-space: normal;
+    }
+    .filter-action-banner-actions .compact-command:hover,
+    .filter-action-banner-actions .compact-command:focus-visible {
+      border-color: rgba(20, 184, 166, 0.72);
+      background: rgba(20, 184, 166, 0.22);
+    }
     .base-drive-line {
       pointer-events: none;
     }
@@ -2192,6 +2242,13 @@
       }
       .summary-strip { flex-direction: column; }
       .summary-controls { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+      .filter-action-banner {
+        flex-direction: column;
+      }
+      .filter-action-banner-actions {
+        justify-content: flex-start;
+        max-width: 100%;
+      }
       .preset-library-row { grid-template-columns: 1fr; }
       .preset-header-row { align-items: flex-start; flex-direction: column; }
       .preset-actions-menu { display: block; width: 100%; }

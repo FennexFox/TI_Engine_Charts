@@ -234,7 +234,7 @@ export function syncMinTwrInputs() {
   const exponent = clamp(Math.log10(state.minTwr), Number(slider.min), Number(slider.max));
   slider.value = String(exponent);
   number.value = String(Number(state.minTwr.toPrecision(4)));
-  readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: TWR >= ${formatTwrDynamicUnit(state.minTwr)}`;
+  readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: ${localText("가속도", "acceleration")} >= ${formatTwrDynamicUnit(state.minTwr)}`;
 }
 
 export function syncMinDvInputs() {
