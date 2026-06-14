@@ -235,7 +235,7 @@ export function leftPanelCardSummary(key) {
           formatNumber(state.targetDvKps, " km/s"),
         ];
         if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
-          parts.push(`Acceleration ≥ ${formatTwrDynamicUnit(state.minTwr)}`);
+          parts.push(`${localText("가속도", "Acceleration")} ≥ ${formatTwrDynamicUnit(state.minTwr)}`);
         }
         parts.push(radiator ? radiatorDisplayName(radiator) : state.radiatorId);
         return parts.filter(Boolean).join(" · ");

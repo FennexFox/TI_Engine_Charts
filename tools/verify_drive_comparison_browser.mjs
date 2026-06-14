@@ -199,7 +199,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       const title = document.getElementById("filterActionBannerTitle")?.textContent.trim() || "";
       const detail = document.getElementById("filterActionBannerDetail")?.textContent.trim() || "";
       const actions = [...document.querySelectorAll("#filterActionBannerActions button")].map(button => button.textContent.trim());
-      const text = root?.textContent.replace(/\s+/g, " ").trim() || "";
+      const text = (root?.textContent || "").replace(/\s+/g, " ").trim();
       return {
         hidden: root?.hidden ?? null,
         title,
@@ -207,7 +207,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         actions,
         text,
         chartDiagnosticHidden: chartDiagnostic?.hidden ?? null,
-        chartDiagnosticText: chartDiagnostic?.textContent.replace(/\s+/g, " ").trim() || "",
+        chartDiagnosticText: (chartDiagnostic?.textContent || "").replace(/\s+/g, " ").trim(),
       };
     };
     const clickBannerAction = label => {
