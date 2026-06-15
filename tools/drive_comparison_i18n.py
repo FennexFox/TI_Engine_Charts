@@ -15,6 +15,26 @@ from typing import Any
 
 ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     (
+        '<div id="connectionLineControls" class="connection-line-controls" aria-label="연결선 표시">\n'
+        '              <div class="connection-line-mode-label">연결선</div>\n'
+        '              <div class="segmented compact connection-line-mode" role="radiogroup" aria-label="연결선 표시">\n'
+        '                <label title="연결선을 숨깁니다." aria-label="끔: 연결선을 숨깁니다."><input type="radio" name="connectionLineMode" value="off" title="연결선을 숨깁니다.">끔</label>\n'
+        '                <label title="드라이브 연구 선후관계가 확인되는 연결선만 표시합니다." aria-label="엄격: 드라이브 연구 선후관계가 확인되는 연결선만 표시합니다."><input type="radio" name="connectionLineMode" value="strict" title="드라이브 연구 선후관계가 확인되는 연결선만 표시합니다.">엄격</label>\n'
+        '                <label title="드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다." aria-label="계통: 드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다."><input type="radio" name="connectionLineMode" value="lineage" title="드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다." checked>계통</label>\n'
+        '                <label title="넓은 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다." aria-label="전체: 넓은 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다."><input type="radio" name="connectionLineMode" value="all" title="넓은 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다.">전체</label>\n'
+        '              </div>\n'
+        '            </div>',
+        '<div id="connectionLineControls" class="connection-line-controls" aria-label="Connection line mode">\n'
+        '              <div class="connection-line-mode-label">Connection lines</div>\n'
+        '              <div class="segmented compact connection-line-mode" role="radiogroup" aria-label="Connection line mode">\n'
+        '                <label title="Hide connection lines." aria-label="Off: Hide connection lines."><input type="radio" name="connectionLineMode" value="off" title="Hide connection lines.">Off</label>\n'
+        '                <label title="Show only prerequisite-backed drive research links." aria-label="Strict: Show only prerequisite-backed drive research links."><input type="radio" name="connectionLineMode" value="strict" title="Show only prerequisite-backed drive research links.">Strict</label>\n'
+        '                <label title="Show drive research links plus reactor/power-lineage progression." aria-label="Lineage: Show drive research links plus reactor/power-lineage progression."><input type="radio" name="connectionLineMode" value="lineage" title="Show drive research links plus reactor/power-lineage progression." checked>Lineage</label>\n'
+        '                <label title="Show all available progression lines, including broader family fallback lines." aria-label="All: Show all available progression lines, including broader family fallback lines."><input type="radio" name="connectionLineMode" value="all" title="Show all available progression lines, including broader family fallback lines.">All</label>\n'
+        '              </div>\n'
+        '            </div>',
+    ),
+    (
         "<strong>계산 메모.</strong> 총질량은 기본 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 Δv에 필요한 추진체 질량을 합산합니다. 기본 드라이브 출력, 드라이브 질량, 전원 질량, 폐열, 라디에이터 질량은 이 저장소의 ship-plan 계산과 같은 항을 사용합니다. 모듈 효과가 켜져 있으면 지원되는 추진, 보조 전력, 폐열 배율이 표시되는 수정값에 반영되고, 지원되지 않는 모듈 규칙은 UI에 표시됩니다.",
         "<strong>Calculation note.</strong> Total mass adds the base hull dry mass, drive mass, power plant mass, selected radiator mass, and propellant mass required for the target Δv. Base drive power, drive mass, power plant mass, waste heat, and radiator mass use the same terms as this repository's ship-plan calculation. When module effects are enabled, supported drive, auxiliary-power, and waste-heat modifiers are folded into the displayed modified values; unsupported module rules are listed in the UI.",
     ),
@@ -43,6 +63,9 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("적용된 함선 템플릿 없음", "No ship template applied"),
     ("적용된 설계", "Applied design"),
     ("건조질량", "Dry mass"),
+    ("모듈 성능 효과 적용", "Apply module performance effects"),
+    ("선택 모듈 목록", "Selected modules"),
+    ("성능 모듈 선택 없음", "No performance modules selected"),
     ("설계 열기", "Open Designer"),
     ("새 이름으로 저장", "Save as New"),
     ("전원 보기", "Power view"),
