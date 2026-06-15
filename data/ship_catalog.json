@@ -5,17 +5,17 @@
     "hullTemplate": {
       "file": "TIShipHullTemplate.json",
       "size": 78685,
-      "mtime_ns": 1776896710761737400
+      "mtime_ns": 1777336810889013100
     },
     "utilityModuleTemplate": {
       "file": "TIUtilityModuleTemplate.json",
       "size": 31077,
-      "mtime_ns": 1776896630067372700
+      "mtime_ns": 1777337417073491500
     },
     "armorTemplate": {
       "file": "TIShipArmorTemplate.json",
       "size": 8739,
-      "mtime_ns": 1776896688676395800
+      "mtime_ns": 1777336966105612800
     },
     "localizationLanguages": [
       "kor",
