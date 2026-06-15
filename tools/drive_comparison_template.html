@@ -76,8 +76,7 @@ __STYLES__
             <button class="control-card-toggle control-card-caret-toggle" data-card-toggle="true" type="button" aria-expanded="true" aria-label="Collapse card" title="Collapse card">
               <span class="control-card-caret" aria-hidden="true">▾</span>
             </button>
-            <span id="shipDesignerTitle" class="control-card-title">Ship Designer</span>
-            <button id="dryMassCalcButton" class="ship-designer-calc-button" type="button" aria-label="Open Dry Mass Calculator" title="Open Dry Mass Calculator" aria-describedby="shipDesignerTitle">&#x1F9EE;</button>
+            <span id="shipDesignerTitle" class="control-card-title">함선 설계</span>
             </div>
             <div class="control-card-summary" data-card-summary></div>
           </div>
@@ -88,7 +87,9 @@ __STYLES__
         </div>
         <div class="control-card-body">
         <section id="shipDesignerSection" class="control-block ship-designer-section" aria-labelledby="shipDesignerTitle">
-          <div id="shipDesignerAppliedTemplate" class="ship-designer-status" data-applied-template="false" aria-live="polite">No ship template applied</div>
+          <div id="shipDesignerAppliedTemplate" class="ship-designer-status" data-applied-template="false" aria-live="polite">적용된 함선 템플릿 없음</div>
+          <p id="shipDesignerDescription" class="ship-designer-description">함급, 장갑, 모듈, 건조질량 가정을 설정한 뒤 차트를 해석하세요.</p>
+          <button id="dryMassCalcButton" class="compact-command primary-command ship-designer-action" type="button" aria-describedby="shipDesignerTitle shipDesignerAppliedTemplate shipDesignerDescription">함선 설계 열기</button>
           <section id="moduleEffectsControl" class="module-effects-control">
             <label class="check-row module-effects-toggle">
               <input id="moduleEffectsEnabled" type="checkbox" checked>

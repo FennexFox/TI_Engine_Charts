@@ -244,13 +244,8 @@ export function renderDryMassCalcModal() {
       const minTwrInput = document.getElementById("shipPresetMinTwr");
       const radiatorLabel = document.getElementById("shipPresetRadiatorLabel");
       const radiatorSelect = document.getElementById("shipPresetRadiator");
-      const button = document.getElementById("dryMassCalcButton") || document.getElementById("shipDesignerTitle");
 
-      if (button) {
-        const label = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
-        button.setAttribute("aria-label", label);
-        button.title = label;
-      }
+      updateShipDesignerPanel();
       if (title) title.textContent = localText("건조질량 계산기", "Dry-mass calculator");
       if (close) close.textContent = localText("닫기", "Close");
       if (apply) apply.textContent = localText("건조질량만 적용", "Apply dry mass only");

@@ -115,20 +115,36 @@ export function updateShipDesignerPanel() {
   const title = document.getElementById("shipDesignerTitle");
   const calcButton = document.getElementById("dryMassCalcButton");
   const status = document.getElementById("shipDesignerAppliedTemplate");
+  const description = document.getElementById("shipDesignerDescription");
   if (title) title.textContent = localText("함선 설계", "Ship Designer");
+  const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
+  const dryMassText = `${localText("건조질량", "Dry mass")}: ${formatNumber(state.dryMassTons, " t")}`;
   if (calcButton) {
-    const openLabel = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
+    const openLabel = templateName
+      ? localText("함선 설계 편집", "Edit Ship Design")
+      : localText("함선 설계 열기", "Open Ship Designer");
+    calcButton.textContent = openLabel;
     calcButton.setAttribute("aria-label", openLabel);
     calcButton.title = openLabel;
   }
+  if (description) {
+    description.textContent = templateName
+      ? localText(
+        "함선 설계에서 함급, 장갑, 모듈, 건조질량 가정을 검토하거나 수정하세요.",
+        "Review or adjust hull, armor, modules, and dry mass assumptions in Ship Designer.",
+      )
+      : localText(
+        "함선 설계에서 함급, 장갑, 모듈, 건조질량 가정을 설정한 뒤 차트를 해석하세요.",
+        "Use Ship Designer to set hull, armor, modules, and dry mass assumptions before reading chart results.",
+      );
+  }
   if (!status) return;
-  const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
   if (templateName) {
     status.dataset.appliedTemplate = "true";
-    status.textContent = templateName;
+    status.textContent = `${localText("적용된 설계", "Applied design")}: ${templateName} · ${dryMassText}`;
   } else {
     status.dataset.appliedTemplate = "false";
-    status.textContent = localText("적용된 함선 템플릿 없음", "No ship template applied");
+    status.textContent = `${localText("적용된 함선 템플릿 없음", "No ship template applied")} · ${dryMassText}`;
   }
 }
 
