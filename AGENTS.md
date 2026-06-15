@@ -102,6 +102,10 @@ workflow and may commit and push generated files.
   `.github/**`, and `docs/dev/**`.
 - Avoid broad reads of `docs/index.html` and catalog JSON/Markdown outputs; they
   are large and mostly reproducible from source.
+- Do not request generated artifacts to remain unchanged merely because they are
+  generated. Review source, builders, workflow changes, and whether generated
+  output matches the PR intent; only comment directly on generated paths when the
+  generated output itself is the subject of the request or shows a generator bug.
 - Exclude local dependency, cache, virtualenv, and test-output directories from
   routine agent work: `node_modules/**`, `.venv-wsl/**`, `.ti_cache/**`,
   `playwright-report/**`, `test-results/**`, `__pycache__/**`, and `*.pyc`.
