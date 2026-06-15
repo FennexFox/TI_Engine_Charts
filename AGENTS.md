@@ -18,9 +18,10 @@
 
 ## Generated and External Data
 
-Treat these paths as generated artifacts or parsed external data. Do not inspect
-or edit them unless the user explicitly asks for generated output, catalog
-content, or deployment artifacts:
+Treat these paths as opaque generated artifacts or parsed external data. Do not
+open, inspect, summarize, or review their contents unless the user explicitly asks
+for generated output, catalog content, deployment artifacts, or generator-debug
+work:
 
 - `docs/index.html`
 - `docs/assets/js/**`
@@ -30,8 +31,8 @@ content, or deployment artifacts:
 - `docs/ship_catalog.md`
 
 These files are regenerated from source code and Terra Invicta template data.
-Prefer changing the source builders or source client modules, then rebuild the
-artifacts.
+They may legitimately change after a build. Review the source builders or source
+client modules instead of spending review budget on these generated artifacts.
 
 ## Source of Truth
 
@@ -100,15 +101,9 @@ workflow and may commit and push generated files.
 
 - Prefer searching source paths first: `tools/**`, `scripts/**`, `README.md`,
   `.github/**`, and `docs/dev/**`.
-- Avoid broad reads of `docs/index.html` and catalog JSON/Markdown outputs; they
-  are large and mostly reproducible from source.
-- Do not request generated artifacts to remain unchanged merely because they are
-  generated. Review source, builders, workflow changes, and whether generated
-  output matches the PR intent; only comment directly on generated paths when the
-  generated output itself is the subject of the request or shows a generator bug.
+- Treat generated paths as opaque for routine work. If they appear in a diff,
+  note only that generated artifacts changed when relevant; do not inspect their
+  content or request changes based on generated-file churn alone.
 - Exclude local dependency, cache, virtualenv, and test-output directories from
   routine agent work: `node_modules/**`, `.venv-wsl/**`, `.ti_cache/**`,
   `playwright-report/**`, `test-results/**`, `__pycache__/**`, and `*.pyc`.
-- Do not propose direct review comments on generated paths unless the generated
-  output itself is the subject of the request. Trace issues back to the source
-  builder or source client where possible.
