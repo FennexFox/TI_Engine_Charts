@@ -17,8 +17,7 @@
     "verify:modules": "node tools/verify_drive_comparison_import_graph.mjs",
     "verify:effects": "node tools/verify_module_effects.mjs",
     "build:verify": "npm run build && npm run verify",
-    "build:from-game": "python scripts/rebuild_pages.py --no-commit --no-push --skip-verify",
-    "build:from-game:fast": "python scripts/rebuild_pages.py --no-commit --no-push --skip-verify"
+    "build:from-game": "python scripts/rebuild_pages.py --no-commit --no-push --skip-verify"
   },
   "devDependencies": {
     "playwright": "^1.60.0"
