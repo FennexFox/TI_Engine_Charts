@@ -11,7 +11,8 @@ Node, npm, and npx toolchain.
 
 Default mode:
   Rebuild docs/index.html and docs/assets/js from checked-in generated data.
-  This does not read a local Terra Invicta installation.
+  This does not read a local Terra Invicta installation and does not run
+  browser verification. Run npm run verify separately when needed.
 
 Options:
   --from-game
@@ -33,15 +34,19 @@ Options:
       Existing generated HTML page whose embedded chart data should be reused in
       default checked-in/UI-only mode. Defaults to docs/index.html.
 
+  --verify
+      Also run the build script's Playwright browser verification step. This
+      requires Playwright Chromium to be installed for this WSL/Linux user.
+
   --skip-verify
-      Skip the build script's Playwright browser verification step.
+      Compatibility no-op. Verification is skipped by default.
 
   -h, --help
       Show this help.
 
 Examples:
   ./scripts/build-wsl.sh
-  ./scripts/build-wsl.sh --skip-verify
+  ./scripts/build-wsl.sh --verify
   ./scripts/build-wsl.sh --from-game
   ./scripts/build-wsl.sh --from-game \
     --templates-dir "/mnt/c/Program Files (x86)/Steam/steamapps/common/Terra Invicta/TerraInvicta_Data/StreamingAssets/Templates"
@@ -52,7 +57,7 @@ script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(CDPATH= cd -- "$script_dir/.." && pwd -P)"
 venv_dir="${VENV_DIR:-$repo_root/.venv-wsl}"
 
-skip_verify=0
+verify=0
 from_game=0
 templates_dir="${TI_TEMPLATES_DIR:-}"
 game_version=""
@@ -159,9 +164,9 @@ Install the browser once from this repository with:
 If WSL reports missing system libraries, run:
   npx playwright install --with-deps chromium
 
-Or skip browser verification for this build with:
-  ./scripts/build-wsl.sh --skip-verify
-  ./scripts/build-wsl.sh --from-game --skip-verify
+Or run the default build path without browser verification:
+  ./scripts/build-wsl.sh
+  ./scripts/build-wsl.sh --from-game
 EOFMSG
     exit 1
   fi
@@ -175,8 +180,11 @@ while (($#)); do
       usage
       exit 0
       ;;
+    --verify)
+      verify=1
+      ;;
     --skip-verify)
-      skip_verify=1
+      verify=0
       ;;
     --from-game)
       from_game=1
@@ -279,7 +287,7 @@ else
   fail "package.json not found in repository root: $repo_root"
 fi
 
-if [[ $skip_verify -eq 0 ]]; then
+if [[ $verify -eq 1 ]]; then
   check_playwright_chromium
 fi
 
@@ -305,7 +313,7 @@ find_templates_dir() {
 
 build_args=(--no-commit --no-push)
 
-if [[ $skip_verify -eq 1 ]]; then
+if [[ $verify -eq 0 ]]; then
   build_args+=(--skip-verify)
 fi
 if [[ -n "$game_version" ]]; then

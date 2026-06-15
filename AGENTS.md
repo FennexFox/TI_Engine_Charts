@@ -47,29 +47,36 @@ artifacts.
 
 ## Rebuild Workflow
 
-For normal local validation after source changes that affect published output:
+For normal local builds after source changes that affect published output:
 
 ```powershell
 npm run build
-npm run verify
 ```
 
 `npm run build` is intentionally a default checked-in/UI-only build. It should
-not require local Terra Invicta templates.
+not require local Terra Invicta templates or browser verification.
+
+Run verification as a separate explicit step when needed:
+
+```powershell
+npm run verify
+```
 
 For WSL/Linux work, prefer the guarded helper:
 
 ```bash
 ./scripts/build-wsl.sh
-./scripts/build-wsl.sh --skip-verify
 ```
 
 The WSL helper creates or reuses `.venv-wsl/`, installs dependencies, rejects
 Windows `.exe`/`.cmd` build tools leaking into WSL, and runs the safe default
-checked-in/UI-only build.
+checked-in/UI-only build without verification. `./scripts/build-wsl.sh --verify`
+keeps the build script's optional Playwright browser verification path available,
+but the normal validation command is still `npm run verify`.
 
 Use local-game-data rebuilds only when the task explicitly requires refreshing
-catalog data from a local Terra Invicta install:
+catalog data from a local Terra Invicta install. These rebuild commands also skip
+verification by default; run `npm run verify` separately when needed:
 
 ```powershell
 npm run build:from-game -- --templates-dir "C:\Program Files (x86)\Steam\steamapps\common\Terra Invicta\TerraInvicta_Data\StreamingAssets\Templates"

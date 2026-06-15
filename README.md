@@ -17,10 +17,16 @@ The normal local build is a checked-in-data/UI-only build: it rebuilds the dashb
 
 ## Basic setup
 
-Install Node dependencies and Playwright's Chromium browser:
+Install Node dependencies:
 
 ```powershell
 npm ci
+```
+
+Playwright's Chromium browser is only required when you run browser verification
+through `npm run verify`, `npm run verify:browser`, or `./scripts/build-wsl.sh --verify`:
+
+```powershell
 npm run playwright:install
 ```
 
@@ -38,31 +44,37 @@ Use this for normal UI, CSS, JavaScript client, template, preset-library, and do
 
 ```powershell
 npm run build
+```
+
+Run verification separately when you need it:
+
+```powershell
 npm run verify
 ```
 
 The default build runs:
 
 ```powershell
-python scripts/rebuild_pages.py --ui-only --no-commit --no-push
+python scripts/rebuild_pages.py --ui-only --no-commit --no-push --skip-verify
 ```
 
 `--ui-only` reuses the embedded chart data from the existing generated page. Pass `--input-html-data <path>` directly to `scripts/rebuild_pages.py` if you need to reuse embedded data from another generated HTML file.
 
-For a faster local iteration that skips the build script's browser verification step:
-
-```powershell
-npm run build:fast
-```
+`npm run build:fast` is kept as a compatibility alias for the same no-verification build path.
 
 ## Windows workflow
 
-Recommended default Windows workflow:
+Recommended default Windows build workflow:
 
 ```powershell
 npm ci
-npm run playwright:install
 npm run build
+```
+
+For full validation, install Playwright's browser once and run verification separately:
+
+```powershell
+npm run playwright:install
 npm run verify
 ```
 
@@ -70,6 +82,11 @@ Local Terra Invicta data rebuilds are explicit. Use them only when you intention
 
 ```powershell
 npm run build:from-game -- --templates-dir "C:\Program Files (x86)\Steam\steamapps\common\Terra Invicta\TerraInvicta_Data\StreamingAssets\Templates"
+```
+
+Then run verification separately if needed:
+
+```powershell
 npm run verify
 ```
 
@@ -95,13 +112,21 @@ The helper:
 * installs Python requirements if a requirements file is present;
 * installs Node dependencies with `npm ci` when `package-lock.json` exists;
 * verifies that `python`, `node`, `npm`, and `npx` resolve to Linux/WSL tools rather than Windows `.exe` or `.cmd` tools under `/mnt/c`;
-* runs the default checked-in/UI-only build without committing or pushing.
+* runs the default checked-in/UI-only build without committing, pushing, or running browser verification.
 
-Skip the build script's browser verification when needed:
+Run verification separately when needed:
 
 ```bash
-./scripts/build-wsl.sh --skip-verify
+npm run verify
 ```
+
+If you specifically want the build script to run its Playwright browser verification step, pass `--verify`:
+
+```bash
+./scripts/build-wsl.sh --verify
+```
+
+`--skip-verify` is still accepted for compatibility, but verification is skipped by default.
 
 Run an explicit local-game-data rebuild from WSL:
 
@@ -125,7 +150,7 @@ VENV_DIR="$PWD/.venv-wsl" ./scripts/build-wsl.sh
 
 ## Local Terra Invicta data rebuild
 
-This repository has one local-game-data rebuild path. It reads the local Terra Invicta `Templates` directory and regenerates:
+This repository has one local-game-data rebuild path. It reads the local Terra Invicta `Templates` directory and regenerates checked-in catalog/site output without running verification by default:
 
 * `data/research_catalog.json`
 * `docs/research_catalog.md`
@@ -147,7 +172,7 @@ WSL:
   --templates-dir "/mnt/c/Program Files (x86)/Steam/steamapps/common/Terra Invicta/TerraInvicta_Data/StreamingAssets/Templates"
 ```
 
-The builder embeds template source names and the detected game version at the bottom of the page. Version detection uses `AIDump.txt` when available, falls back to the Steam appmanifest build id, and can be overridden with `--game-version`.
+The builder embeds template source names and the detected game version at the bottom of the page. Version detection uses `AIDump.txt` when available, falls back to the Steam appmanifest build id, and can be overridden with `--game-version`. Run `npm run verify` separately after a local-game-data rebuild when you want full validation.
 
 There is currently no separate full refresh or deep extraction mode in this repository. `--from-game` is the explicit full catalog rebuild. If a future workflow needs a more expensive extraction step, keep it behind a separately named option or script rather than adding it to the default build.
 
