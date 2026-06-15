@@ -40,10 +40,6 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("함선 설계", "Ship Designer"),
     ("함선 설계 열기", "Open Ship Designer"),
     ("함선 설계 편집", "Edit Ship Design"),
-    (
-        "함급, 장갑, 모듈, 건조질량 가정을 설정한 뒤 차트를 해석하세요.",
-        "Use Ship Designer to set hull, armor, modules, and dry mass assumptions before reading chart results.",
-    ),
     ("적용된 함선 템플릿 없음", "No ship template applied"),
     ("적용된 설계", "Applied design"),
     ("건조질량", "Dry mass"),

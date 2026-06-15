@@ -367,7 +367,6 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const title = document.getElementById("shipDesignerTitle");
     const calcButton = document.getElementById("dryMassCalcButton");
     const status = document.getElementById("shipDesignerAppliedTemplate");
-    const description = document.getElementById("shipDesignerDescription");
     const select = document.getElementById("dryMassPresetSelect");
     const initialStatus = status?.textContent.trim() || "";
     const calcButtonStyle = calcButton ? getComputedStyle(calcButton) : null;
@@ -381,7 +380,6 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     syncUiFromState();
     const koreanCopy = {
       buttonText: calcButton?.textContent.trim() || "",
-      descriptionText: description?.textContent.trim() || "",
       statusText: status?.textContent.trim() || "",
     };
     setLanguage("en", { rerender: false });
@@ -400,7 +398,6 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       titleText: title?.textContent.trim() || "",
       calcButtonText: calcButton?.textContent.trim() || "",
       calcButtonLabel: calcButton?.getAttribute("aria-label") || "",
-      descriptionText: description?.textContent.trim() || "",
       calcButtonLooksClickable: !!calcButtonStyle
         && calcButtonStyle.borderTopWidth !== "0px"
         && calcButtonStyle.backgroundColor !== "rgba(0, 0, 0, 0)",
@@ -425,7 +422,6 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/Ship Designer/.test(shipDesignerInitial.titleText), `${htmlFile}: Ship Designer title text missing`);
   expect(/Open Ship Designer/.test(shipDesignerInitial.calcButtonLabel), `${htmlFile}: Ship Designer CTA should expose player-facing accessible text`);
   expect(/Open Ship Designer/.test(shipDesignerInitial.calcButtonText), `${htmlFile}: Ship Designer CTA should show visible text`);
-  expect(/hull/i.test(shipDesignerInitial.descriptionText) && /armor/i.test(shipDesignerInitial.descriptionText) && /modules/i.test(shipDesignerInitial.descriptionText) && /dry mass/i.test(shipDesignerInitial.descriptionText), `${htmlFile}: Ship Designer description should explain configurable assumptions`);
   expect(shipDesignerInitial.calcButtonLooksClickable, `${htmlFile}: Ship Designer CTA should be visibly styled as a button`);
   expect(shipDesignerInitial.calcButtonIsTextCta, `${htmlFile}: Ship Designer CTA should be a text button, not a compact icon`);
   expect(/No ship template applied/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should say no template is applied`);
@@ -433,7 +429,6 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(shipDesignerInitial.defaultAppliedFlag === "false", `${htmlFile}: default Ship Designer applied flag should be false`);
   expect(shipDesignerInitial.unappliedSelectionPreservedStatus, `${htmlFile}: selecting a design preset falsely changed the applied-template status`);
   expect(/함선 설계/.test(shipDesignerInitial.koreanCopy.buttonText), `${htmlFile}: Korean Ship Designer CTA did not localize`);
-  expect(/[가-힣]/u.test(shipDesignerInitial.koreanCopy.descriptionText) && !/Use Ship Designer/.test(shipDesignerInitial.koreanCopy.descriptionText), `${htmlFile}: Korean Ship Designer description did not localize`);
   expect(/[가-힣]/u.test(shipDesignerInitial.koreanCopy.statusText) && !/No ship template applied/.test(shipDesignerInitial.koreanCopy.statusText), `${htmlFile}: Korean Ship Designer status did not localize`);
 
   const shipDesignerPresetFixture = await page.evaluate(() => {
@@ -830,7 +825,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       disabledChecked,
       disabledWarnsBase: /base drive values/i.test(disabledText),
       enabledByClick,
-      enabledSummary: /Source: manual preset list/.test(enabledText) && /Selected 2/.test(enabledText) && /Effects 1/.test(enabledText),
+      summaryLineRemoved: !/Source: manual preset list|Selected 2|Effects 1/.test(enabledText),
       activeChipCount,
       mutedChipCount,
       panelWarnsRequirements: panelWarnings.some(text => /requires fusion drive/i.test(text)),
@@ -868,7 +863,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectUxChecks.disabledChecked, `${htmlFile}: module effects checkbox did not sync disabled state`);
   expect(moduleEffectUxChecks.disabledWarnsBase, `${htmlFile}: disabled module effects panel did not warn that base values are used`);
   expect(moduleEffectUxChecks.enabledByClick, `${htmlFile}: module effects checkbox click did not update state`);
-  expect(moduleEffectUxChecks.enabledSummary, `${htmlFile}: enabled module effects summary did not describe source/selection/effect count`);
+  expect(moduleEffectUxChecks.summaryLineRemoved, `${htmlFile}: module effects source/selection/effect-count summary should be removed from the panel`);
   expect(moduleEffectUxChecks.activeChipCount >= 1, `${htmlFile}: active module-effect chip was not rendered`);
   expect(moduleEffectUxChecks.mutedChipCount >= 1, `${htmlFile}: module without modeled performance effects was not visibly identified`);
   expect(moduleEffectUxChecks.panelWarnsRequirements, `${htmlFile}: module effects panel did not show prerequisite warnings`);

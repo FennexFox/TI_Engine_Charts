@@ -88,14 +88,12 @@ __STYLES__
         <div class="control-card-body">
         <section id="shipDesignerSection" class="control-block ship-designer-section" aria-labelledby="shipDesignerTitle">
           <div id="shipDesignerAppliedTemplate" class="ship-designer-status" data-applied-template="false" aria-live="polite">적용된 함선 템플릿 없음</div>
-          <p id="shipDesignerDescription" class="ship-designer-description">함급, 장갑, 모듈, 건조질량 가정을 설정한 뒤 차트를 해석하세요.</p>
-          <button id="dryMassCalcButton" class="compact-command primary-command ship-designer-action" type="button" aria-describedby="shipDesignerTitle shipDesignerAppliedTemplate shipDesignerDescription">함선 설계 열기</button>
+          <button id="dryMassCalcButton" class="compact-command primary-command ship-designer-action" type="button" aria-describedby="shipDesignerTitle shipDesignerAppliedTemplate">함선 설계 열기</button>
           <section id="moduleEffectsControl" class="module-effects-control">
             <label class="check-row module-effects-toggle">
               <input id="moduleEffectsEnabled" type="checkbox" checked>
               <span id="moduleEffectsEnabledLabel">모듈 효과 적용</span>
             </label>
-            <div id="moduleEffectsSummary" class="module-effects-summary"></div>
             <details id="moduleEffectsDetails" class="module-effects-details">
               <summary id="moduleEffectsDetailsSummary">Selected modules</summary>
               <div id="moduleEffectsChips" class="effect-chip-list" aria-live="polite"></div>

@@ -115,7 +115,6 @@ export function updateShipDesignerPanel() {
   const title = document.getElementById("shipDesignerTitle");
   const calcButton = document.getElementById("dryMassCalcButton");
   const status = document.getElementById("shipDesignerAppliedTemplate");
-  const description = document.getElementById("shipDesignerDescription");
   if (title) title.textContent = localText("함선 설계", "Ship Designer");
   const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
   const dryMassText = `${localText("건조질량", "Dry mass")}: ${formatNumber(state.dryMassTons, " t")}`;
@@ -126,17 +125,6 @@ export function updateShipDesignerPanel() {
     calcButton.textContent = openLabel;
     calcButton.setAttribute("aria-label", openLabel);
     calcButton.title = openLabel;
-  }
-  if (description) {
-    description.textContent = templateName
-      ? localText(
-        "함선 설계에서 함급, 장갑, 모듈, 건조질량 가정을 검토하거나 수정하세요.",
-        "Review or adjust hull, armor, modules, and dry mass assumptions in Ship Designer.",
-      )
-      : localText(
-        "함선 설계에서 함급, 장갑, 모듈, 건조질량 가정을 설정한 뒤 차트를 해석하세요.",
-        "Use Ship Designer to set hull, armor, modules, and dry mass assumptions before reading chart results.",
-      );
   }
   if (!status) return;
   if (templateName) {
@@ -151,12 +139,11 @@ export function updateShipDesignerPanel() {
 export function updateModuleEffectsPanel() {
   const checkbox = document.getElementById("moduleEffectsEnabled");
   const label = document.getElementById("moduleEffectsEnabledLabel");
-  const summary = document.getElementById("moduleEffectsSummary");
   const chips = document.getElementById("moduleEffectsChips");
   const warnings = document.getElementById("moduleEffectsWarnings");
   const details = document.getElementById("moduleEffectsDetails");
   const detailsSummary = document.getElementById("moduleEffectsDetailsSummary");
-  if (!checkbox || !label || !summary || !chips || !warnings) return;
+  if (!checkbox || !label || !chips || !warnings) return;
 
   const assumptions = currentModuleEffectAssumptions();
   checkbox.checked = !!assumptions.moduleEffectsEnabled;
@@ -165,14 +152,8 @@ export function updateModuleEffectsPanel() {
   chips.innerHTML = "";
   warnings.innerHTML = "";
 
-  const sourceLabel = assumptions.moduleEffectSource === "manual"
-    ? localText("수동 프리셋 목록", "manual preset list")
-    : localText("건조질량 계산기 선택", "dry-mass calculator selection");
   const modules = assumptions.activeModuleIds.map(utilityModuleById).filter(Boolean);
   const effectModules = modules.filter(module => moduleEffectSummaries(module).length);
-  summary.textContent = assumptions.moduleEffectsEnabled
-    ? `${localText("소스", "Source")}: ${sourceLabel} · ${localText("선택", "Selected")} ${modules.length} · ${localText("효과", "Effects")} ${effectModules.length}`
-    : `${localText("비활성", "Disabled")} · ${localText("소스", "Source")}: ${sourceLabel}`;
 
   if (!modules.length) {
     appendChip(chips, localText("성능 모듈 선택 없음", "No performance modules selected"), "is-muted");
