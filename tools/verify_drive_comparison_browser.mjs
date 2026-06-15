@@ -370,11 +370,20 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const select = document.getElementById("dryMassPresetSelect");
     const initialStatus = status?.textContent.trim() || "";
     const calcButtonStyle = calcButton ? getComputedStyle(calcButton) : null;
+    const calcButtonRect = calcButton?.getBoundingClientRect();
     if (select && select.options.length > 1) {
       select.selectedIndex = 1;
       select.dispatchEvent(new Event("change", { bubbles: true }));
     }
     const statusAfterUnappliedSelection = status?.textContent.trim() || "";
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const koreanCopy = {
+      buttonText: calcButton?.textContent.trim() || "",
+      statusText: status?.textContent.trim() || "",
+    };
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
     return {
       sectionExists: !!section,
       cardExists: !!shipDesignerCard,
@@ -383,7 +392,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       titleInsideHeader: !!(title && shipDesignerHeader && shipDesignerHeader.contains(title)),
       titleIsPlainText: title?.tagName === "SPAN",
       calcButtonInsideHeader: !!(calcButton && shipDesignerHeader && shipDesignerHeader.contains(calcButton)),
-      bodyHasOpenDesignerButton: !!section?.querySelector("button.ship-designer-title-button, button#shipDesignerTitle"),
+      calcButtonInsideSection: !!(calcButton && section && section.contains(calcButton)),
       modulePanelInside: !!section && !!modulePanel && section.contains(modulePanel),
       moduleEffectsCheckedByDefault: moduleEffectsCheckbox?.checked === true && state.moduleEffectsEnabled === true,
       titleText: title?.textContent.trim() || "",
@@ -392,11 +401,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       calcButtonLooksClickable: !!calcButtonStyle
         && calcButtonStyle.borderTopWidth !== "0px"
         && calcButtonStyle.backgroundColor !== "rgba(0, 0, 0, 0)",
-      calcButtonIsCompact: !!calcButtonStyle && Number.parseFloat(calcButtonStyle.width) <= 32,
+      calcButtonIsTextCta: !!calcButtonRect && calcButtonRect.width > 90,
       defaultStatus: initialStatus,
       defaultAppliedFlag: status?.dataset.appliedTemplate || "",
       statusAfterUnappliedSelection,
       unappliedSelectionPreservedStatus: statusAfterUnappliedSelection === initialStatus,
+      koreanCopy,
     };
   });
   expect(shipDesignerInitial.sectionExists, `${htmlFile}: Ship Designer section missing`);
@@ -405,18 +415,21 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(shipDesignerInitial.sectionOutsideSimulationCard, `${htmlFile}: Ship Designer controls should not remain inside Simulation Conditions`);
   expect(shipDesignerInitial.titleInsideHeader, `${htmlFile}: Ship Designer title should be in the card header`);
   expect(shipDesignerInitial.titleIsPlainText, `${htmlFile}: Ship Designer title should be plain header text, not a button`);
-  expect(shipDesignerInitial.calcButtonInsideHeader, `${htmlFile}: dry-mass calculator button should sit beside the Ship Designer title`);
-  expect(!shipDesignerInitial.bodyHasOpenDesignerButton, `${htmlFile}: separate Open Designer body button should be removed`);
+  expect(!shipDesignerInitial.calcButtonInsideHeader, `${htmlFile}: Ship Designer CTA should not be an icon-only header button`);
+  expect(shipDesignerInitial.calcButtonInsideSection, `${htmlFile}: Ship Designer CTA should be visible inside the card body`);
   expect(shipDesignerInitial.modulePanelInside, `${htmlFile}: module effects controls are not grouped inside Ship Designer`);
   expect(shipDesignerInitial.moduleEffectsCheckedByDefault, `${htmlFile}: module performance effects should be enabled by default`);
   expect(/Ship Designer/.test(shipDesignerInitial.titleText), `${htmlFile}: Ship Designer title text missing`);
-  expect(/Dry Mass Calculator/.test(shipDesignerInitial.calcButtonLabel), `${htmlFile}: dry-mass calculator icon button should expose an accessible label`);
-  expect(shipDesignerInitial.calcButtonText.length > 0, `${htmlFile}: dry-mass calculator icon button should show an icon glyph`);
-  expect(shipDesignerInitial.calcButtonLooksClickable, `${htmlFile}: dry-mass calculator icon button should be visibly styled as a button`);
-  expect(shipDesignerInitial.calcButtonIsCompact, `${htmlFile}: dry-mass calculator button should remain compact beside the title`);
+  expect(/Open Ship Designer/.test(shipDesignerInitial.calcButtonLabel), `${htmlFile}: Ship Designer CTA should expose player-facing accessible text`);
+  expect(/Open Ship Designer/.test(shipDesignerInitial.calcButtonText), `${htmlFile}: Ship Designer CTA should show visible text`);
+  expect(shipDesignerInitial.calcButtonLooksClickable, `${htmlFile}: Ship Designer CTA should be visibly styled as a button`);
+  expect(shipDesignerInitial.calcButtonIsTextCta, `${htmlFile}: Ship Designer CTA should be a text button, not a compact icon`);
   expect(/No ship template applied/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should say no template is applied`);
+  expect(/Dry mass/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should include current dry mass`);
   expect(shipDesignerInitial.defaultAppliedFlag === "false", `${htmlFile}: default Ship Designer applied flag should be false`);
   expect(shipDesignerInitial.unappliedSelectionPreservedStatus, `${htmlFile}: selecting a design preset falsely changed the applied-template status`);
+  expect(/함선 설계/.test(shipDesignerInitial.koreanCopy.buttonText), `${htmlFile}: Korean Ship Designer CTA did not localize`);
+  expect(/[가-힣]/u.test(shipDesignerInitial.koreanCopy.statusText) && !/No ship template applied/.test(shipDesignerInitial.koreanCopy.statusText), `${htmlFile}: Korean Ship Designer status did not localize`);
 
   const shipDesignerPresetFixture = await page.evaluate(() => {
     const entry = saveDryMassPresetFromCalculator("Verifier Ship Design", exportedDryMassCalculatorPreset());
@@ -432,6 +445,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(shipDesignerPresetFixture.saved, `${htmlFile}: could not create dry-mass design preset fixture for Ship Designer applied-template check`);
   expect(shipDesignerPresetFixture.selected, `${htmlFile}: dry-mass design preset fixture was not selected`);
   expect(/No ship template applied/.test(shipDesignerPresetFixture.statusText), `${htmlFile}: saving/selecting a design preset falsely changed the applied-template status`);
+  expect(/Dry mass/.test(shipDesignerPresetFixture.statusText), `${htmlFile}: unapplied Ship Designer status should keep dry mass visible`);
   expect(shipDesignerPresetFixture.appliedFlag === "false", `${htmlFile}: saving/selecting a design preset should not mark it applied`);
 
   await page.locator("#dryMassCalcButton").click();
@@ -447,16 +461,20 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
   const shipDesignerApplied = await page.evaluate(() => {
     const status = document.getElementById("shipDesignerAppliedTemplate");
+    const button = document.getElementById("dryMassCalcButton");
     return {
       text: status?.textContent.trim() || "",
       appliedFlag: status?.dataset.appliedTemplate || "",
       stateTemplateName: state.appliedShipTemplate?.name || "",
+      buttonText: button?.textContent.trim() || "",
     };
   });
   expect(dryMassButtonFocusCheck.hasDesignPreset, `${htmlFile}: dry-mass design preset fixture missing for Ship Designer applied-template check`);
   expect(shipDesignerApplied.appliedFlag === "true", `${htmlFile}: applying a named design did not mark Ship Designer status as applied`);
   expect(shipDesignerApplied.stateTemplateName.trim().length > 0, `${htmlFile}: applied ship template state did not store a named design`);
-  expect(shipDesignerApplied.text === shipDesignerApplied.stateTemplateName, `${htmlFile}: applied Ship Designer status should show only the template name`);
+  expect(shipDesignerApplied.text.includes(shipDesignerApplied.stateTemplateName), `${htmlFile}: applied Ship Designer status should show the template name`);
+  expect(/Applied design/.test(shipDesignerApplied.text) && /Dry mass/.test(shipDesignerApplied.text), `${htmlFile}: applied Ship Designer status should include design and dry-mass summary`);
+  expect(/Edit Ship Design/.test(shipDesignerApplied.buttonText), `${htmlFile}: applied Ship Designer CTA should switch to edit wording`);
 
   const moduleEffectCalculationChecks = await page.evaluate(() => {
     resetChartStateToDefaults();
@@ -807,7 +825,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       disabledChecked,
       disabledWarnsBase: /base drive values/i.test(disabledText),
       enabledByClick,
-      enabledSummary: /Source: manual preset list/.test(enabledText) && /Selected 2/.test(enabledText) && /Effects 1/.test(enabledText),
+      summaryLineRemoved: !/Source: manual preset list|Selected 2|Effects 1/.test(enabledText),
       activeChipCount,
       mutedChipCount,
       panelWarnsRequirements: panelWarnings.some(text => /requires fusion drive/i.test(text)),
@@ -845,7 +863,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectUxChecks.disabledChecked, `${htmlFile}: module effects checkbox did not sync disabled state`);
   expect(moduleEffectUxChecks.disabledWarnsBase, `${htmlFile}: disabled module effects panel did not warn that base values are used`);
   expect(moduleEffectUxChecks.enabledByClick, `${htmlFile}: module effects checkbox click did not update state`);
-  expect(moduleEffectUxChecks.enabledSummary, `${htmlFile}: enabled module effects summary did not describe source/selection/effect count`);
+  expect(moduleEffectUxChecks.summaryLineRemoved, `${htmlFile}: module effects source/selection/effect-count summary should be removed from the panel`);
   expect(moduleEffectUxChecks.activeChipCount >= 1, `${htmlFile}: active module-effect chip was not rendered`);
   expect(moduleEffectUxChecks.mutedChipCount >= 1, `${htmlFile}: module without modeled performance effects was not visibly identified`);
   expect(moduleEffectUxChecks.panelWarnsRequirements, `${htmlFile}: module effects panel did not show prerequisite warnings`);

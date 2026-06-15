@@ -100,19 +100,21 @@ export function computeDriveDiagnostics() {
         if (evaluation.visible) visibleRows.push(row);
 
         const baseKey = row.baseKey || row.id;
-        if (!baseVisibility.has(baseKey)) {
-          baseVisibility.set(baseKey, {
-            key: baseKey,
-            name: row.baseDisplayName || row.displayName || baseKey,
-            visible: false,
-            hiddenReasons: {},
-          });
-        }
-        const baseInfo = baseVisibility.get(baseKey);
-        if (evaluation.visible) {
-          baseInfo.visible = true;
-        } else {
-          countHiddenReasons(baseInfo.hiddenReasons, evaluation.reasons);
+        if (rowInHiddenSummaryScope(row)) {
+          if (!baseVisibility.has(baseKey)) {
+            baseVisibility.set(baseKey, {
+              key: baseKey,
+              name: row.baseDisplayName || row.displayName || baseKey,
+              visible: false,
+              hiddenReasons: {},
+            });
+          }
+          const baseInfo = baseVisibility.get(baseKey);
+          if (evaluation.visible) {
+            baseInfo.visible = true;
+          } else {
+            countHiddenReasons(baseInfo.hiddenReasons, evaluation.reasons);
+          }
         }
 
         if (state.searchTerm && rowMatchesSearch(row)) {
@@ -222,6 +224,10 @@ export function rowFamilySelected(row) {
 
 export function rowInFamilyDiagnosticScope(row) {
       return rowMatchesSelectedThrusterCount(row) && rowMatchesSearch(row);
+    }
+
+export function rowInHiddenSummaryScope(row) {
+      return !(row && row.alien === true);
     }
 
 export function rowMatchesSearch(row) {
