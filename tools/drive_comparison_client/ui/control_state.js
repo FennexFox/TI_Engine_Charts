@@ -231,7 +231,7 @@ export function updateChartControls() {
   bandAnalysisControls.style.display = isBandMetric() ? "" : "none";
   showTwrInfoRow.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
   showMassInfoRow.style.display = state.metric === "twr" ? "" : "none";
-  minTwrControl.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
+  minTwrControl.style.display = isBandMetric() ? "" : "none";
   minDvControl.style.display = state.metric === "twr" ? "" : "none";
   powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
   if (chartScaleControls) chartScaleControls.setAttribute("aria-label", localText("축 스케일", "Axis scale"));

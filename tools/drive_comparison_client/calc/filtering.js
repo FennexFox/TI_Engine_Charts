@@ -255,7 +255,7 @@ export function bandMetricHiddenReasons(row) {
       const finiteMetricOptions = options.filter(option => Number.isFinite(optionMetricValue(option)) && optionMetricValue(option) > 0);
       if (!finiteMetricOptions.length) return ["invalidComputation"];
       const reasons = [];
-      if ((state.metric === "totalMassTons" || state.metric === "fuelMassTons") && state.minTwr > 0 && !state.showImpracticalCandidates) {
+      if (state.minTwr > 0 && !state.showImpracticalCandidates) {
         const twrPassing = finiteMetricOptions.some(option => Number.isFinite(option.twr) && option.twr >= state.minTwr);
         if (!twrPassing) {
           reasons.push("minTwr");
@@ -301,7 +301,7 @@ export function isExtremeMassRatioOption(option) {
 
 export function isImpracticalOption(option) {
       if (!state.showImpracticalCandidates) return false;
-      return ((state.metric === "totalMassTons" || state.metric === "fuelMassTons") && state.minTwr > 0 && Number.isFinite(option.twr) && option.twr < state.minTwr)
+      return (isBandMetric() && state.minTwr > 0 && Number.isFinite(option.twr) && option.twr < state.minTwr)
         || isExtremeMassRatioOption(option);
     }
 
@@ -461,13 +461,14 @@ export function massOptions(row) {
 
 export function chartMassOptions(row, metric = state.metric) {
       const options = massOptions(row);
-      if ((metric === "totalMassTons" || metric === "fuelMassTons") && state.minTwr > 0 && !state.showImpracticalCandidates) {
-        return options.filter(option => Number.isFinite(option.twr) && option.twr >= state.minTwr);
+      let visibleOptions = options;
+      if (isBandMetric(metric) && state.minTwr > 0 && !state.showImpracticalCandidates) {
+        visibleOptions = visibleOptions.filter(option => Number.isFinite(option.twr) && option.twr >= state.minTwr);
       }
       if (metric === "twr" && state.minDvKps > 0 && !state.showImpracticalCandidates) {
-        return options.filter(option => Number.isFinite(option.maxPracticalDvKps) && option.maxPracticalDvKps >= state.minDvKps);
+        visibleOptions = visibleOptions.filter(option => Number.isFinite(option.maxPracticalDvKps) && option.maxPracticalDvKps >= state.minDvKps);
       }
-      return options;
+      return visibleOptions;
     }
 
 export function chartSummaryMassOptions(row) {
@@ -489,5 +490,4 @@ export function actualPowerFrontier(row, options) {
       });
       return frontier;
     }
-
 

@@ -553,15 +553,17 @@ function yAxisReadingText() {
     }
 
 function accelerationAssumptionText() {
-      if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
-        return localText(
+      const parts = [];
+      if (isBandMetric()) {
+        parts.push(localText(
           `가속도 ≥ ${formatTwrDynamicUnit(state.minTwr)}`,
           `Acceleration ≥ ${formatTwrDynamicUnit(state.minTwr)}`,
-        );
+        ));
       }
       if (state.metric === "twr" && state.minDvKps > 0) {
-        return localText(`최소 dV ${formatNumber(state.minDvKps, " km/s")}`, `Minimum dV ${formatNumber(state.minDvKps, " km/s")}`);
+        parts.push(localText(`최소 dV ${formatNumber(state.minDvKps, " km/s")}`, `Minimum dV ${formatNumber(state.minDvKps, " km/s")}`));
       }
+      if (parts.length) return parts.join(" · ");
       return localText("가속도 요구는 임무 역할에 따라 달라집니다.", "Acceleration needs depend on mission role.");
     }
 

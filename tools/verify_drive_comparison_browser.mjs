@@ -231,6 +231,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     updateLeftPanelCardSummaries();
     const twrSimulationSummary = simulationSummaryText();
     const twrFilterSummary = filterSummaryText();
+    const twrMinTwrControlDisplay = document.getElementById("minTwrControl")?.style.display || "";
+    const twrMinDvControlDisplay = document.getElementById("minDvControl")?.style.display || "";
 
     setLanguage("ko", { rerender: false });
     Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
@@ -238,12 +240,37 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     updateLeftPanelCardSummaries();
     const koreanFilterSummary = filterSummaryText();
 
+    Object.assign(state, {
+      metric: "twr",
+      minTwr: 10,
+      minDvKps: 0,
+      showImpracticalCandidates: false,
+      searchTerm: "",
+      logX: true,
+      logY: true,
+    });
+    render();
+    const twrRowsWithAccelerationCutoff = currentChartRows.length;
+    Object.assign(state, { showImpracticalCandidates: true });
+    render();
+    const twrRowsWithImpracticalShown = currentChartRows.length;
+
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
     syncUiFromState();
     updateLeftPanelCardSummaries();
 
-    return { totalMassSimulationSummary, totalMassFilterSummary, twrSimulationSummary, twrFilterSummary, koreanFilterSummary };
+    return {
+      totalMassSimulationSummary,
+      totalMassFilterSummary,
+      twrSimulationSummary,
+      twrFilterSummary,
+      twrMinTwrControlDisplay,
+      twrMinDvControlDisplay,
+      twrRowsWithAccelerationCutoff,
+      twrRowsWithImpracticalShown,
+      koreanFilterSummary,
+    };
   });
   expect(
     /Acceleration/.test(cardSummaryChecks.totalMassSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.totalMassSimulationSummary),
@@ -258,8 +285,16 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: acceleration metric filter summary should show only the dV threshold`,
   );
   expect(
-    !/Acceleration/.test(cardSummaryChecks.twrSimulationSummary) && !/TWR/.test(cardSummaryChecks.twrSimulationSummary),
-    `${htmlFile}: acceleration metric simulation summary should not show the minimum acceleration threshold when that control is hidden`,
+    /Acceleration/.test(cardSummaryChecks.twrSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.twrSimulationSummary),
+    `${htmlFile}: acceleration metric simulation summary should show the minimum acceleration threshold`,
+  );
+  expect(
+    cardSummaryChecks.twrMinTwrControlDisplay !== "none" && cardSummaryChecks.twrMinDvControlDisplay !== "none",
+    `${htmlFile}: acceleration metric should expose both minimum acceleration and minimum dV controls`,
+  );
+  expect(
+    cardSummaryChecks.twrRowsWithAccelerationCutoff < cardSummaryChecks.twrRowsWithImpracticalShown,
+    `${htmlFile}: acceleration metric did not apply the minimum acceleration cutoff`,
   );
   expect(
     !/X축 로그|Y축 로그|log X|log Y|Log X|Log Y/.test(cardSummaryChecks.koreanFilterSummary),
