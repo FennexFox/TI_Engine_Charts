@@ -264,8 +264,8 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         if (chartLogY) chartLogY.checked = state.logY;
         render();
       };
-      logX.addEventListener("change", () => setLogX(logX.checked));
-      logY.addEventListener("change", () => setLogY(logY.checked));
+      logX?.addEventListener("change", () => setLogX(logX.checked));
+      logY?.addEventListener("change", () => setLogY(logY.checked));
       chartLogX?.addEventListener("change", () => setLogX(chartLogX.checked));
       chartLogY?.addEventListener("change", () => setLogY(chartLogY.checked));
       showTwrInfo.addEventListener("change", () => {

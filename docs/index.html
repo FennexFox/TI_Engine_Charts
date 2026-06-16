@@ -1691,7 +1691,7 @@
       grid-template-columns: auto minmax(0, 1fr);
       gap: 10px 12px;
       align-items: start;
-      margin: 0 0 10px;
+      margin: 10px 0 0;
       padding: 9px 10px;
       border: 1px solid rgba(148, 163, 184, 0.28);
       border-radius: 7px;
@@ -1736,6 +1736,12 @@
       min-width: 0;
       color: #c7d3cc;
       overflow-wrap: anywhere;
+    }
+    .chart-plot-frame .chart-reading-guide {
+      grid-template-columns: 1fr;
+    }
+    .chart-plot-frame .chart-reading-cues {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .base-drive-line {
       pointer-events: none;
@@ -2453,6 +2459,13 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  align-self: stretch;
+  height: 100%;
+}
+.detail-panel .tooltip {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
 }
 .connection-line-controls {
   display: grid;
@@ -2578,7 +2591,15 @@
   margin-top: 8px;
 }
 @media (max-width: 980px) {
-  .detail-panel { min-width: 0; }
+  .detail-panel {
+    min-width: 0;
+    height: auto;
+  }
+  .detail-panel .tooltip {
+    flex: 0 0 auto;
+    height: min(52vh, 520px);
+    min-height: 220px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -2589,6 +2610,9 @@
     flex: 1 1 120px;
   }
   .chart-reading-cues {
+    grid-template-columns: 1fr;
+  }
+  .chart-plot-frame .chart-reading-cues {
     grid-template-columns: 1fr;
   }
   .chart-reading-cue {
@@ -2774,14 +2798,6 @@
             <div id="minDvReadout" class="control-hint">Showing: dV >= 0 km/s</div>
           </div>
         </section>
-        <div class="control-divider"></div>
-        <section class="control-block">
-          <span class="label">Axis scale</span>
-          <div class="control-inline-grid">
-            <label class="check-row"><input id="logX" type="checkbox" checked> Log X axis</label>
-            <label class="check-row"><input id="logY" type="checkbox" checked> Log Y axis</label>
-          </div>
-        </section>
         </div>
       </section>
       <section class="control-card" data-control-card="driveFilter">
@@ -2899,7 +2915,6 @@
         </div>
         <div id="filterActionBannerActions" class="filter-action-banner-actions"></div>
       </div>
-      <section id="chartReadingGuide" class="chart-reading-guide" aria-label="차트 읽기 요약"></section>
       <div class="chart-body">
         <div class="chart-plot-frame">
           <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
@@ -2909,6 +2924,7 @@
               <div id="chartGuideContent" class="chart-guide-content"></div>
             </details>
           </div>
+          <section id="chartReadingGuide" class="chart-reading-guide" aria-label="차트 읽기 요약"></section>
         </div>
         <div class="detail-panel">
           <div id="tooltip" class="tooltip tooltip-empty"><div class="tooltip-placeholder">No selection</div></div>

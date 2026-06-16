@@ -185,14 +185,6 @@ __STYLES__
             <div id="minDvReadout" class="control-hint">표시: dV >= 0 km/s</div>
           </div>
         </section>
-        <div class="control-divider"></div>
-        <section class="control-block">
-          <span class="label">축 스케일</span>
-          <div class="control-inline-grid">
-            <label class="check-row"><input id="logX" type="checkbox" checked> X축 로그</label>
-            <label class="check-row"><input id="logY" type="checkbox" checked> Y축 로그</label>
-          </div>
-        </section>
         </div>
       </section>
       <section class="control-card" data-control-card="driveFilter">
@@ -310,7 +302,6 @@ __STYLES__
         </div>
         <div id="filterActionBannerActions" class="filter-action-banner-actions"></div>
       </div>
-      <section id="chartReadingGuide" class="chart-reading-guide" aria-label="차트 읽기 요약"></section>
       <div class="chart-body">
         <div class="chart-plot-frame">
           <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
@@ -320,6 +311,7 @@ __STYLES__
               <div id="chartGuideContent" class="chart-guide-content"></div>
             </details>
           </div>
+          <section id="chartReadingGuide" class="chart-reading-guide" aria-label="차트 읽기 요약"></section>
         </div>
         <div class="detail-panel">
           <div id="tooltip" class="tooltip tooltip-empty"><div class="tooltip-placeholder">선택 없음</div></div>

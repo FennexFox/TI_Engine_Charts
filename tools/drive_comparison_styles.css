@@ -1684,7 +1684,7 @@
       grid-template-columns: auto minmax(0, 1fr);
       gap: 10px 12px;
       align-items: start;
-      margin: 0 0 10px;
+      margin: 10px 0 0;
       padding: 9px 10px;
       border: 1px solid rgba(148, 163, 184, 0.28);
       border-radius: 7px;
@@ -1729,6 +1729,12 @@
       min-width: 0;
       color: #c7d3cc;
       overflow-wrap: anywhere;
+    }
+    .chart-plot-frame .chart-reading-guide {
+      grid-template-columns: 1fr;
+    }
+    .chart-plot-frame .chart-reading-cues {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .base-drive-line {
       pointer-events: none;
@@ -2446,6 +2452,13 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  align-self: stretch;
+  height: 100%;
+}
+.detail-panel .tooltip {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
 }
 .connection-line-controls {
   display: grid;
@@ -2571,7 +2584,15 @@
   margin-top: 8px;
 }
 @media (max-width: 980px) {
-  .detail-panel { min-width: 0; }
+  .detail-panel {
+    min-width: 0;
+    height: auto;
+  }
+  .detail-panel .tooltip {
+    flex: 0 0 auto;
+    height: min(52vh, 520px);
+    min-height: 220px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -2582,6 +2603,9 @@
     flex: 1 1 120px;
   }
   .chart-reading-cues {
+    grid-template-columns: 1fr;
+  }
+  .chart-plot-frame .chart-reading-cues {
     grid-template-columns: 1fr;
   }
   .chart-reading-cue {

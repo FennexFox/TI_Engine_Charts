@@ -135,16 +135,17 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const readingGuide = document.getElementById("chartReadingGuide");
     const activeSummary = document.getElementById("chartActiveSummary")?.textContent || "";
     const chartScaleText = document.getElementById("chartScaleControls")?.textContent || "";
+    const filterCardText = document.querySelector('.control-card[data-control-card="filter"]')?.textContent || "";
     return {
       stateLogX: state.logX,
       stateLogY: state.logY,
-      leftLogX: document.getElementById("logX")?.checked ?? null,
-      leftLogY: document.getElementById("logY")?.checked ?? null,
+      legacyLeftAxisControls: !!document.getElementById("logX") || !!document.getElementById("logY"),
       chartLogX: document.getElementById("chartLogX")?.checked ?? null,
       chartLogY: document.getElementById("chartLogY")?.checked ?? null,
       axisTitles,
       activeSummary,
       chartScaleText,
+      filterCardText,
       readingGuideExists: !!readingGuide,
       readingGuideText: readingGuide?.textContent || "",
       readingGuideAria: readingGuide?.getAttribute("aria-label") || "",
@@ -152,12 +153,13 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     };
   });
   expect(firstRunReadabilityChecks.stateLogX && firstRunReadabilityChecks.stateLogY, `${htmlFile}: first-run state should default to log/log after built-in preset application`);
-  expect(firstRunReadabilityChecks.leftLogX && firstRunReadabilityChecks.leftLogY, `${htmlFile}: left-panel log checkboxes should reflect first-run log/log defaults`);
+  expect(!firstRunReadabilityChecks.legacyLeftAxisControls, `${htmlFile}: redundant left-panel axis controls should not render`);
   expect(firstRunReadabilityChecks.chartLogX && firstRunReadabilityChecks.chartLogY, `${htmlFile}: chart-adjacent log checkboxes should reflect first-run log/log defaults`);
   expect(firstRunReadabilityChecks.axisTitles.every(title => /\(log\)/.test(title)), `${htmlFile}: first-run axis titles should show log scale on both axes`);
   expect(/Scale: Log X \/ Log Y/.test(firstRunReadabilityChecks.activeSummary), `${htmlFile}: chart active summary should expose active log scales`);
   expect(/Engine x\d+/.test(firstRunReadabilityChecks.activeSummary) && /categories/.test(firstRunReadabilityChecks.activeSummary), `${htmlFile}: chart active summary should expose active filter state`);
   expect(/Log X axis/.test(firstRunReadabilityChecks.chartScaleText) && /Log Y axis/.test(firstRunReadabilityChecks.chartScaleText), `${htmlFile}: chart-adjacent scale controls missing English labels`);
+  expect(!/Axis scale|Log X axis|Log Y axis/.test(firstRunReadabilityChecks.filterCardText), `${htmlFile}: filter/display card should not contain redundant axis controls`);
   expect(firstRunReadabilityChecks.readingGuideExists, `${htmlFile}: chart-reading guide is missing`);
   expect(/How to read this chart/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide missing English heading`);
   expect(/Lower cumulative research/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not explain the X axis`);
@@ -175,16 +177,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     document.getElementById("chartLogX")?.click();
     const afterChartToggle = {
       stateLogX: state.logX,
-      leftLogX: document.getElementById("logX")?.checked ?? null,
       chartLogX: document.getElementById("chartLogX")?.checked ?? null,
-      activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
-      axisTitles: [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || ""),
-    };
-    document.getElementById("logX")?.click();
-    const afterLeftToggle = {
-      stateLogX: state.logX,
-      leftLogX: document.getElementById("logX")?.checked ?? null,
-      chartLogX: document.getElementById("chartLogX")?.checked ?? null,
+      legacyLeftAxisControls: !!document.getElementById("logX") || !!document.getElementById("logY"),
       activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
       axisTitles: [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || ""),
     };
@@ -193,8 +187,6 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const afterExplicitPreset = {
       stateLogX: state.logX,
       stateLogY: state.logY,
-      leftLogX: document.getElementById("logX")?.checked ?? null,
-      leftLogY: document.getElementById("logY")?.checked ?? null,
       chartLogX: document.getElementById("chartLogX")?.checked ?? null,
       chartLogY: document.getElementById("chartLogY")?.checked ?? null,
       activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
@@ -210,16 +202,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
     syncUiFromState();
-    return { afterChartToggle, afterLeftToggle, afterExplicitPreset, korean };
+    return { afterChartToggle, afterExplicitPreset, korean };
   });
   expect(!scaleControlSyncChecks.afterChartToggle.stateLogX, `${htmlFile}: chart-adjacent Log X toggle did not update state`);
-  expect(!scaleControlSyncChecks.afterChartToggle.leftLogX && !scaleControlSyncChecks.afterChartToggle.chartLogX, `${htmlFile}: chart-adjacent Log X toggle did not sync both controls`);
+  expect(!scaleControlSyncChecks.afterChartToggle.chartLogX, `${htmlFile}: chart-adjacent Log X toggle did not sync its checkbox`);
+  expect(!scaleControlSyncChecks.afterChartToggle.legacyLeftAxisControls, `${htmlFile}: redundant left-panel axis controls appeared after chart scale toggle`);
   expect(/Linear X/.test(scaleControlSyncChecks.afterChartToggle.activeSummary), `${htmlFile}: active summary did not reflect chart-adjacent Log X toggle`);
   expect(!/\(log\)/.test(scaleControlSyncChecks.afterChartToggle.axisTitles[0] || ""), `${htmlFile}: X axis title stayed log after chart-adjacent Log X toggle`);
-  expect(scaleControlSyncChecks.afterLeftToggle.stateLogX && scaleControlSyncChecks.afterLeftToggle.leftLogX && scaleControlSyncChecks.afterLeftToggle.chartLogX, `${htmlFile}: left-panel Log X toggle did not resync chart-adjacent control`);
-  expect(/Log X/.test(scaleControlSyncChecks.afterLeftToggle.activeSummary), `${htmlFile}: active summary did not reflect left-panel Log X toggle`);
   expect(scaleControlSyncChecks.afterExplicitPreset.stateLogX === false && scaleControlSyncChecks.afterExplicitPreset.stateLogY === true, `${htmlFile}: explicit preset logX/logY choices were not preserved`);
-  expect(!scaleControlSyncChecks.afterExplicitPreset.leftLogX && scaleControlSyncChecks.afterExplicitPreset.leftLogY, `${htmlFile}: explicit preset did not sync left-panel scale controls`);
   expect(!scaleControlSyncChecks.afterExplicitPreset.chartLogX && scaleControlSyncChecks.afterExplicitPreset.chartLogY, `${htmlFile}: explicit preset did not sync chart-adjacent scale controls`);
   expect(/Scale: Linear X \/ Log Y/.test(scaleControlSyncChecks.afterExplicitPreset.activeSummary), `${htmlFile}: active summary did not reflect explicit preset scale choices`);
   expect(/[가-힣]/u.test(scaleControlSyncChecks.korean.activeSummary + scaleControlSyncChecks.korean.chartScaleText + scaleControlSyncChecks.korean.readingGuideText), `${htmlFile}: Korean chart readability controls did not render Korean text`);
@@ -272,10 +262,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: acceleration metric simulation summary should not show the minimum acceleration threshold when that control is hidden`,
   );
   expect(
-    /X축 로그/.test(cardSummaryChecks.koreanFilterSummary)
-      && /Y축 로그/.test(cardSummaryChecks.koreanFilterSummary)
-      && !/log X|log Y|Log X|Log Y/.test(cardSummaryChecks.koreanFilterSummary),
-    `${htmlFile}: Korean filter summary should localize log axis labels`,
+    !/X축 로그|Y축 로그|log X|log Y|Log X|Log Y/.test(cardSummaryChecks.koreanFilterSummary),
+    `${htmlFile}: filter summary should not include axis scale labels`,
   );
 
   const filterActionBannerChecks = await page.evaluate(() => {
@@ -1413,8 +1401,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const lineControls = document.getElementById("connectionLineControls");
     const displayCard = document.querySelector('.control-card[data-control-card="display"]');
     const plotFrame = document.querySelector(".chart-plot-frame");
+    const chartSvg = document.getElementById("chart");
     const guideBox = guide?.getBoundingClientRect();
     const plotFrameBox = plotFrame?.getBoundingClientRect();
+    const readingGuideBox = readingGuide?.getBoundingClientRect();
+    const chartSvgBox = chartSvg?.getBoundingClientRect();
     const childOverflow = guide && guideBox
       ? [...guide.children].some(child => {
         const box = child.getBoundingClientRect();
@@ -1468,6 +1459,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       floatingInPlotCorner,
       lineModeSingleRow,
       readingGuideExists: !!readingGuide,
+      readingGuideInsidePlotFrame: !!(plotFrame && readingGuide && plotFrame.contains(readingGuide)),
+      readingGuideBelowChartSvg: !!(readingGuideBox && chartSvgBox && readingGuideBox.top >= chartSvgBox.bottom - 1),
       readingGuideText: englishReadingGuideText,
       activeSummaryText: englishActiveSummaryText,
       scaleControlsText: englishScaleControlsText,
@@ -1484,6 +1477,29 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     };
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
+  const desktopChartPanelLayout = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    syncUiFromState();
+    render();
+    const chartBody = document.querySelector(".chart-body");
+    const chartSvg = document.getElementById("chart");
+    const readingGuide = document.getElementById("chartReadingGuide");
+    const detailPanel = document.querySelector(".detail-panel");
+    const tooltip = document.getElementById("tooltip");
+    const chartBodyBox = chartBody?.getBoundingClientRect();
+    const chartSvgBox = chartSvg?.getBoundingClientRect();
+    const readingGuideBox = readingGuide?.getBoundingClientRect();
+    const detailPanelBox = detailPanel?.getBoundingClientRect();
+    const tooltipBox = tooltip?.getBoundingClientRect();
+    return {
+      twoColumnLayout: !!(chartBodyBox && detailPanelBox && readingGuideBox && detailPanelBox.left > readingGuideBox.right),
+      detailPanelStartsAtChart: !!(detailPanelBox && chartSvgBox && Math.abs(detailPanelBox.top - chartSvgBox.top) <= 1),
+      detailPanelReachesReadingGuide: !!(detailPanelBox && readingGuideBox && detailPanelBox.bottom >= readingGuideBox.bottom - 1),
+      tooltipReachesReadingGuide: !!(tooltipBox && readingGuideBox && tooltipBox.bottom >= readingGuideBox.bottom - 1),
+    };
+  });
   expect(chartGuideChecks.exists, `${htmlFile}: compact chart guide is missing`);
   expect(chartGuideChecks.guideInsidePlot, `${htmlFile}: compact chart guide should be inside the chart plot frame`);
   expect(chartGuideChecks.lineControlsInsideDisplayCard, `${htmlFile}: connection line controls should be inside the Display card`);
@@ -1492,11 +1508,17 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(chartGuideChecks.floatingInPlotCorner, `${htmlFile}: chart guide card should float in the chart plot's top-right corner`);
   expect(chartGuideChecks.lineModeSingleRow, `${htmlFile}: connection line mode buttons should stay on one row`);
   expect(chartGuideChecks.readingGuideExists, `${htmlFile}: chart-reading guide missing on narrow viewport`);
+  expect(chartGuideChecks.readingGuideInsidePlotFrame, `${htmlFile}: chart-reading guide should stay with the plot frame`);
+  expect(chartGuideChecks.readingGuideBelowChartSvg, `${htmlFile}: chart-reading guide should render below the chart plot`);
   expect(/How to read this chart/.test(chartGuideChecks.readingGuideText), `${htmlFile}: chart-reading guide missing English copy on narrow viewport`);
   expect(/Scale: Log X \/ Log Y/.test(chartGuideChecks.activeSummaryText), `${htmlFile}: active summary missing log/log state on narrow viewport`);
   expect(/Log X axis/.test(chartGuideChecks.scaleControlsText) && /Log Y axis/.test(chartGuideChecks.scaleControlsText), `${htmlFile}: chart-adjacent scale controls missing on narrow viewport`);
   expect(!chartGuideChecks.readingGuideChildOverflow, `${htmlFile}: chart-reading guide overflows on mobile`);
   expect(!chartGuideChecks.scaleControlsChildOverflow, `${htmlFile}: chart-adjacent scale controls overflow on mobile`);
+  expect(desktopChartPanelLayout.twoColumnLayout, `${htmlFile}: desktop chart body should keep the detail panel beside the plot`);
+  expect(desktopChartPanelLayout.detailPanelStartsAtChart, `${htmlFile}: detail panel should start at the chart plot top`);
+  expect(desktopChartPanelLayout.detailPanelReachesReadingGuide, `${htmlFile}: detail panel should extend to the bottom of the chart-reading guide`);
+  expect(desktopChartPanelLayout.tooltipReachesReadingGuide, `${htmlFile}: tooltip panel should extend to the bottom of the chart-reading guide`);
   expect(chartGuideChecks.englishItemCount >= 4, `${htmlFile}: compact chart guide is missing required items`);
   const lineModeDescriptions = new Map(chartGuideChecks.englishModeDescriptions.map(item => [item.mode, item.title]));
     expect(/Lines: drive progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain progression lines`);
