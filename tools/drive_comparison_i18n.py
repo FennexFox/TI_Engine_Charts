@@ -95,6 +95,8 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
         "The X axis is cumulative research including the first compatible power plant. Use it to compare total mass, acceleration (TWR), thrust, and efficiency at similar research costs and decide which drive path to invest in.",
     ),
     ("차트 빠른 설정", "Chart quick controls"),
+    ("차트 컨트롤", "Chart controls"),
+    ("차트 신호", "Signals"),
     ("표시", "Display"),
     ("필터", "Filters"),
     ("시뮬레이션 조건", "Simulation conditions"),
@@ -165,6 +167,9 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("가속도 정보 표시", "Show acceleration information"),
     ("총질량 정보 표시", "Show total mass information"),
     ("파레토 후보 강조", "Highlight Pareto candidates"),
+    ("가속도 정보", "Acceleration info"),
+    ("총질량 정보", "Total mass info"),
+    ("파레토 강조", "Pareto highlight"),
     ("비현실적 후보 표시", "Show impractical candidates"),
     ("추가 전원 연구력 반영", "Include additional power research"),
     ("X축: 최초+추가 전원 포함 연구력", "X axis: first + additional power research"),
@@ -269,5 +274,7 @@ def apply_static_english_html(html: str) -> str:
 
 
 def note_html_translations() -> dict[str, str]:
-    korean, english = ENGLISH_BLOCK_REPLACEMENTS[0]
-    return {"ko": korean, "en": english}
+    for korean, english in ENGLISH_BLOCK_REPLACEMENTS:
+        if korean.startswith("<strong>계산 메모."):
+            return {"ko": korean, "en": english}
+    raise RuntimeError("Calculation note translation is missing")
