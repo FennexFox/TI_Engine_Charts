@@ -68,12 +68,12 @@
 - Interpretation: Build, focused smoke, and full verification pass. The local bundled Playwright Chromium cannot launch because the host lacks `libnspr4.so`; validation passed by using the existing snap Chromium through `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/snap/bin/chromium`.
 - Validation: `./scripts/build-wsl.sh` passed; `node --check tools/verify_drive_comparison_browser.mjs` passed; focused Playwright smoke for `All Earth Defense`, `Custom`, `Kuiper Belt Assault`, above-slider numeric input, and Korean localization passed; `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/snap/bin/chromium npm run verify` passed.
 - Manual smoke tests: Covered by focused Playwright smoke against rebuilt `docs/index.html`; no separate human browser click-through was run.
-- Commit: Pending phase commit after phase gate.
+- Commit: 6611a5e (`build: publish mission dv preset UI`).
 - Commit blocker: None; staging is limited to generated UI assets, phase 3 plan evidence, source validation fix, and browser verifier validation fixes.
 
 ## Progress
 
-- Build, validation fixes, focused smoke, and full verification complete; phase gate pending.
+- Build, validation fixes, focused smoke, and full verification complete; phase gate passed; committed in 6611a5e.
 
 ## Decision log
 

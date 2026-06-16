@@ -58,12 +58,12 @@
 - Interpretation: Test coverage is implemented and syntactically valid. It will become executable after the checked-in UI build updates the generated page and client assets.
 - Validation: `node --check tools/verify_drive_comparison_browser.mjs` passed. `npm run verify:browser` not run in this phase because it would exercise stale generated UI output before the planned phase 3 rebuild.
 - Manual smoke tests: Covered by the automated browser scenario after phase 3 build; manual browser smoke remains in phase 3.
-- Commit: Pending phase commit after phase gate.
+- Commit: 70cdbe0 (`test: cover mission dv preset behavior`).
 - Commit blocker: None; staging is limited to issue #48 browser verifier and phase plan files.
 
 ## Progress
 
-- Browser coverage implemented; syntax validation complete; full browser execution deferred to phase 3 generated-output validation.
+- Browser coverage implemented; syntax validation complete; phase gate passed; committed in 70cdbe0. Full browser execution passed in phase 3 after generated-output rebuild.
 
 ## Decision log
 

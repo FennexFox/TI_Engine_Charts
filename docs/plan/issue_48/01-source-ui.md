@@ -78,12 +78,12 @@
 - Interpretation: Source behavior is implemented and static checks pass. Manual/browser behavior is deferred to phases 2 and 3 because checked-in generated UI assets have not been rebuilt yet.
 - Validation: `npm run verify:js` passed; extra `npm run verify:python` passed because this phase changed `tools/drive_comparison_i18n.py`.
 - Manual smoke tests: Not run in this phase; browser smoke is planned after automated browser coverage and rebuilt UI output.
-- Commit: Pending phase commit after phase gate.
+- Commit: 97ded6b (`feat: add mission dv preset control`).
 - Commit blocker: None; staging is limited to issue #48 plan/source files.
 
 ## Progress
 
-- Source implementation complete; phase validation complete; phase gate pending.
+- Source implementation complete; `npm run verify:js` and extra `npm run verify:python` passed; phase gate passed; committed in 97ded6b.
 
 ## Decision log
 

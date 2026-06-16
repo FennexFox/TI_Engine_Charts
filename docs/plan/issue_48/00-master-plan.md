@@ -78,16 +78,16 @@
 
 ## Final Audit Checklist
 
-- [ ] Final diff reviewed against issue body and user request.
-- [ ] Final diff reviewed against this master plan.
-- [ ] Phase acceptance criteria checked.
-- [ ] Validation results recorded.
-- [ ] Manual smoke test results recorded or explicitly deferred.
-- [ ] Generated-file policy followed.
-- [ ] Phase-sized commit flow audited.
-- [ ] Commit blockers documented when phase-sized commits were skipped.
-- [ ] Commit-flow classification assigned.
-- [ ] Completion classification assigned honestly.
+- [x] Final diff reviewed against issue body and user request.
+- [x] Final diff reviewed against this master plan.
+- [x] Phase acceptance criteria checked.
+- [x] Validation results recorded.
+- [x] Manual smoke test results recorded or explicitly deferred.
+- [x] Generated-file policy followed.
+- [x] Phase-sized commit flow audited.
+- [x] Commit blockers documented when phase-sized commits were skipped.
+- [x] Commit-flow classification assigned.
+- [x] Completion classification assigned honestly.
 
 ## Commit Audit Requirements
 
