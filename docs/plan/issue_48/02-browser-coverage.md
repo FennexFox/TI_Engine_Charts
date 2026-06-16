@@ -38,7 +38,8 @@
 
 ## Validation commands
 
-- npm run verify:browser
+- node --check tools/verify_drive_comparison_browser.mjs
+- npm run verify:browser (deferred to phase 3 after the UI-only build regenerates `docs/index.html` and `docs/assets/js/**`)
 
 ## Manual smoke tests
 
@@ -52,20 +53,22 @@
 ## Evidence
 
 - Baseline: Existing browser verification covers Target dV through presets and dry-mass flows but does not cover mission preset UI because it does not exist.
-- After: Pending.
-- Delta: Pending.
-- Interpretation: Pending.
-- Commit: TODO
-- Commit blocker: TODO
+- After: `tools/verify_drive_comparison_browser.mjs` includes a mission dV preset scenario that checks control presence, exact option values, English/Korean option text, 1000 slider max, wider number max, mission selection to 50 km/s, chart-guide render evidence, unrelated state preservation, manual `Custom`, manual exact-match reselection, above-slider numeric input behavior, and `syncUiFromState()` mission selection.
+- Delta: Browser verifier coverage now encodes issue #48's acceptance rules for mission dV sync. The full browser run is intentionally deferred until phase 3 because the verifier runs against generated `docs/index.html`, which has not yet been rebuilt from source.
+- Interpretation: Test coverage is implemented and syntactically valid. It will become executable after the checked-in UI build updates the generated page and client assets.
+- Validation: `node --check tools/verify_drive_comparison_browser.mjs` passed. `npm run verify:browser` not run in this phase because it would exercise stale generated UI output before the planned phase 3 rebuild.
+- Manual smoke tests: Covered by the automated browser scenario after phase 3 build; manual browser smoke remains in phase 3.
+- Commit: Pending phase commit after phase gate.
+- Commit blocker: None; staging is limited to issue #48 browser verifier and phase plan files.
 
 ## Progress
 
-- Not started.
+- Browser coverage implemented; syntax validation complete; full browser execution deferred to phase 3 generated-output validation.
 
 ## Decision log
 
-- No decisions recorded yet.
+- Browser verification depends on rebuilt `docs/` output, so phase 2 commits the verifier source and phase 3 runs it after the documented UI-only build.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Implemented browser regression coverage. Execution of the new coverage is deferred to phase 3 because generated UI assets are intentionally not rebuilt in this phase.

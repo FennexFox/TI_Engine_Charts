@@ -301,6 +301,186 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: filter summary should not include axis scale labels`,
   );
 
+  const missionDvPresetChecks = await page.evaluate(() => {
+    const select = document.getElementById("missionDvPreset");
+    const targetDv = document.getElementById("targetDv");
+    const targetDvNumber = document.getElementById("targetDvNumber");
+    const label = document.querySelector('label[for="missionDvPreset"]');
+    const valueOf = element => element?.value || "";
+    const textOf = element => (element?.textContent || "").replace(/\s+/g, " ").trim();
+    const optionSnapshot = () => [...(select?.options || [])].map(option => ({
+      value: option.value,
+      text: textOf(option),
+    }));
+    const unrelatedState = () => ({
+      dryMassTons: state.dryMassTons,
+      radiatorId: state.radiatorId,
+      metric: state.metric,
+      powerResearchView: state.powerResearchView,
+      moduleEffectsEnabled: state.moduleEffectsEnabled,
+      moduleEffectSource: state.moduleEffectSource,
+      moduleEffectModuleIds: state.moduleEffectModuleIds.join(","),
+      thrusters: state.thrusters,
+      minTwr: state.minTwr,
+      minDvKps: state.minDvKps,
+    });
+    const dispatchInput = (element, value) => {
+      if (!element) return;
+      element.value = String(value);
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const dispatchSelect = value => {
+      if (!select) return;
+      select.value = String(value);
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const chartGuideText = () => textOf(document.getElementById("chartGuideContent"));
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    Object.assign(state, {
+      metric: "totalMassTons",
+      dryMassTons: 12345,
+      thrusters: 3,
+      radiatorId: DATA.radiators[0]?.id || state.radiatorId,
+      powerResearchView: "best",
+      moduleEffectsEnabled: false,
+      moduleEffectSource: "manual",
+      moduleEffectModuleIds: ["MuonSpiker"],
+      minTwr: 0.0123,
+      minDvKps: 12,
+    });
+    syncUiFromState();
+
+    const beforeUnrelated = unrelatedState();
+    const initial = {
+      exists: !!select,
+      label: textOf(label),
+      options: optionSnapshot(),
+      sliderMax: targetDv?.max || "",
+      numberMax: targetDvNumber?.max || "",
+      selected: valueOf(select),
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+    };
+
+    dispatchSelect(50);
+    const afterJupiter = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+      selectedText: textOf(select?.selectedOptions?.[0]),
+      renderedGuide: chartGuideText(),
+      rows: currentChartRows.length,
+      unrelated: unrelatedState(),
+    };
+
+    dispatchInput(targetDvNumber, 51);
+    const afterManualCustom = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+    };
+
+    dispatchInput(targetDvNumber, 150);
+    const afterManualExact = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+      selectedText: textOf(select?.selectedOptions?.[0]),
+    };
+
+    dispatchInput(targetDvNumber, 1500);
+    const afterAboveSlider = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+    };
+
+    state.targetDvKps = 20;
+    syncUiFromState();
+    const afterStateSync = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+      selectedText: textOf(select?.selectedOptions?.[0]),
+    };
+
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const korean = {
+      label: textOf(label),
+      options: optionSnapshot(),
+      selected: valueOf(select),
+      selectedText: textOf(select?.selectedOptions?.[0]),
+    };
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+
+    return {
+      initial,
+      beforeUnrelated,
+      afterJupiter,
+      afterManualCustom,
+      afterManualExact,
+      afterAboveSlider,
+      afterStateSync,
+      korean,
+    };
+  });
+  expect(missionDvPresetChecks.initial.exists, `${htmlFile}: Mission dV preset control is missing`);
+  expect(missionDvPresetChecks.initial.label === "Mission dV preset", `${htmlFile}: Mission dV preset label did not localize to English`);
+  expect(missionDvPresetChecks.initial.sliderMax === "1000", `${htmlFile}: Target dV range max should be 1000`);
+  expect(missionDvPresetChecks.initial.numberMax === "100000", `${htmlFile}: Target dV number input should keep the wider max`);
+  expect(
+    missionDvPresetChecks.initial.options.map(option => option.value).join(",") === "custom,2,4,8,20,30,50,150,200,500",
+    `${htmlFile}: Mission dV preset options do not match the issue values`,
+  );
+  expect(
+    missionDvPresetChecks.initial.options.some(option => option.text === "LEO Defense / non-Earth orbit - 2 km/s")
+      && missionDvPresetChecks.initial.options.some(option => option.text === "Fast Kuiper Belt - 500 km/s"),
+    `${htmlFile}: Mission dV preset English option text is incomplete`,
+  );
+  expect(missionDvPresetChecks.afterJupiter.stateDv === 50, `${htmlFile}: Jupiter Assault did not update state target dV to 50`);
+  expect(missionDvPresetChecks.afterJupiter.rangeValue === "50", `${htmlFile}: Jupiter Assault did not sync the Target dV range input`);
+  expect(missionDvPresetChecks.afterJupiter.numberValue === "50", `${htmlFile}: Jupiter Assault did not sync the Target dV number input`);
+  expect(missionDvPresetChecks.afterJupiter.selected === "50", `${htmlFile}: Jupiter Assault did not keep the mission select synchronized`);
+  expect(/Jupiter Assault/.test(missionDvPresetChecks.afterJupiter.selectedText), `${htmlFile}: Jupiter Assault option text was not selected`);
+  expect(/dV 50 km\/s/.test(missionDvPresetChecks.afterJupiter.renderedGuide), `${htmlFile}: mission preset did not re-render chart guide assumptions`);
+  expect(missionDvPresetChecks.afterJupiter.rows > 0, `${htmlFile}: mission preset render produced no chart rows`);
+  expect(
+    JSON.stringify(missionDvPresetChecks.afterJupiter.unrelated) === JSON.stringify(missionDvPresetChecks.beforeUnrelated),
+    `${htmlFile}: mission dV preset changed unrelated simulation/display/filter/design state`,
+  );
+  expect(missionDvPresetChecks.afterManualCustom.stateDv === 51, `${htmlFile}: manual Target dV edit did not update state`);
+  expect(missionDvPresetChecks.afterManualCustom.selected === "custom", `${htmlFile}: non-matching manual Target dV should select Custom`);
+  expect(missionDvPresetChecks.afterManualExact.stateDv === 150, `${htmlFile}: manual exact Target dV edit did not update state`);
+  expect(missionDvPresetChecks.afterManualExact.selected === "150", `${htmlFile}: exact manual Target dV should select Fast Asteroid Assault`);
+  expect(/Fast Asteroid Assault/.test(missionDvPresetChecks.afterManualExact.selectedText), `${htmlFile}: exact manual Target dV selected the wrong mission option text`);
+  expect(missionDvPresetChecks.afterAboveSlider.stateDv === 1500, `${htmlFile}: Target dV number input should allow values above the slider max`);
+  expect(missionDvPresetChecks.afterAboveSlider.rangeValue === "1000", `${htmlFile}: Target dV range input should clamp values above its max to 1000`);
+  expect(missionDvPresetChecks.afterAboveSlider.numberValue === "1500", `${htmlFile}: Target dV number input did not retain the above-slider value`);
+  expect(missionDvPresetChecks.afterAboveSlider.selected === "custom", `${htmlFile}: above-slider manual Target dV should select Custom`);
+  expect(missionDvPresetChecks.afterStateSync.selected === "20", `${htmlFile}: syncUiFromState did not select the matching mission preset`);
+  expect(/Deceleration Burn Intercept/.test(missionDvPresetChecks.afterStateSync.selectedText), `${htmlFile}: syncUiFromState selected the wrong mission option text`);
+  expect(missionDvPresetChecks.korean.label === "임무 dV 프리셋", `${htmlFile}: Mission dV preset label did not localize to Korean`);
+  expect(
+    missionDvPresetChecks.korean.options.some(option => option.text === "목성 강습 - 50 km/s")
+      && missionDvPresetChecks.korean.options.some(option => option.text === "고속 카이퍼 벨트 - 500 km/s"),
+    `${htmlFile}: Mission dV preset Korean option text is incomplete`,
+  );
+  expect(!/Mission dV preset|Jupiter Assault|Fast Kuiper Belt/.test(
+    `${missionDvPresetChecks.korean.label} ${missionDvPresetChecks.korean.options.map(option => option.text).join(" ")}`,
+  ), `${htmlFile}: Korean Mission dV preset UI contains English text`);
+
   const filterActionBannerChecks = await page.evaluate(() => {
     const builtInSettings = DATA.presetLibrary?.chartPresets?.[0]?.settings;
     const applyBuiltInBaseline = () => {
