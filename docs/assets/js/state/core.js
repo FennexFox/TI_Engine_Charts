@@ -222,6 +222,7 @@ export function leftPanelCardSummary(key) {
         const assumptions = currentModuleEffectAssumptions();
         const parts = [
           templateName ? localText("함선 적용됨", "Ship applied") : localText("함선 미적용", "No ship applied"),
+          `${localText("엔진", "Engine")} ×${state.thrusters}`,
           assumptions.moduleEffectsEnabled
             ? `${localText("모듈 효과", "Module effects")} ${assumptions.activeModuleIds.length}`
             : localText("모듈 효과 꺼짐", "Module effects off"),
@@ -252,7 +253,7 @@ export function leftPanelCardSummary(key) {
         const selectedFamilies = DATA.subfamilies.filter(family => !!state.categories[family.categoryKey] && !!state.families[family.key]).length;
         const activeCategories = DATA.categories.filter(category => !!state.categories[category.key]).length;
         const search = state.searchTerm ? localText("검색 있음", "Search active") : localText("검색 없음", "No search");
-        return `${localText("엔진", "Engine")} ×${state.thrusters} · ${activeCategories}/${DATA.categories.length} ${localText("대분류", "categories")} · ${selectedFamilies}/${DATA.subfamilies.length} ${localText("계열", "families")} · ${search}`;
+        return `${activeCategories}/${DATA.categories.length} ${localText("대분류", "categories")} · ${selectedFamilies}/${DATA.subfamilies.length} ${localText("계열", "families")} · ${search}`;
       }
       return "";
     }
@@ -565,6 +566,10 @@ export const HELP_TEXT = {
       showImpracticalCandidates: {
         ko: "최소 가속도 또는 극단적 질량비 때문에 보통 숨겨지는 후보도 차트에 남깁니다. 왜 특정 계열이 사라지는지 조사하거나 낮은 dV 프리셋을 찾을 때 사용하세요.",
         en: "Keeps candidates that would normally be hidden by minimum acceleration or extreme mass ratio. Use it to inspect why a family disappears or to design lower-dV presets.",
+      },
+      thrusters: {
+        ko: "드라이브별 최대/최소 엔진 수 제한이 있으면 선택한 엔진 수에 가장 가까운 유효 엔진 수로 표시됩니다. 예: 최대 4개 제한 드라이브는 5~6 선택 시 4개로 계산됩니다.",
+        en: "If a drive has engine-count limits, the chart uses the closest valid engine count for that drive. For example, a drive capped at 4 engines is calculated as 4 when the global control is set to 5 or 6.",
       },
       minTwr: {
         ko: "목표 dV 질량 그래프와 가속도 그래프에서 Terra Invicta의 함선 acceleration, 즉 습질량 기준 TWR이 이 값보다 낮은 후보를 숨깁니다. 값을 낮추면 장거리 dV에는 가능하지만 가속이 매우 느린 조합까지 확인할 수 있습니다.",

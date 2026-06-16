@@ -1013,6 +1013,7 @@ export function syncUiFromState() {
       if (dryMassNumber) dryMassNumber.value = String(Math.round(state.dryMassTons));
       if (targetDv) targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
       if (targetDvNumber) targetDvNumber.value = String(Math.round(state.targetDvKps));
+      presetRuntimeApi.syncMissionDvPresetControl();
       if (radiator) {
         radiator.value = state.radiatorId;
         enhanceSearchableSelect(radiator);

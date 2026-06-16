@@ -1004,7 +1004,7 @@ def build_data(
         "defaults": {
             "targetDvKps": TARGET_DV_KPS,
             "dryMassTons": DEFAULT_DRY_MASS_TONS,
-            "thrusterCount": 1,
+            "thrusterCount": 6,
             "radiatorId": default_radiator.get("id") if default_radiator else None,
             "defaultCategoryKey": DEFAULT_CATEGORY_KEY,
         },
