@@ -213,7 +213,15 @@ export function metricSelectLabel() {
       return metric?.selectedOptions?.[0]?.textContent?.trim() || metricLabel(state.metric);
     }
 
+export function chartPresetSelectLabel() {
+      const select = document.getElementById("chartPresetSelect");
+      return select?.selectedOptions?.[0]?.textContent?.trim() || localText("차트 프리셋 없음", "No chart presets");
+    }
+
 export function leftPanelCardSummary(key) {
+      if (key === "scenarioPreset") {
+        return `${localText("선택", "Selected")} · ${chartPresetSelectLabel()}`;
+      }
       if (key === "display") {
         return `${metricSelectLabel()} · ${localText("연결선", "Lines")} ${connectionLineModeLabel()}`;
       }

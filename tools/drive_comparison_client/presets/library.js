@@ -1,6 +1,6 @@
 import { syncFilterInputs } from "../calc/filtering.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeConnectionLineMode, normalizeModuleEffectPresetState, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeConnectionLineMode, normalizeModuleEffectPresetState, normalizePowerResearchView, state, updateLeftPanelCardSummaries } from "../state/core.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 import { presetRuntimeApi } from "./runtime.js";
 import {
@@ -214,6 +214,7 @@ export function renderChartPresetControls(preferredId = "") {
       setDisabled("chartPresetSave", false);
       ["chartPresetRename", "chartPresetDelete"].forEach(id => setDisabled(id, !entry || !!entry.builtIn));
       setDisabled("chartPresetClearStartup", !startupChartPresetId);
+      updateLeftPanelCardSummaries();
     }
 
 export function renderDryMassPresetControls(preferredId = "") {

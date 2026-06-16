@@ -824,14 +824,20 @@ function bindTableRowInteractions(tr, row) {
         if (event && event.relatedTarget && tr.contains(event.relatedTarget)) return;
         clearTableRowPreview();
       };
+      const pinRow = event => {
+        if (event.target.closest("button, summary, details, input, select, textarea, a")) return;
+        const refs = dedupeTooltipRefs(tableRowPreviewRefs(row));
+        if (refs.length) pinTooltipItems(refs);
+      };
       tr.addEventListener("pointerenter", preview);
       tr.addEventListener("pointerleave", clear);
       tr.addEventListener("focusin", preview);
       tr.addEventListener("focusout", clear);
-      tr.addEventListener("click", event => {
-        if (event.target.closest("button, summary, details, input, select, textarea, a")) return;
-        const refs = dedupeTooltipRefs(tableRowPreviewRefs(row));
-        if (refs.length) pinTooltipItems(refs);
+      tr.addEventListener("click", pinRow);
+      tr.addEventListener("keydown", event => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        pinRow(event);
       });
     }
 
@@ -1037,6 +1043,5 @@ export function splitRomanSuffix(value) {
       if (!match) return null;
       return { base: match[1], roman: match[2] };
     }
-
 
 
