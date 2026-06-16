@@ -7,7 +7,7 @@ import { applyDryMassCalculatorPreset, exportedDryMassCalculatorPreset } from ".
 import { renderDryMassCalcModal } from "./ui/dry_mass_calculator.js";
 import { registerPresetRuntimeApi } from "./presets/library.js";
 import { registerMetricCalculationHooks } from "./state/core.js";
-import { setupControls } from "./ui/controls.js";
+import { setupControls, syncMissionDvPresetControl } from "./ui/controls.js";
 import { updateChartControls, syncMinDvInputs, syncMinTwrInputs } from "./ui/control_state.js";
 
 registerMetricCalculationHooks({
@@ -25,6 +25,7 @@ registerPresetRuntimeApi({
   render,
   renderDryMassCalcModal,
   setLanguage,
+  syncMissionDvPresetControl,
   syncMinDvInputs,
   syncMinTwrInputs,
   updateChartControls,

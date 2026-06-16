@@ -619,6 +619,9 @@
       gap: 8px;
       align-items: center;
     }
+    .mission-dv-preset-label {
+      margin-top: 10px;
+    }
     .segmented {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3129,4 +3132,3 @@ tbody tr.is-hovered .drive-name,
 tbody tr.is-selected .drive-name {
   color: #fff;
 }
-

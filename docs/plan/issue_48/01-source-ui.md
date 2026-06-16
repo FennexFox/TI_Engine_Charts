@@ -24,6 +24,7 @@
 ## Affected files
 
 - `tools/drive_comparison_template.html`
+- `tools/drive_comparison_styles.css`
 - `tools/drive_comparison_client/ui/controls.js`
 - `tools/drive_comparison_client/presets/runtime.js`
 - `tools/drive_comparison_client/presets/library.js`
@@ -72,20 +73,23 @@
 ## Evidence
 
 - Baseline: Issue #48 body reviewed; existing Target dV handlers directly set `state.targetDvKps` and call `render()`; existing range max is 2000 and number input max is 100000.
-- After: Pending.
-- Delta: Pending.
-- Interpretation: Pending.
-- Commit: TODO
-- Commit blocker: TODO
+- After: Source markup adds `#missionDvPreset` under Target dV; Target dV range max is 1000; source controls expose exact mission-value sync and route chart preset/import state sync through the preset runtime API; translation pairs cover the new label and all options.
+- Delta: Mission preset changes are source-only in this phase. Manual Target dV handlers now reuse a shared target dV sync helper, and `syncUiFromState()` now refreshes the mission select through `presetRuntimeApi.syncMissionDvPresetControl()`.
+- Interpretation: Source behavior is implemented and static checks pass. Manual/browser behavior is deferred to phases 2 and 3 because checked-in generated UI assets have not been rebuilt yet.
+- Validation: `npm run verify:js` passed; extra `npm run verify:python` passed because this phase changed `tools/drive_comparison_i18n.py`.
+- Manual smoke tests: Not run in this phase; browser smoke is planned after automated browser coverage and rebuilt UI output.
+- Commit: Pending phase commit after phase gate.
+- Commit blocker: None; staging is limited to issue #48 plan/source files.
 
 ## Progress
 
-- Not started.
+- Source implementation complete; phase validation complete; phase gate pending.
 
 ## Decision log
 
 - Treat the user's slider cap request as lowering the Target dV range input max to 1000 while preserving the wider number input.
+- Added a scoped `.mission-dv-preset-label` spacing rule so the new select reads as part of the Target dV control without crowding the slider.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Implemented source UI and state synchronization. Browser-level behavior and generated output remain for later phases.
