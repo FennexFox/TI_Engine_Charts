@@ -61,13 +61,34 @@
 
 ## Progress
 
-- Not started.
+- Added built-in chart preset normalization that strips `designPresetLibrary` and
+  `dryMassPresetLibrary` from normalized built-in settings.
+- Added an `allowDesignPresetLibraryRestore` option to `applyPresetToState()` and disabled
+  snapshot restoration when applying built-in chart entries, including startup presets.
+- Exposed the relevant preset helpers through debug hooks for browser verification.
+- Added browser verification for a deliberately malformed built-in chart entry containing
+  both snapshot fields, while retaining the existing user chart preset snapshot restore
+  checks.
+- Regenerated the default checked-in-data page/client assets with `npm run build`.
 
 ## Decision log
 
 - Runtime guard will be tested independently from converter output so accidental malformed
   checked-in built-ins are also covered.
+- Use both conversion-time and runtime hardening: the converter strips snapshots before
+  writing source JSON, normalized built-ins strip snapshots at load time, and built-in apply
+  calls disable snapshot restoration.
+- Keep the default `applyPresetToState()` behavior unchanged so imported and user-saved chart
+  presets remain portable.
+- Browser verification in this environment required local extracted Ubuntu libraries in
+  `.ti_cache/playwright-libs` because sudo package installation was unavailable and Chromium
+  initially could not find `libnspr4.so`, `libnss3.so`, `libnssutil3.so`, and
+  `libasound.so.2`.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Phase 3 completed. Built-in chart presets are resilient to embedded design library
+  snapshots, and user/imported chart preset snapshot restoration remains covered.
+- Validation passed:
+  - `npm run build`
+  - `LD_LIBRARY_PATH=.ti_cache/playwright-libs/usr/lib/x86_64-linux-gnu npm run verify`

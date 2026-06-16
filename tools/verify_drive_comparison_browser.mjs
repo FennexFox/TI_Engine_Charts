@@ -2187,6 +2187,108 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartControls, `${htmlFile}: chart preset management controls missing`);
   expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
 
+  const builtInSnapshotGuard = await page.evaluate(() => {
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    renderPresetLibraryControls();
+
+    dryMassCalcState.notes = "keep local design";
+    const localDesign = saveDryMassPresetFromCalculator("Keep Local Design", exportedDryMassCalculatorPreset());
+    const localDesignId = localDesign && localDesign.id;
+    const beforeIds = dryMassPresetLibrary.map(item => item.id).join("|");
+
+    const snapshotCalculator = exportedDryMassCalculatorPreset();
+    snapshotCalculator.notes = "unsafe built-in snapshot";
+    const snapshotEntry = dryMassPresetExportObject({
+      id: "restored-from-built-in",
+      name: "Unsafe Built-in Snapshot",
+      calculator: snapshotCalculator,
+      createdAt: "2026-06-16T00:00:00.000Z",
+      updatedAt: "2026-06-16T00:00:00.000Z",
+    });
+    const malformedSettings = {
+      format: "ti-engine-chart-preset/v1",
+      lang: "en",
+      metric: "totalMassTons",
+      dryMassTons: 4321,
+      targetDvKps: 22,
+      dryMassCalculator: {
+        ...snapshotCalculator,
+        notes: "built-in calculator applied",
+      },
+      selectedDesignPresetId: localDesignId,
+      designPresetLibrary: [snapshotEntry],
+      dryMassPresetLibrary: [snapshotEntry],
+    };
+    const normalized = normalizeBuiltInChartPresetEntry({
+      id: "unsafe-built-in",
+      name: "Unsafe Built-in",
+      settings: malformedSettings,
+    }, 99);
+    const normalizedHasSnapshots = !!normalized?.settings?.designPresetLibrary
+      || !!normalized?.settings?.dryMassPresetLibrary;
+
+    const applied = applyChartPresetEntry({
+      id: "built-in-chart:unsafe-built-in",
+      name: "Unsafe Built-in",
+      builtIn: true,
+      settings: malformedSettings,
+    }, { showStatus: false });
+    const afterIds = dryMassPresetLibrary.map(item => item.id).join("|");
+    const afterNotes = dryMassPresetLibrary.map(item => item.calculator.notes).join("|");
+    const selectedAfterBuiltIn = document.getElementById("dryMassPresetSelect")?.value || "";
+    const builtInCalculatorApplied = dryMassCalcState.notes === "built-in calculator applied";
+
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
+    const userApplied = applyPresetToState({
+      format: "ti-engine-chart-preset/v1",
+      selectedDesignPresetId: "restored-from-built-in",
+      designPresetLibrary: [snapshotEntry],
+    });
+    const userSnapshotRestored = dryMassPresetLibrary.length === 1
+      && dryMassPresetLibrary[0].id === "restored-from-built-in"
+      && dryMassPresetLibrary[0].calculator.notes === "unsafe built-in snapshot";
+
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    syncUiFromState();
+    renderPresetLibraryControls();
+
+    return {
+      localDesignSaved: !!localDesign,
+      normalizedHasSnapshots,
+      applied,
+      beforeIds,
+      afterIds,
+      afterNotes,
+      selectedAfterBuiltIn,
+      builtInCalculatorApplied,
+      userApplied,
+      userSnapshotRestored,
+    };
+  });
+  expect(builtInSnapshotGuard.localDesignSaved, `${htmlFile}: could not create local design fixture for built-in snapshot guard`);
+  expect(!builtInSnapshotGuard.normalizedHasSnapshots, `${htmlFile}: normalized built-in chart preset kept design library snapshot fields`);
+  expect(builtInSnapshotGuard.applied, `${htmlFile}: malformed built-in chart preset did not apply`);
+  expect(builtInSnapshotGuard.beforeIds === builtInSnapshotGuard.afterIds, `${htmlFile}: built-in chart preset replaced the local design preset library`);
+  expect(/keep local design/.test(builtInSnapshotGuard.afterNotes), `${htmlFile}: built-in chart preset mutated local design preset content`);
+  expect(!/restored-from-built-in/.test(builtInSnapshotGuard.afterIds), `${htmlFile}: built-in chart preset restored an embedded design snapshot`);
+  expect(builtInSnapshotGuard.selectedAfterBuiltIn === builtInSnapshotGuard.beforeIds, `${htmlFile}: built-in chart preset did not preserve selected local design`);
+  expect(builtInSnapshotGuard.builtInCalculatorApplied, `${htmlFile}: built-in chart preset did not apply its dry-mass calculator`);
+  expect(builtInSnapshotGuard.userApplied && builtInSnapshotGuard.userSnapshotRestored, `${htmlFile}: user chart preset snapshot restore behavior regressed`);
 
   const shipAssumptionWorkflow = await page.evaluate(async () => {
     localStorage.removeItem(CHART_PRESET_STORAGE_KEY);

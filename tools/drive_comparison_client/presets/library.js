@@ -124,7 +124,7 @@ export function selectedDryMassPresetEntry() {
 
 export function applyChartPresetEntry(entry, { showStatus = true } = {}) {
       if (!entry) return false;
-      if (!applyPresetToState(entry.settings)) {
+      if (!applyPresetToState(entry.settings, { allowDesignPresetLibraryRestore: !entry.builtIn })) {
         if (showStatus) showPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
         return false;
       }
@@ -162,7 +162,7 @@ export function applyStartupChartPreset() {
         : null;
       if (startupChartPresetId && !entry) setStartupChartPreset("");
       entry = entry || firstChartPresetEntry();
-      return !!entry && applyPresetToState(entry.settings);
+      return !!entry && applyPresetToState(entry.settings, { allowDesignPresetLibraryRestore: !entry.builtIn });
     }
 
 export function setDisabled(id, disabled) {
@@ -909,7 +909,8 @@ export async function serializePresetPayload() {
     }
 
 
-export function applyPresetToState(rawPreset) {
+export function applyPresetToState(rawPreset, options = {}) {
+      const { allowDesignPresetLibraryRestore = true } = options || {};
       const preset = rawPreset && rawPreset.settings ? rawPreset.settings : rawPreset;
       if (!preset || typeof preset !== "object") return false;
 
@@ -962,13 +963,15 @@ export function applyPresetToState(rawPreset) {
         });
       }
 
-      const designLibrarySnapshot = Array.isArray(preset.designPresetLibrary)
-        ? preset.designPresetLibrary
-        : Array.isArray(preset.dryMassPresetLibrary)
-          ? preset.dryMassPresetLibrary
-          : null;
-      if (designLibrarySnapshot) {
-        restoreDesignPresetLibrarySnapshot(designLibrarySnapshot);
+      if (allowDesignPresetLibraryRestore) {
+        const designLibrarySnapshot = Array.isArray(preset.designPresetLibrary)
+          ? preset.designPresetLibrary
+          : Array.isArray(preset.dryMassPresetLibrary)
+            ? preset.dryMassPresetLibrary
+            : null;
+        if (designLibrarySnapshot) {
+          restoreDesignPresetLibrarySnapshot(designLibrarySnapshot);
+        }
       }
 
       const selectedDesignPresetId = typeof preset.selectedDesignPresetId === "string" ? preset.selectedDesignPresetId : "";

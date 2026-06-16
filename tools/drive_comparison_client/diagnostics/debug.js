@@ -27,7 +27,9 @@ import {
   dryMassPresetLibrary,
   dryMassPresetLibraryExportObject,
   exportedPreset,
+  applyChartPresetEntry,
   handleImportedPresetObject,
+  normalizeBuiltInChartPresetEntry,
   parsePresetPayload,
   renderDryMassPresetControls,
   renderPresetLibraryControls,
@@ -90,6 +92,7 @@ export function installDebugHooks() {
       return startupChartPresetId;
     },
     applyDryMassCalculatorPreset,
+    applyChartPresetEntry,
     applyLeftPanelOrder,
     applyPresetToState,
     axisSnapshot,
@@ -110,6 +113,7 @@ export function installDebugHooks() {
     loadLeftPanelLayout,
     metricDefs,
     moduleEffectEvaluationForDrive,
+    normalizeBuiltInChartPresetEntry,
     normalizeDryMassCalcSlots,
     normalizeModuleEffectModuleIds,
     parsePresetPayload,
@@ -154,6 +158,7 @@ export function installDebugHooks() {
 
   Object.defineProperties(window, {
     applyDryMassCalculatorPreset: { value: applyDryMassCalculatorPreset, configurable: true },
+    applyChartPresetEntry: { value: applyChartPresetEntry, configurable: true },
     applyLeftPanelOrder: { value: applyLeftPanelOrder, configurable: true },
     applyPresetToState: { value: applyPresetToState, configurable: true },
     armorMaxPoints: { value: armorMaxPoints, configurable: true },
@@ -190,6 +195,7 @@ export function installDebugHooks() {
     loadLeftPanelLayout: { value: loadLeftPanelLayout, configurable: true },
     metricDefs: { value: metricDefs, configurable: true },
     moduleEffectEvaluationForDrive: { value: moduleEffectEvaluationForDrive, configurable: true },
+    normalizeBuiltInChartPresetEntry: { value: normalizeBuiltInChartPresetEntry, configurable: true },
     normalizeDryMassCalcSlots: { value: normalizeDryMassCalcSlots, configurable: true },
     normalizeModuleEffectModuleIds: { value: normalizeModuleEffectModuleIds, configurable: true },
     parsePresetPayload: { value: parsePresetPayload, configurable: true },
