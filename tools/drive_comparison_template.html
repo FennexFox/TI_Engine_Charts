@@ -208,19 +208,29 @@ __STYLES__
               <input id="dryMassNumber" type="number" min="0" max="1000000" value="10000" step="10">
             </div>
           </section>
-          <section class="control-block">
-            <label class="label" for="targetDv">목표 dV (km/s)</label>
+          <section class="control-block target-dv-control">
+            <div class="target-dv-heading">
+              <label class="label" for="targetDv">목표 dV (km/s)</label>
+              <details id="missionDvPresetMenu" class="mission-dv-menu">
+                <summary id="missionDvPresetButton" class="mission-dv-trigger" aria-label="임무 dV 프리셋 열기">
+                  <span id="missionDvPresetButtonText">미션 프리셋</span>
+                  <span class="mission-dv-trigger-caret" aria-hidden="true">▾</span>
+                </summary>
+                <div id="missionDvPresetList" class="mission-dv-menu-panel" role="menu" aria-labelledby="missionDvPresetButton"></div>
+              </details>
+            </div>
             <div class="split">
               <input id="targetDv" type="range" min="0" max="1000" value="500" step="1">
               <input id="targetDvNumber" type="number" min="0" max="100000" value="500" step="1">
             </div>
-            <label class="label mission-dv-preset-label" for="missionDvPreset">임무 dV 프리셋</label>
-            <select id="missionDvPreset">
+            <div id="missionDvPresetStatus" class="control-hint mission-dv-status" aria-live="polite">사용자 지정 목표 dV</div>
+            <label class="visually-hidden" for="missionDvPreset">임무 dV 프리셋</label>
+            <select id="missionDvPreset" class="mission-dv-native-select" aria-hidden="true" tabindex="-1">
               <option value="custom">사용자 지정</option>
               <option value="2">LEO 방어 / 비지구 궤도 - 2 km/s</option>
               <option value="4">MEO에서 LEO - 4 km/s</option>
               <option value="8">전 지구권 방어 - 8 km/s</option>
-              <option value="20">감속 연소 요격 - 20 km/s</option>
+              <option value="20">신속착륙 요격 - 20 km/s</option>
               <option value="30">소행성 강습 - 30 km/s</option>
               <option value="50">목성 강습 - 50 km/s</option>
               <option value="150">고속 소행성 강습 - 150 km/s</option>

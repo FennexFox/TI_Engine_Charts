@@ -18,7 +18,7 @@ import {
   syncMetricGroupLabels,
   updateLeftPanelCardSummaries,
 } from "../state/core.js";
-import { refreshSourceNote } from "../ui/controls.js";
+import { refreshSourceNote, syncMissionDvPresetControl } from "../ui/controls.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 
 export function resetApplicationStateToDefaults() {
@@ -61,6 +61,7 @@ export function refreshLocalizedControls() {
   applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
   renderRadiatorOptions(document.getElementById("radiator"));
   enhanceSearchableSelect(document.getElementById("radiator"));
+  syncMissionDvPresetControl();
   setPresetUiText();
   renderDryMassCalcModal();
 }
