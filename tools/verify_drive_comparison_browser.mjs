@@ -2272,6 +2272,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       normalizedHasSnapshots,
       applied,
       beforeIds,
+      localDesignId,
       afterIds,
       afterNotes,
       selectedAfterBuiltIn,
@@ -2286,7 +2287,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(builtInSnapshotGuard.beforeIds === builtInSnapshotGuard.afterIds, `${htmlFile}: built-in chart preset replaced the local design preset library`);
   expect(/keep local design/.test(builtInSnapshotGuard.afterNotes), `${htmlFile}: built-in chart preset mutated local design preset content`);
   expect(!/restored-from-built-in/.test(builtInSnapshotGuard.afterIds), `${htmlFile}: built-in chart preset restored an embedded design snapshot`);
-  expect(builtInSnapshotGuard.selectedAfterBuiltIn === builtInSnapshotGuard.beforeIds, `${htmlFile}: built-in chart preset did not preserve selected local design`);
+  expect(builtInSnapshotGuard.selectedAfterBuiltIn === builtInSnapshotGuard.localDesignId, `${htmlFile}: built-in chart preset did not preserve selected local design`);
   expect(builtInSnapshotGuard.builtInCalculatorApplied, `${htmlFile}: built-in chart preset did not apply its dry-mass calculator`);
   expect(builtInSnapshotGuard.userApplied && builtInSnapshotGuard.userSnapshotRestored, `${htmlFile}: user chart preset snapshot restore behavior regressed`);
 
