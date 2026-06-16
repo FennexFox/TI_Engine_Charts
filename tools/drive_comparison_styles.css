@@ -430,17 +430,6 @@
       min-width: 0;
     }
 
-
-
-    .ship-designer-status-line {
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-
-
-
-
-
     .ship-designer-heading {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;

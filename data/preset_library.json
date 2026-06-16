@@ -2,8 +2,8 @@
   "format": "ti-engine-chart-built-in-presets/v1",
   "chartPresets": [
     {
-      "id": "chart-import",
-      "name": "import",
+      "id": "chart-intermediate-missile-monitor",
+      "name": "Intermediate Missile Monitor",
       "settings": {
         "format": "ti-engine-chart-preset/v1",
         "lang": "en",

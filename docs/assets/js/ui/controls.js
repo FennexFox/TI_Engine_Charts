@@ -90,7 +90,7 @@ function renderMissionDvMenu() {
   custom.type = "button";
   custom.className = "mission-dv-option mission-dv-custom-option";
   custom.dataset.missionDvValue = MISSION_DV_PRESET_CUSTOM;
-  custom.setAttribute("role", "menuitemradio");
+  custom.setAttribute("role", "radio");
   custom.innerHTML = `<span class="mission-dv-option-name">${localText("사용자 지정 목표 dV", "Custom target dV")}</span>`;
   list.appendChild(custom);
 
@@ -104,7 +104,7 @@ function renderMissionDvMenu() {
       button.type = "button";
       button.className = "mission-dv-option";
       button.dataset.missionDvValue = String(preset.value);
-      button.setAttribute("role", "menuitemradio");
+      button.setAttribute("role", "radio");
       button.innerHTML = [
         `<span class="mission-dv-option-name">${localizedMissionText(preset.label)}</span>`,
         `<span class="mission-dv-option-value">${preset.value}</span>`,
@@ -241,7 +241,6 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       const dryMassNumber = document.getElementById("dryMassNumber");
       const targetDv = document.getElementById("targetDv");
       const targetDvNumber = document.getElementById("targetDvNumber");
-      const missionDvPreset = document.getElementById("missionDvPreset");
       const radiator = document.getElementById("radiator");
       const logX = document.getElementById("logX");
       const logY = document.getElementById("logY");
@@ -309,10 +308,10 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
       applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
-      const thrusterCountHelp = document.getElementById("thrusterCountHelp");
-      applyHelp(thrusterCountHelp, helpText("thrusters"));
-      if (thrusterCountHelp) {
-        thrusterCountHelp.setAttribute("aria-label", localText("엔진 수 도움말", "Engine count help"));
+      const shipEngineCountHelp = document.getElementById("shipEngineCountHelp");
+      applyHelp(shipEngineCountHelp, helpText("thrusters"));
+      if (shipEngineCountHelp) {
+        shipEngineCountHelp.setAttribute("aria-label", localText("엔진 수 도움말", "Engine count help"));
       }
 
       metric.value = state.metric;
