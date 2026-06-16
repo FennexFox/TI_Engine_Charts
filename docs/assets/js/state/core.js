@@ -160,7 +160,7 @@ export function powerResearchActive() {
     }
 
 export const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
-export const LEFT_PANEL_DEFAULT_ORDER = ["scenarioPreset", "display", "shipDesigner", "simulation", "driveFilter"];
+export const LEFT_PANEL_DEFAULT_ORDER = ["simulation", "shipDesigner", "driveFilter", "display", "scenarioPreset"];
 export const CHART_PRESET_STORAGE_KEY = "tiEngineChartNamedPresets";
 export const CHART_PRESET_STARTUP_STORAGE_KEY = "tiEngineChartStartupPresetId";
 export const DRY_MASS_PRESET_STORAGE_KEY = "tiEngineChartDryMassPresets";

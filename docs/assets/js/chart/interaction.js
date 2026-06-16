@@ -165,10 +165,10 @@ export function filterActionBannerModel(diagnostics) {
       if (!searchSummary.active && hiddenSummary.totalHidden > 0) {
         const reason = hiddenSummary.dominantReason || "other";
         return {
-          title: localText("일부 드라이브가 현재 설정 때문에 숨겨져 있습니다.", "Some drives are hidden by current settings."),
+          title: localText("일부 드라이브가 숨겨져 있습니다.", "Some drives are hidden."),
           detail: localText(
-            `${driveCountTextKo(hiddenSummary.totalHidden)}가 현재 설정 때문에 숨겨져 있습니다. 주요 원인: ${hiddenReasonLabel(reason)}.`,
-            `${driveCountTextEn(hiddenSummary.totalHidden)} are hidden by current settings. Main reason: ${hiddenReasonLabel(reason)}.`,
+            `${driveCountTextKo(hiddenSummary.totalHidden)} 숨김 · 주로 ${hiddenReasonLabel(reason)} 때문입니다.`,
+            `${driveCountTextEn(hiddenSummary.totalHidden)} hidden · mostly because of ${hiddenReasonLabel(reason)}.`,
           ),
           actions: hiddenReasonActions(reason),
         };

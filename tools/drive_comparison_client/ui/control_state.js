@@ -222,6 +222,7 @@ export function updateChartControls() {
   const minDvControl = document.getElementById("minDvControl");
   const powerResearchViewControl = document.getElementById("powerResearchViewControl");
   const chartScaleControls = document.getElementById("chartScaleControls");
+  const chartOptionsHeading = document.getElementById("chartOptionsHeading");
   const chartLogX = document.getElementById("chartLogX");
   const chartLogY = document.getElementById("chartLogY");
   const chartScaleLabel = document.getElementById("chartScaleLabel");
@@ -234,6 +235,8 @@ export function updateChartControls() {
   minTwrControl.style.display = isBandMetric() ? "" : "none";
   minDvControl.style.display = state.metric === "twr" ? "" : "none";
   powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
+  if (chartOptionsHeading) chartOptionsHeading.textContent = localText("차트 옵션", "Chart options");
+  if (bandAnalysisControls) bandAnalysisControls.setAttribute("aria-label", localText("차트 보조 표시", "Chart overlays"));
   if (chartScaleControls) chartScaleControls.setAttribute("aria-label", localText("축 스케일", "Axis scale"));
   if (chartScaleLabel) chartScaleLabel.textContent = localText("축", "Axes");
   if (chartLogX) chartLogX.checked = !!state.logX;

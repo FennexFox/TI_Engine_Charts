@@ -422,6 +422,25 @@ export function syncTablePowerStepDetails() {
           tr.classList.toggle("is-selected", selectedIds.has(tr.getAttribute("data-power-option-id") || ""));
         });
       });
+      syncTableRowHighlights();
+    }
+
+export function syncTableRowHighlights() {
+      const activeRowIds = new Set(
+        dedupeTooltipRefs([...state.hoverPoints, ...state.lastTooltipItems, ...pinnedTooltipRefs()])
+          .map(item => item.rowId)
+          .filter(Boolean),
+      );
+      const pinnedRowIds = new Set(
+        pinnedTooltipRefs()
+          .map(item => item.rowId)
+          .filter(Boolean),
+      );
+      document.querySelectorAll("#tableBody > tr[data-row-id]").forEach(tr => {
+        const rowId = tr.getAttribute("data-row-id") || "";
+        tr.classList.toggle("is-hovered", activeRowIds.has(rowId));
+        tr.classList.toggle("is-selected", pinnedRowIds.has(rowId));
+      });
     }
 
 export function tablePowerStepsDetailsHtml(row, selectedPowerOptionIds = new Set(), summaryHtml = "") {
@@ -586,8 +605,9 @@ export function renderEmptyTooltip() {
       const family = currentDiagnostics && currentDiagnostics.zeroFamilies.length
         ? currentDiagnostics.zeroFamilies[0]
         : null;
-      if (family) {
-        tooltip.innerHTML = scenarioPanelHtml(family, currentDiagnostics.zeroFamilies.length);
+      const hasHiddenSummary = currentDiagnostics && currentDiagnostics.hiddenSummary && currentDiagnostics.hiddenSummary.totalHidden > 0;
+      if (family || hasHiddenSummary) {
+        tooltip.innerHTML = scenarioPanelHtml(family, family ? currentDiagnostics.zeroFamilies.length : 0);
         tooltip.classList.add("has-diagnostic");
         tooltip.classList.remove("has-panel");
       } else {
@@ -622,9 +642,9 @@ export function clearTooltip(options = {}) {
 export function usagePanelHtml() {
       if (UI_LANG === "en") {
         return `
-          <div class="usage-panel">
-            <h2>How to use detail cards</h2>
-            <p>Hover over a chart point to show its total-mass/TWR card here. Click a point to keep the current card set while you inspect other parts of the chart.</p>
+          <div class="usage-panel detail-empty-panel">
+            <h2>Inspect a drive</h2>
+            <p>Hover a chart point or table row to show its detailed card here. Click a point or row to keep the card open while comparing candidates.</p>
             <ul>
               <li>Use Pin on an individual card to keep that drive visible while hovering over distant candidates.</li>
               <li>Use the arrow buttons to reorder cards, and the x button to remove cards that are no longer useful.</li>
@@ -634,9 +654,9 @@ export function usagePanelHtml() {
         `;
       }
       return `
-        <div class="usage-panel">
-          <h2>상세 카드 사용법</h2>
-          <p>차트의 데이터포인트에 마우스를 올리면 해당 추진기와 전원 조합의 총질량/TWR 카드가 이 영역에 표시됩니다. 데이터포인트를 클릭하면 현재 카드 묶음을 유지한 채 다른 지점을 살펴볼 수 있습니다.</p>
+        <div class="usage-panel detail-empty-panel">
+          <h2>드라이브 살펴보기</h2>
+          <p>차트 점이나 표 행에 마우스를 올리면 해당 추진기와 전원 조합의 상세 카드가 이 영역에 표시됩니다. 점이나 행을 클릭하면 카드를 고정한 채 다른 후보와 비교할 수 있습니다.</p>
           <ul>
             <li>개별 카드의 핀 버튼을 누르면 서로 멀리 떨어진 후보를 계속 남겨 두고 비교할 수 있습니다.</li>
             <li>화살표 버튼으로 카드 순서를 바꾸고, x 버튼으로 더 이상 필요 없는 카드를 삭제할 수 있습니다.</li>
@@ -647,27 +667,76 @@ export function usagePanelHtml() {
     }
 
 export function scenarioPanelHtml(family, zeroFamilyCount) {
-      const title = UI_LANG === "en" ? "Why are some drives hidden?" : "왜 일부 드라이브가 숨겨졌나요?";
-      const body = scenarioExplanationText(family);
+      const hiddenSummary = currentDiagnostics && currentDiagnostics.hiddenSummary ? currentDiagnostics.hiddenSummary : null;
+      const hiddenCount = hiddenSummary && Number.isFinite(hiddenSummary.totalHidden)
+        ? hiddenSummary.totalHidden
+        : (family ? family.hidden : 0);
+      const reason = (hiddenSummary && hiddenSummary.dominantReason) || (family ? family.dominantReason : "") || "other";
+      const body = family
+        ? scenarioExplanationText(family)
+        : genericHiddenExplanationText(reason, hiddenCount);
       const suggestions = scenarioSuggestions();
-      const more = zeroFamilyCount > 1
+      const more = family && zeroFamilyCount > 1
         ? (UI_LANG === "en"
           ? `<p>${zeroFamilyCount - 1} additional selected ${zeroFamilyCount - 1 === 1 ? "family is" : "families are"} also hidden under this scenario.</p>`
           : `<p>이 외에도 선택된 계열 ${zeroFamilyCount - 1}개가 현재 시나리오에서 숨겨져 있습니다.</p>`)
         : "";
+      const hiddenTitle = UI_LANG === "en"
+        ? `Hidden by filters: ${hiddenCount}`
+        : `필터로 숨김: ${hiddenCount}개`;
+      const reasonText = UI_LANG === "en"
+        ? `Mostly because of ${hiddenReasonLabel(reason)}.`
+        : `주로 ${hiddenReasonLabel(reason)} 때문입니다.`;
       return `
-        <div class="scenario-panel">
-          <h2>${escapeHtml(title)}</h2>
-          <p>${escapeHtml(body)}</p>
-          ${more}
-          <div>
-            <div class="muted">${escapeHtml(UI_LANG === "en" ? "Suggestions" : "제안")}</div>
-            <ul>
-              ${suggestions.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
-            </ul>
+        <div class="scenario-panel detail-empty-panel">
+          <div class="detail-empty-intro">
+            <h2>${escapeHtml(UI_LANG === "en" ? "Inspect a drive" : "드라이브 살펴보기")}</h2>
+            <p>${escapeHtml(UI_LANG === "en"
+              ? "Hover a chart point or table row to show its detailed card here. Click a point or row to keep the card open while comparing candidates."
+              : "차트 점이나 표 행에 마우스를 올리면 상세 카드가 이 영역에 표시됩니다. 점이나 행을 클릭하면 카드를 고정한 채 다른 후보와 비교할 수 있습니다.")}</p>
           </div>
+          <section class="hidden-filter-summary">
+            <h3>${escapeHtml(hiddenTitle)}</h3>
+            <p>${escapeHtml(reasonText)}</p>
+            <details>
+              <summary>${escapeHtml(UI_LANG === "en" ? "Why?" : "왜 숨겨졌나요?")}</summary>
+              <div class="hidden-filter-detail">
+                <p>${escapeHtml(body)}</p>
+                ${more}
+                <div>
+                  <div class="muted">${escapeHtml(UI_LANG === "en" ? "Suggestions" : "제안")}</div>
+                  <ul>
+                    ${suggestions.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+                  </ul>
+                </div>
+              </div>
+            </details>
+          </section>
         </div>
       `;
+    }
+
+function hiddenReasonLabel(reason) {
+      const labels = {
+        minTwr: UI_LANG === "en" ? "minimum acceleration threshold" : "최소 가속도 기준",
+        minDv: UI_LANG === "en" ? "minimum dV threshold" : "최소 dV 기준",
+        targetDvOrMassRatio: UI_LANG === "en" ? "target dV / mass-ratio scenario" : "목표 dV / 질량비 시나리오",
+        familyFilter: UI_LANG === "en" ? "drive family filters" : "드라이브 계열 필터",
+        thrusterCountFilter: UI_LANG === "en" ? "engine count filter" : "엔진 수 필터",
+        researchFilter: UI_LANG === "en" ? "research unlock constraints" : "연구 개방 조건",
+        axisRange: UI_LANG === "en" ? "chart axis range" : "차트 축 범위",
+        invalidPowerPlant: UI_LANG === "en" ? "compatible power plant constraints" : "호환 전원 조건",
+        invalidComputation: UI_LANG === "en" ? "invalid calculation result" : "계산 불가 결과",
+        searchFilter: UI_LANG === "en" ? "search term" : "검색어",
+        other: UI_LANG === "en" ? "current settings" : "현재 설정",
+      };
+      return labels[reason] || labels.other;
+    }
+
+function genericHiddenExplanationText(reason, hiddenCount) {
+      return UI_LANG === "en"
+        ? `${hiddenCount} drive${hiddenCount === 1 ? "" : "s"} are hidden by ${hiddenReasonLabel(reason)} under the current scenario and filters.`
+        : `현재 시나리오와 필터에서 ${hiddenCount}개 드라이브가 ${hiddenReasonLabel(reason)} 때문에 숨겨져 있습니다.`;
     }
 
 export function scenarioExplanationText(family) {
@@ -727,6 +796,8 @@ export function renderTable(rows) {
       const sorted = sortRows(rows);
       sorted.forEach(row => {
         const tr = document.createElement("tr");
+        tr.dataset.rowId = row.id;
+        tr.tabIndex = 0;
         const powerOptions = isBandMetric() ? chartSummaryMassOptions(row) : massOptions(row);
         const selectedPowerIds = selectedPowerIdsByRow.get(row.id) || new Set();
         const powerCell = powerOptions.length
@@ -741,9 +812,63 @@ export function renderTable(rows) {
           <td class="numeric">${metricCell(row, metricDomain)}</td>
           <td>${powerCell}</td>
         `;
+        bindTableRowInteractions(tr, row);
         tbody.appendChild(tr);
       });
       syncTablePowerStepDetails();
+    }
+
+function bindTableRowInteractions(tr, row) {
+      const preview = () => previewTableRow(row);
+      const clear = event => {
+        if (event && event.relatedTarget && tr.contains(event.relatedTarget)) return;
+        clearTableRowPreview();
+      };
+      tr.addEventListener("pointerenter", preview);
+      tr.addEventListener("pointerleave", clear);
+      tr.addEventListener("focusin", preview);
+      tr.addEventListener("focusout", clear);
+      tr.addEventListener("click", event => {
+        if (event.target.closest("button, summary, details, input, select, textarea, a")) return;
+        const refs = dedupeTooltipRefs(tableRowPreviewRefs(row));
+        if (refs.length) pinTooltipItems(refs);
+      });
+    }
+
+function tableRowPreviewRefs(row) {
+      if (!row) return [];
+      if (isBandMetric()) {
+        const options = chartSummaryMassOptions(row);
+        if (options.length) return options.map(option => tooltipRef(row.id, option.id));
+      }
+      const option = defaultTooltipOption(row);
+      return [tooltipRef(row.id, option ? option.id : "")];
+    }
+
+function previewTableRow(row) {
+      if (!row || state.tooltipPinned) return;
+      const refs = dedupeTooltipRefs(tableRowPreviewRefs(row));
+      if (!refs.length) return;
+      const nextRefs = mergePinnedTooltipRefs(refs);
+      state.hoverHitSignature = `table:${refs.map(item => item.key).join("|")}`;
+      state.dismissedTooltipKeys.clear();
+      state.lastTooltipItems = nextRefs;
+      setHoverPoints(nextRefs);
+      refreshTooltip(currentChartRows);
+    }
+
+function clearTableRowPreview() {
+      if (state.tooltipPinned) return;
+      state.hoverHitSignature = "";
+      state.dismissedTooltipKeys.clear();
+      const pinned = pinnedTooltipRefs();
+      if (!pinned.length) {
+        clearTooltip({ keepPinned: true });
+        return;
+      }
+      state.lastTooltipItems = pinned;
+      setHoverPoints(pinned);
+      refreshTooltip(currentChartRows);
     }
 
 export function sortRows(rows) {

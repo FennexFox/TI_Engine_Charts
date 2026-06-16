@@ -278,9 +278,9 @@ __STYLES__
                 <label><input type="radio" name="fuelUnit" value="seconds">s</label>
               </div>
             </div>
-            <div class="summary-controls chart-plot-controls">
-              <section id="bandAnalysisControls" class="chart-quick-filter-controls" aria-label="차트 신호">
-                <span class="chart-toggle-label">차트 신호</span>
+            <div class="summary-controls chart-plot-controls" aria-label="차트 옵션">
+              <span id="chartOptionsHeading" class="chart-options-heading">차트 옵션</span>
+              <section id="bandAnalysisControls" class="chart-quick-filter-controls" aria-label="차트 보조 표시">
                 <label id="showTwrInfoRow" class="check-row chart-toggle chart-quick-filter-toggle"><input id="showTwrInfo" type="checkbox" checked> <span>가속도 정보</span></label>
                 <label id="showMassInfoRow" class="check-row chart-toggle chart-quick-filter-toggle" style="display: none;"><input id="showMassInfo" type="checkbox" checked> <span>총질량 정보</span></label>
                 <label class="check-row chart-toggle chart-quick-filter-toggle"><input id="paretoHighlight" type="checkbox" checked> <span>파레토 강조</span></label>
@@ -292,7 +292,6 @@ __STYLES__
                 </div>
               </section>
               <div id="chartScaleControls" class="chart-scale-controls" aria-label="축 스케일">
-                <span id="chartScaleLabel" class="chart-toggle-label">축</span>
                 <label class="chart-toggle chart-scale-toggle"><input id="chartLogX" type="checkbox" checked> <span id="chartLogXLabel">X축 로그</span></label>
                 <label class="chart-toggle chart-scale-toggle"><input id="chartLogY" type="checkbox" checked> <span id="chartLogYLabel">Y축 로그</span></label>
               </div>
@@ -343,8 +342,11 @@ __STYLES__
       </table>
     </section>
     <section class="notes">
-      <p id="calculationNote"><strong>계산 메모.</strong> 총질량은 기본 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 dV에 필요한 추진체 질량을 합산합니다. 기본 드라이브 출력, 드라이브 질량, 전원 질량, 폐열, 라디에이터 질량은 이 저장소의 ship-plan 계산과 같은 항을 사용합니다. 모듈 효과가 켜져 있으면 지원되는 추진, 보조 전력, 폐열 배율이 표시되는 수정값에 반영되고, 지원되지 않는 모듈 규칙은 UI에 표시됩니다.</p>
-      <span id="sourceNote" class="source-note"></span>
+      <details class="calculation-note-details">
+        <summary id="calculationNoteSummary">계산 메모</summary>
+        <p id="calculationNote"><strong>계산 메모.</strong> 총질량은 기본 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 dV에 필요한 추진체 질량을 합산합니다. 기본 드라이브 출력, 드라이브 질량, 전원 질량, 폐열, 라디에이터 질량은 이 저장소의 ship-plan 계산과 같은 항을 사용합니다. 모듈 효과가 켜져 있으면 지원되는 추진, 보조 전력, 폐열 배율이 표시되는 수정값에 반영되고, 지원되지 않는 모듈 규칙은 UI에 표시됩니다.</p>
+        <span id="sourceNote" class="source-note"></span>
+      </details>
     </section>
   </main>
 
