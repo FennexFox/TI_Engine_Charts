@@ -23,6 +23,8 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       const radiator = document.getElementById("radiator");
       const logX = document.getElementById("logX");
       const logY = document.getElementById("logY");
+      const chartLogX = document.getElementById("chartLogX");
+      const chartLogY = document.getElementById("chartLogY");
       const showTwrInfo = document.getElementById("showTwrInfo");
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
@@ -250,14 +252,22 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         state.radiatorId = radiator.value;
         render();
       });
-      logX.addEventListener("change", () => {
-        state.logX = logX.checked;
+      const setLogX = checked => {
+        state.logX = !!checked;
+        if (logX) logX.checked = state.logX;
+        if (chartLogX) chartLogX.checked = state.logX;
         render();
-      });
-      logY.addEventListener("change", () => {
-        state.logY = logY.checked;
+      };
+      const setLogY = checked => {
+        state.logY = !!checked;
+        if (logY) logY.checked = state.logY;
+        if (chartLogY) chartLogY.checked = state.logY;
         render();
-      });
+      };
+      logX?.addEventListener("change", () => setLogX(logX.checked));
+      logY?.addEventListener("change", () => setLogY(logY.checked));
+      chartLogX?.addEventListener("change", () => setLogX(chartLogX.checked));
+      chartLogY?.addEventListener("change", () => setLogY(chartLogY.checked));
       showTwrInfo.addEventListener("change", () => {
         state.showTwrInfo = showTwrInfo.checked;
         render();

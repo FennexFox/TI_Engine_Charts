@@ -13,7 +13,7 @@
         "dryMassTons": 6903.141157222665,
         "targetDvKps": 15,
         "radiatorId": "TinDroplet",
-        "logX": false,
+        "logX": true,
         "logY": true,
         "showTwrInfo": true,
         "showMassInfo": true,
