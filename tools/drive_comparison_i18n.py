@@ -94,7 +94,11 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
         "X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, 가속도(TWR), 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.",
         "The X axis is cumulative research including the first compatible power plant. Use it to compare total mass, acceleration (TWR), thrust, and efficiency at similar research costs and decide which drive path to invest in.",
     ),
+    ("차트 빠른 설정", "Chart quick controls"),
+    ("차트 컨트롤", "Chart controls"),
+    ("차트 신호", "Signals"),
     ("표시", "Display"),
+    ("필터", "Filters"),
     ("시뮬레이션 조건", "Simulation conditions"),
     ("필터 및 표시", "Filters and display"),
     ("드라이브 필터", "Drive filters"),
@@ -159,10 +163,14 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("목표 dV (km/s)", "Target dV (km/s)"),
     ("라디에이터", "Radiator"),
     ("축 스케일", "Axis scale"),
+    ("시나리오 프리셋", "Scenario Preset"),
     ("총질량/연료질량/가속도 보조 표시", "Total mass/fuel mass/acceleration overlay"),
     ("가속도 정보 표시", "Show acceleration information"),
     ("총질량 정보 표시", "Show total mass information"),
     ("파레토 후보 강조", "Highlight Pareto candidates"),
+    ("가속도 정보", "Acceleration info"),
+    ("총질량 정보", "Total mass info"),
+    ("파레토 강조", "Pareto highlight"),
     ("비현실적 후보 표시", "Show impractical candidates"),
     ("추가 전원 연구력 반영", "Include additional power research"),
     ("X축: 최초+추가 전원 포함 연구력", "X axis: first + additional power research"),
@@ -267,5 +275,7 @@ def apply_static_english_html(html: str) -> str:
 
 
 def note_html_translations() -> dict[str, str]:
-    korean, english = ENGLISH_BLOCK_REPLACEMENTS[0]
-    return {"ko": korean, "en": english}
+    for korean, english in ENGLISH_BLOCK_REPLACEMENTS:
+        if korean.startswith("<strong>계산 메모."):
+            return {"ko": korean, "en": english}
+    raise RuntimeError("Calculation note translation is missing")

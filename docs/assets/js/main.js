@@ -30,7 +30,16 @@ registerPresetRuntimeApi({
   updateChartControls,
 });
 
+function dismissLoadingScreen() {
+  const loading = document.getElementById("appLoading");
+  if (!loading) return;
+  loading.setAttribute("data-loading-state", "done");
+  loading.setAttribute("aria-hidden", "true");
+  window.setTimeout(() => loading.remove(), 240);
+}
+
 installDebugHooks();
 setupControls({ setLanguage, refreshLocalizedControls });
 render();
+dismissLoadingScreen();
 window.addEventListener("resize", render);

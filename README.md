@@ -180,6 +180,33 @@ There is currently no separate full refresh or deep extraction mode in this repo
 
 Built-in chart and dry-mass preset entries can be added to `data/preset_library.json`. The builder embeds `chartPresets` and `dryMassPresets` from that file into `docs/index.html`; use `--preset-library path\to\file.json` to build from a different preset library. Entries use the same shape as exported named presets: chart presets carry a `settings` object, and dry-mass design presets carry a `dryMassDesign` object plus optional `simulationDefaults`.
 
+To convert a normal exported chart preset JSON into safe built-in entries, run:
+
+```powershell
+python tools/add_builtin_preset.py path\to\exported_preset.json
+```
+
+By default, the helper adds one built-in chart preset and extracts any
+`designPresetLibrary` or `dryMassPresetLibrary` entries into top-level
+`dryMassPresets`. The generated chart preset settings do not keep those embedded
+library snapshots, and `selectedDesignPresetId` is rewritten to the built-in
+design preset ID when the selected design can be matched.
+
+Useful options:
+
+```powershell
+python tools/add_builtin_preset.py path\to\exported_preset.json --name "Missile Battleship - Advanced Defense"
+python tools/add_builtin_preset.py path\to\exported_preset.json --chart
+python tools/add_builtin_preset.py path\to\exported_preset.json --dry-mass-library
+python tools/add_builtin_preset.py path\to\exported_preset.json --preset-library path\to\preset_library.json
+python tools/add_builtin_preset.py path\to\exported_preset.json --on-conflict skip
+```
+
+If neither `--chart` nor `--dry-mass-library` is passed, both are enabled.
+Duplicate source IDs are handled with stable numeric suffixes by default; use
+`--on-conflict skip` to reuse existing entries or `--on-conflict replace` to
+overwrite entries with matching IDs.
+
 ## Generated output and deployment scope
 
 The deploy script only stages these generated files:
