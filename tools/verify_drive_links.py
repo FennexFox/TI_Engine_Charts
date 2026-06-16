@@ -159,7 +159,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("html", nargs="?", default=str(ROOT / "docs" / "index.html"), help="Generated chart HTML to verify")
     parser.add_argument(
         "--research-catalog",
-        default=str(ROOT / "data" / "research_catalog.json"),
+        default=str(ROOT / "data" / "generated" / "research_catalog.json"),
         help="Research catalog used for dependency closures",
     )
     return parser.parse_args()

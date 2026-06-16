@@ -25,8 +25,8 @@ work:
 
 - `docs/index.html`
 - `docs/assets/js/**`
-- `data/research_catalog.json`
-- `data/ship_catalog.json`
+- `data/generated/research_catalog.json`
+- `data/generated/ship_catalog.json`
 - `docs/research_catalog.md`
 - `docs/ship_catalog.md`
 

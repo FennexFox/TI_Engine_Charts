@@ -152,9 +152,9 @@ VENV_DIR="$PWD/.venv-wsl" ./scripts/build-wsl.sh
 
 This repository has one local-game-data rebuild path. It reads the local Terra Invicta `Templates` directory and regenerates checked-in catalog/site output without running verification by default:
 
-* `data/research_catalog.json`
+* `data/generated/research_catalog.json`
 * `docs/research_catalog.md`
-* `data/ship_catalog.json`
+* `data/generated/ship_catalog.json`
 * `docs/ship_catalog.md`
 * `docs/index.html`
 * `docs/assets/js/**`
@@ -211,9 +211,9 @@ overwrite entries with matching IDs.
 
 The deploy script only stages these generated files:
 
-* `data/research_catalog.json`
+* `data/generated/research_catalog.json`
 * `docs/research_catalog.md`
-* `data/ship_catalog.json`
+* `data/generated/ship_catalog.json`
 * `docs/ship_catalog.md`
 * `docs/index.html`
 * `docs/assets/js`

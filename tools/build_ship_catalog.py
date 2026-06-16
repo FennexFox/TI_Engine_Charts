@@ -20,7 +20,7 @@ from catalog_utils import (
 
 
 SCHEMA_VERSION = 3
-DEFAULT_JSON_OUTPUT = Path("data/ship_catalog.json")
+DEFAULT_JSON_OUTPUT = Path("data/generated/ship_catalog.json")
 DEFAULT_MARKDOWN_OUTPUT = Path("docs/ship_catalog.md")
 HUMAN_SHIPYARD_BUILD_TIME_MODIFIERS = {
     "t1": 1.0,

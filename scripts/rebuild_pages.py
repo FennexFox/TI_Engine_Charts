@@ -11,9 +11,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RESEARCH_CATALOG_JSON = "data/research_catalog.json"
+RESEARCH_CATALOG_JSON = "data/generated/research_catalog.json"
 RESEARCH_CATALOG_MARKDOWN = "docs/research_catalog.md"
-SHIP_CATALOG_JSON = "data/ship_catalog.json"
+SHIP_CATALOG_JSON = "data/generated/ship_catalog.json"
 SHIP_CATALOG_MARKDOWN = "docs/ship_catalog.md"
 DRIVE_COMPARISON_HTML = "docs/index.html"
 DRIVE_COMPARISON_CLIENT_ASSETS = "docs/assets/js"

@@ -1009,7 +1009,7 @@ def build_data(
             "defaultCategoryKey": DEFAULT_CATEGORY_KEY,
         },
         "method": {
-            "cumulativeResearch": "Minimal research closure from data/research_catalog.json. all branches are unioned, any branches choose the lowest total research closure, and shared prerequisites are counted once.",
+            "cumulativeResearch": "Minimal research closure from data/generated/research_catalog.json. all branches are unioned, any branches choose the lowest total research closure, and shared prerequisites are counted once.",
             "drivePowerRequirementGW": "thrust_N * EV_kps * 0.5 / 1,000,000 / efficiency, matching tools/ti_save_parser.py.",
             "driveMassTons": "flatMass_tons + thrustPowerGW * specificPower_kgMW, matching the local ship-plan simulation.",
             "powerPlantMassTons": "zero for self-contained drives with no auxiliary module load, otherwise max(1, powerPlant specificPower_tGW * effectivePowerRequirementGW), matching the local ship-plan simulation's power-plant mass term. Runtime auxiliary-power modules on self-contained drives use separately generated general power-plant candidates for the auxiliary load only.",
@@ -1137,12 +1137,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--templates-dir", help="Path to TerraInvicta_Data/StreamingAssets/Templates.")
     parser.add_argument(
         "--research-catalog",
-        default=str(ROOT / "data" / "research_catalog.json"),
+        default=str(ROOT / "data" / "generated" / "research_catalog.json"),
         help="Path to generated research_catalog.json.",
     )
     parser.add_argument(
         "--ship-catalog",
-        default=str(ROOT / "data" / "ship_catalog.json"),
+        default=str(ROOT / "data" / "generated" / "ship_catalog.json"),
         help="Path to generated ship_catalog.json.",
     )
     parser.add_argument(

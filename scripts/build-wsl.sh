@@ -16,7 +16,7 @@ Default mode:
 
 Options:
   --from-game
-      Regenerate data/research_catalog.json, data/ship_catalog.json, their docs
+      Regenerate data/generated/research_catalog.json, data/generated/ship_catalog.json, their docs
       Markdown, and the dashboard from a local Terra Invicta Templates directory.
 
   --templates-dir PATH
