@@ -11,6 +11,45 @@ import { backgroundStyle } from "./formatting.js";
 import { updateChartControls, syncMinTwrInputs, syncMinDvInputs, updateModuleEffectsPanel } from "./control_state.js";
 import { clearTooltip, moveTooltipItemByOffset, removeTooltipItem, renderTable, toggleTooltipItemPin } from "./tooltip_table.js";
 
+const MISSION_DV_PRESET_CUSTOM = "custom";
+const MISSION_DV_PRESETS = [
+      { value: 2 },
+      { value: 4 },
+      { value: 8 },
+      { value: 20 },
+      { value: 30 },
+      { value: 50 },
+      { value: 150 },
+      { value: 200 },
+      { value: 500 },
+    ];
+
+function targetDvPresetValue(value) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return MISSION_DV_PRESET_CUSTOM;
+      const preset = MISSION_DV_PRESETS.find(item => item.value === numeric);
+      return preset ? String(preset.value) : MISSION_DV_PRESET_CUSTOM;
+    }
+
+export function syncMissionDvPresetControl() {
+      const missionDvPreset = document.getElementById("missionDvPreset");
+      if (!missionDvPreset) return;
+      missionDvPreset.value = targetDvPresetValue(state.targetDvKps);
+    }
+
+function syncTargetDvInputsFromState() {
+      const targetDv = document.getElementById("targetDv");
+      const targetDvNumber = document.getElementById("targetDvNumber");
+      if (targetDv) targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
+      if (targetDvNumber) targetDvNumber.value = String(Math.round(state.targetDvKps));
+      syncMissionDvPresetControl();
+    }
+
+function setTargetDvKps(value) {
+      const numeric = Number(value);
+      state.targetDvKps = clamp(Number.isFinite(numeric) ? numeric : 0, 0, 100000);
+      syncTargetDvInputsFromState();
+    }
 
 function setupChartFloatingPanels() {
       const panels = Array.from(document.querySelectorAll(".chart-floating-details, #chartGuideDetails"));
@@ -61,6 +100,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       const dryMassNumber = document.getElementById("dryMassNumber");
       const targetDv = document.getElementById("targetDv");
       const targetDvNumber = document.getElementById("targetDvNumber");
+      const missionDvPreset = document.getElementById("missionDvPreset");
       const radiator = document.getElementById("radiator");
       const logX = document.getElementById("logX");
       const logY = document.getElementById("logY");
@@ -140,8 +180,7 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       thrustersNumber.value = String(Math.round(state.thrusters));
       dryMass.value = String(clamp(state.dryMassTons, Number(dryMass.min), Number(dryMass.max)));
       dryMassNumber.value = String(Math.round(state.dryMassTons));
-      targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
-      targetDvNumber.value = String(Math.round(state.targetDvKps));
+      syncTargetDvInputsFromState();
 
       tooltip.addEventListener("click", event => {
         const moveButton = event.target.closest(".tooltip-item-move");
@@ -287,17 +326,30 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         render();
       });
       targetDv.addEventListener("input", () => {
-        state.targetDvKps = Number(targetDv.value);
-        targetDvNumber.value = String(Math.round(state.targetDvKps));
+        setTargetDvKps(targetDv.value);
         render();
       });
       targetDvNumber.addEventListener("input", () => {
         const raw = Number(targetDvNumber.value);
         const value = clamp(Number.isFinite(raw) ? raw : 0, 0, 100000);
-        state.targetDvKps = value;
-        targetDv.value = String(clamp(value, Number(targetDv.min), Number(targetDv.max)));
+        setTargetDvKps(value);
         render();
       });
+      if (missionDvPreset) {
+        missionDvPreset.addEventListener("change", () => {
+          if (missionDvPreset.value === MISSION_DV_PRESET_CUSTOM) {
+            syncMissionDvPresetControl();
+            return;
+          }
+          const value = Number(missionDvPreset.value);
+          if (!Number.isFinite(value)) {
+            syncMissionDvPresetControl();
+            return;
+          }
+          setTargetDvKps(value);
+          render();
+        });
+      }
       radiator.addEventListener("change", () => {
         state.radiatorId = radiator.value;
         render();

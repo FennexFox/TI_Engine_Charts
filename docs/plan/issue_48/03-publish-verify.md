@@ -23,7 +23,8 @@
 
 - `docs/index.html`
 - `docs/assets/js/**`
-- Possibly no source files unless validation fixes are required.
+- `tools/verify_drive_comparison_browser.mjs` if validation fixes are required.
+- `tools/drive_comparison_template.html` if validation finds a source/build mismatch.
 
 ## Implementation steps
 
@@ -62,20 +63,24 @@
 ## Evidence
 
 - Baseline: No generated output for this issue exists yet.
-- After: Pending.
-- Delta: Pending.
-- Interpretation: Pending.
-- Commit: TODO
-- Commit blocker: TODO
+- After: `./scripts/build-wsl.sh` rebuilt `docs/index.html` and `docs/assets/js/**` from checked-in embedded data. Generated changes are limited to `docs/index.html`, `docs/assets/js/main.js`, `docs/assets/js/presets/library.js`, `docs/assets/js/presets/runtime.js`, and `docs/assets/js/ui/controls.js`; catalog JSON/Markdown outputs did not change.
+- Delta: Validation found the Target dV range still used `step=5`, which rounded low mission presets such as 8 km/s to 10 in the range input. The source template now uses `step=1`, generated output was rebuilt, and browser coverage now checks every mission preset value exactly.
+- Interpretation: Build, focused smoke, and full verification pass. The local bundled Playwright Chromium cannot launch because the host lacks `libnspr4.so`; validation passed by using the existing snap Chromium through `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/snap/bin/chromium`.
+- Validation: `./scripts/build-wsl.sh` passed; `node --check tools/verify_drive_comparison_browser.mjs` passed; focused Playwright smoke for `All Earth Defense`, `Custom`, `Kuiper Belt Assault`, above-slider numeric input, and Korean localization passed; `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/snap/bin/chromium npm run verify` passed.
+- Manual smoke tests: Covered by focused Playwright smoke against rebuilt `docs/index.html`; no separate human browser click-through was run.
+- Commit: Pending phase commit after phase gate.
+- Commit blocker: None; staging is limited to generated UI assets, phase 3 plan evidence, source validation fix, and browser verifier validation fixes.
 
 ## Progress
 
-- Not started.
+- Build, validation fixes, focused smoke, and full verification complete; phase gate pending.
 
 ## Decision log
 
-- No decisions recorded yet.
+- Used `/snap/bin/chromium` through the verifiers' existing `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` support because the bundled Playwright Chromium is missing system library `libnspr4.so` in this WSL environment.
+- Kept the Target dV number input max at 100000, lowered the range max to 1000, and changed the range step to 1 so every mission preset can synchronize exactly.
+- Updated stale browser verifier expectations for the current compact chart guide and `driveFilter` card while adding mission dV coverage.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Completed checked-in UI build and validation. The issue-specific generated output is present, and all validation passed with the documented Chromium executable override.

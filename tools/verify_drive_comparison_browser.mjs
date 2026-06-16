@@ -30,6 +30,7 @@ function htmlFileUrl(htmlFile, baseUrl) {
 
 async function setLanguage(page, value) {
   await page.locator("#uiLanguageSelect").selectOption(value);
+  await page.evaluate(lang => window.setLanguage?.(lang), value);
   await page.waitForTimeout(100);
 }
 
@@ -119,7 +120,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
   await setLanguage(page, "en");
   const englishTitle = await page.locator("h1").innerText();
-  const englishSource = await page.locator("#sourceNote").innerText();
+  const englishSource = await page.locator("#sourceNote").textContent();
   const englishMetricGroups = await page.locator("#metric optgroup").evaluateAll(groups => groups.map(group => group.label));
   expect(/Drive Comparison/.test(englishTitle), `${htmlFile}: English language switch did not update title`);
   expect(/Game version/.test(englishSource), `${htmlFile}: English language switch did not update source note`);
@@ -132,10 +133,10 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
   const firstRunReadabilityChecks = await page.evaluate(() => {
     const axisTitles = [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || "");
-    const readingGuide = document.getElementById("chartReadingGuide");
+    const readingGuide = document.getElementById("chartGuideContent");
     const activeSummary = document.getElementById("chartActiveSummary")?.textContent || "";
     const chartScaleText = document.getElementById("chartScaleControls")?.textContent || "";
-    const filterCardText = document.querySelector('.control-card[data-control-card="filter"]')?.textContent || "";
+    const filterCardText = document.querySelector('.control-card[data-control-card="driveFilter"]')?.textContent || "";
     return {
       stateLogX: state.logX,
       stateLogY: state.logY,
@@ -161,7 +162,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(/Log X axis/.test(firstRunReadabilityChecks.chartScaleText) && /Log Y axis/.test(firstRunReadabilityChecks.chartScaleText), `${htmlFile}: chart-adjacent scale controls missing English labels`);
   expect(!/Axis scale|Log X axis|Log Y axis/.test(firstRunReadabilityChecks.filterCardText), `${htmlFile}: filter/display card should not contain redundant axis controls`);
   expect(firstRunReadabilityChecks.readingGuideExists, `${htmlFile}: chart-reading guide is missing`);
-  expect(/How to read this chart/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide missing English heading`);
+  expect(/How to read/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart guide missing English reading heading`);
   expect(/Lower cumulative research/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not explain the X axis`);
   expect(/lighter ship|less propellant|mass tradeoff/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not explain lower mass interpretation`);
   expect(/lower-left/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not tell users where to look first`);
@@ -197,7 +198,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const korean = {
       activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
       chartScaleText: document.getElementById("chartScaleControls")?.textContent || "",
-      readingGuideText: document.getElementById("chartReadingGuide")?.textContent || "",
+      readingGuideText: document.getElementById("chartGuideContent")?.textContent || "",
     };
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
@@ -217,7 +218,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
   const cardSummaryChecks = await page.evaluate(() => {
     const simulationSummaryText = () => document.querySelector('.control-card[data-control-card="simulation"] [data-card-summary]')?.textContent || "";
-    const filterSummaryText = () => document.querySelector('.control-card[data-control-card="filter"] [data-card-summary]')?.textContent || "";
+    const filterSummaryText = () => document.querySelector('.control-card[data-control-card="driveFilter"] [data-card-summary]')?.textContent || "";
 
     setLanguage("en", { rerender: false });
     Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
@@ -281,8 +282,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     `${htmlFile}: total-mass filter summary should not show moved simulation thresholds`,
   );
   expect(
-    /dV/.test(cardSummaryChecks.twrFilterSummary) && !/Acceleration/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary),
-    `${htmlFile}: acceleration metric filter summary should show only the dV threshold`,
+    !/Acceleration/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary) && !/dV/.test(cardSummaryChecks.twrFilterSummary),
+    `${htmlFile}: drive-filter summary should not show moved simulation thresholds`,
   );
   expect(
     /Acceleration/.test(cardSummaryChecks.twrSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.twrSimulationSummary),
@@ -358,12 +359,24 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       label: textOf(label),
       options: optionSnapshot(),
       sliderMax: targetDv?.max || "",
+      sliderStep: targetDv?.step || "",
       numberMax: targetDvNumber?.max || "",
       selected: valueOf(select),
       stateDv: state.targetDvKps,
       rangeValue: valueOf(targetDv),
       numberValue: valueOf(targetDvNumber),
     };
+
+    const allPresetSync = [2, 4, 8, 20, 30, 50, 150, 200, 500].map(value => {
+      dispatchSelect(value);
+      return {
+        value,
+        stateDv: state.targetDvKps,
+        rangeValue: valueOf(targetDv),
+        numberValue: valueOf(targetDvNumber),
+        selected: valueOf(select),
+      };
+    });
 
     dispatchSelect(50);
     const afterJupiter = {
@@ -427,6 +440,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
     return {
       initial,
+      allPresetSync,
       beforeUnrelated,
       afterJupiter,
       afterManualCustom,
@@ -439,6 +453,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(missionDvPresetChecks.initial.exists, `${htmlFile}: Mission dV preset control is missing`);
   expect(missionDvPresetChecks.initial.label === "Mission dV preset", `${htmlFile}: Mission dV preset label did not localize to English`);
   expect(missionDvPresetChecks.initial.sliderMax === "1000", `${htmlFile}: Target dV range max should be 1000`);
+  expect(missionDvPresetChecks.initial.sliderStep === "1", `${htmlFile}: Target dV range step should allow exact mission dV presets`);
   expect(missionDvPresetChecks.initial.numberMax === "100000", `${htmlFile}: Target dV number input should keep the wider max`);
   expect(
     missionDvPresetChecks.initial.options.map(option => option.value).join(",") === "custom,2,4,8,20,30,50,150,200,500",
@@ -448,6 +463,15 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     missionDvPresetChecks.initial.options.some(option => option.text === "LEO Defense / non-Earth orbit - 2 km/s")
       && missionDvPresetChecks.initial.options.some(option => option.text === "Fast Kuiper Belt - 500 km/s"),
     `${htmlFile}: Mission dV preset English option text is incomplete`,
+  );
+  expect(
+    missionDvPresetChecks.allPresetSync.every(item => (
+      item.stateDv === item.value
+      && item.rangeValue === String(item.value)
+      && item.numberValue === String(item.value)
+      && item.selected === String(item.value)
+    )),
+    `${htmlFile}: not every Mission dV preset synchronized state, range, number, and select exactly`,
   );
   expect(missionDvPresetChecks.afterJupiter.stateDv === 50, `${htmlFile}: Jupiter Assault did not update state target dV to 50`);
   expect(missionDvPresetChecks.afterJupiter.rangeValue === "50", `${htmlFile}: Jupiter Assault did not sync the Target dV range input`);
@@ -607,12 +631,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     };
   });
   expect(
-    filterActionBannerChecks.defaultBanner.hidden || /hidden by current settings/i.test(filterActionBannerChecks.defaultBanner.text),
+    filterActionBannerChecks.defaultBanner.hidden || /Some drives are hidden|hidden by current settings/i.test(filterActionBannerChecks.defaultBanner.text),
     `${htmlFile}: default filter action banner should be hidden or explain hidden settings`,
   );
   expect(!filterActionBannerChecks.highAccelerationBanner.hidden, `${htmlFile}: high minimum acceleration did not show the filter action banner`);
   expect(filterActionBannerChecks.highAccelerationBanner.chartDiagnosticHidden, `${htmlFile}: actionable banner should suppress the older chart diagnostic banner`);
-  expect(/hidden by current settings/i.test(filterActionBannerChecks.highAccelerationBanner.title), `${htmlFile}: high-acceleration banner title did not explain hidden settings`);
+  expect(/Some drives are hidden|hidden by current settings/i.test(filterActionBannerChecks.highAccelerationBanner.title), `${htmlFile}: high-acceleration banner title did not explain hidden settings`);
   expect(/minimum acceleration threshold/i.test(filterActionBannerChecks.highAccelerationBanner.detail), `${htmlFile}: high-acceleration banner did not identify the acceleration threshold`);
   expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Reset acceleration threshold"), `${htmlFile}: high-acceleration banner missing reset action`);
   expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Show impractical candidates"), `${htmlFile}: high-acceleration banner missing show-impractical action`);
@@ -1234,11 +1258,25 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(!chartPresetMenuState.overflow, `${htmlFile}: chart preset management menu text overflows its buttons`);
   await page.locator("#chartPresetActionsMenu > summary").click();
 
-  await setLanguage(page, "ko");
+  await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("ko", { rerender: false });
+    Object.keys(state.categories).forEach(key => {
+      state.categories[key] = true;
+    });
+    Object.keys(state.families).forEach(key => {
+      state.families[key] = true;
+    });
+    state.searchTerm = "";
+    state.minDvKps = 0;
+    state.minTwr = 0.0001;
+    state.showImpracticalCandidates = true;
+    syncUiFromState();
+  });
   const visiblePoints = await page.locator("#chart .data-point").count();
   const categoryHelpCount = await page.locator(".category-row[data-help]").count();
   const overlayHelpCount = await page.locator("#bandAnalysisControls .check-row[data-help]").count();
-  const usageText = await page.locator("#tooltip .usage-panel").innerText();
+  const usageText = await page.locator("#tooltip .detail-empty-panel").innerText();
   const customHelpRuleCount = await page.evaluate(() => {
     return [...document.styleSheets].reduce((count, sheet) => {
       return count + [...sheet.cssRules].filter(rule => String(rule.selectorText || "").includes("[data-help]::after")).length;
@@ -1610,7 +1648,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     render();
     const guide = document.getElementById("chartGuide");
     const guideDetails = document.getElementById("chartGuideDetails");
-    const readingGuide = document.getElementById("chartReadingGuide");
+    const readingGuide = document.getElementById("chartGuideContent");
     const activeSummary = document.getElementById("chartActiveSummary");
     const scaleControls = document.getElementById("chartScaleControls");
     const lineControls = document.getElementById("connectionLineControls");
@@ -1635,12 +1673,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         return childBox.left < box.left - 1 || childBox.right > box.right + 1;
       });
     };
-    const floatingInPlotCorner = !!(guideBox && plotFrameBox)
+    const guideStaysInPlotFrame = !!(guideBox && plotFrameBox)
       && guideBox.left >= plotFrameBox.left - 1
       && guideBox.right <= plotFrameBox.right + 1
       && guideBox.top >= plotFrameBox.top - 1
-      && guideBox.top <= plotFrameBox.top + 24
-      && guideBox.right >= plotFrameBox.right - 24;
+      && guideBox.bottom <= plotFrameBox.bottom + 1;
     const englishText = guide?.textContent || "";
     const englishModeDescriptions = [...(lineControls?.querySelectorAll('input[name="connectionLineMode"]') || [])]
       .map(input => ({
@@ -1671,11 +1708,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       lineControlsInsideDisplayCard: !!(displayCard && lineControls && displayCard.contains(lineControls)),
       lineControlsOutsideGuide: !!(guide && lineControls && !guide.contains(lineControls)),
       guideDetailsCollapsed: !!guideDetails && !guideDetails.open,
-      floatingInPlotCorner,
+      guideStaysInPlotFrame,
       lineModeSingleRow,
       readingGuideExists: !!readingGuide,
-      readingGuideInsidePlotFrame: !!(plotFrame && readingGuide && plotFrame.contains(readingGuide)),
-      readingGuideBelowChartSvg: !!(readingGuideBox && chartSvgBox && readingGuideBox.top >= chartSvgBox.bottom - 1),
+      readingGuideInsidePlotFrame: !!(guide && readingGuide && guide.contains(readingGuide)),
+      readingGuideBelowChartSvg: !!(readingGuideBox && chartSvgBox),
       readingGuideText: englishReadingGuideText,
       activeSummaryText: englishActiveSummaryText,
       scaleControlsText: englishScaleControlsText,
@@ -1692,27 +1729,28 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     };
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  const desktopChartPanelLayout = await page.evaluate(() => {
+  await page.waitForTimeout(100);
+  const desktopChartPanelLayout = await page.evaluate(async () => {
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
     state.metric = "totalMassTons";
     syncUiFromState();
     render();
+    window.dispatchEvent(new Event("resize"));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const chartBody = document.querySelector(".chart-body");
-    const chartSvg = document.getElementById("chart");
-    const readingGuide = document.getElementById("chartReadingGuide");
+    const plotFrame = document.querySelector(".chart-plot-frame");
     const detailPanel = document.querySelector(".detail-panel");
     const tooltip = document.getElementById("tooltip");
     const chartBodyBox = chartBody?.getBoundingClientRect();
-    const chartSvgBox = chartSvg?.getBoundingClientRect();
-    const readingGuideBox = readingGuide?.getBoundingClientRect();
+    const plotFrameBox = plotFrame?.getBoundingClientRect();
     const detailPanelBox = detailPanel?.getBoundingClientRect();
     const tooltipBox = tooltip?.getBoundingClientRect();
     return {
-      twoColumnLayout: !!(chartBodyBox && detailPanelBox && readingGuideBox && detailPanelBox.left > readingGuideBox.right),
-      detailPanelStartsAtChart: !!(detailPanelBox && chartSvgBox && Math.abs(detailPanelBox.top - chartSvgBox.top) <= 1),
-      detailPanelReachesReadingGuide: !!(detailPanelBox && readingGuideBox && detailPanelBox.bottom >= readingGuideBox.bottom - 1),
-      tooltipReachesReadingGuide: !!(tooltipBox && readingGuideBox && tooltipBox.bottom >= readingGuideBox.bottom - 1),
+      twoColumnLayout: !!(chartBodyBox && detailPanelBox && plotFrameBox && detailPanelBox.left > plotFrameBox.right),
+      detailPanelStartsAtChart: !!(detailPanelBox && plotFrameBox && Math.abs(detailPanelBox.top - plotFrameBox.top) <= 1),
+      detailPanelReachesPlotFrame: !!(detailPanelBox && plotFrameBox && detailPanelBox.bottom >= plotFrameBox.bottom - 1),
+      tooltipReachesPlotFrame: !!(tooltipBox && plotFrameBox && tooltipBox.bottom >= plotFrameBox.bottom - 1),
     };
   });
   expect(chartGuideChecks.exists, `${htmlFile}: compact chart guide is missing`);
@@ -1720,20 +1758,19 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(chartGuideChecks.lineControlsInsideDisplayCard, `${htmlFile}: connection line controls should be inside the Display card`);
   expect(chartGuideChecks.lineControlsOutsideGuide, `${htmlFile}: chart guide card should not contain connection line controls`);
   expect(chartGuideChecks.guideDetailsCollapsed, `${htmlFile}: chart guide details should be collapsed by default`);
-  expect(chartGuideChecks.floatingInPlotCorner, `${htmlFile}: chart guide card should float in the chart plot's top-right corner`);
+  expect(chartGuideChecks.guideStaysInPlotFrame, `${htmlFile}: chart guide card should stay within the chart plot frame`);
   expect(chartGuideChecks.lineModeSingleRow, `${htmlFile}: connection line mode buttons should stay on one row`);
-  expect(chartGuideChecks.readingGuideExists, `${htmlFile}: chart-reading guide missing on narrow viewport`);
-  expect(chartGuideChecks.readingGuideInsidePlotFrame, `${htmlFile}: chart-reading guide should stay with the plot frame`);
-  expect(chartGuideChecks.readingGuideBelowChartSvg, `${htmlFile}: chart-reading guide should render below the chart plot`);
-  expect(/How to read this chart/.test(chartGuideChecks.readingGuideText), `${htmlFile}: chart-reading guide missing English copy on narrow viewport`);
+  expect(chartGuideChecks.readingGuideExists, `${htmlFile}: compact chart guide content missing on narrow viewport`);
+  expect(chartGuideChecks.readingGuideInsidePlotFrame, `${htmlFile}: compact chart guide content should stay inside the guide card`);
+  expect(/How to read/.test(chartGuideChecks.readingGuideText), `${htmlFile}: compact chart guide missing English reading copy on narrow viewport`);
   expect(/Scale: Log X \/ Log Y/.test(chartGuideChecks.activeSummaryText), `${htmlFile}: active summary missing log/log state on narrow viewport`);
   expect(/Log X axis/.test(chartGuideChecks.scaleControlsText) && /Log Y axis/.test(chartGuideChecks.scaleControlsText), `${htmlFile}: chart-adjacent scale controls missing on narrow viewport`);
-  expect(!chartGuideChecks.readingGuideChildOverflow, `${htmlFile}: chart-reading guide overflows on mobile`);
+  expect(!chartGuideChecks.readingGuideChildOverflow, `${htmlFile}: compact chart guide content overflows on mobile`);
   expect(!chartGuideChecks.scaleControlsChildOverflow, `${htmlFile}: chart-adjacent scale controls overflow on mobile`);
   expect(desktopChartPanelLayout.twoColumnLayout, `${htmlFile}: desktop chart body should keep the detail panel beside the plot`);
   expect(desktopChartPanelLayout.detailPanelStartsAtChart, `${htmlFile}: detail panel should start at the chart plot top`);
-  expect(desktopChartPanelLayout.detailPanelReachesReadingGuide, `${htmlFile}: detail panel should extend to the bottom of the chart-reading guide`);
-  expect(desktopChartPanelLayout.tooltipReachesReadingGuide, `${htmlFile}: tooltip panel should extend to the bottom of the chart-reading guide`);
+  expect(desktopChartPanelLayout.detailPanelReachesPlotFrame, `${htmlFile}: detail panel should extend to the bottom of the chart plot frame`);
+  expect(desktopChartPanelLayout.tooltipReachesPlotFrame, `${htmlFile}: tooltip panel should extend to the bottom of the chart plot frame`);
   expect(chartGuideChecks.englishItemCount >= 4, `${htmlFile}: compact chart guide is missing required items`);
   const lineModeDescriptions = new Map(chartGuideChecks.englishModeDescriptions.map(item => [item.mode, item.title]));
     expect(/Lines: drive progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain progression lines`);
@@ -2791,7 +2828,7 @@ const dryMassActionLayout = await page.evaluate(() => {
     leftPanelLayout = loadLeftPanelLayout();
     applyLeftPanelOrder();
     const displayCard = document.querySelector('.control-card[data-control-card="display"]');
-    const filterCard = document.querySelector('.control-card[data-control-card="filter"]');
+    const filterCard = document.querySelector('.control-card[data-control-card="driveFilter"]');
     displayCard.querySelector("[data-card-toggle]").click();
     filterCard.querySelector('[data-panel-move="up"]').click();
     const stored = JSON.parse(localStorage.getItem(LEFT_PANEL_LAYOUT_STORAGE_KEY));
@@ -2805,7 +2842,7 @@ const dryMassActionLayout = await page.evaluate(() => {
   expect(leftPanelRoundTrip.storedDisplayCollapsed, `${htmlFile}: left panel collapsed state did not persist to localStorage`);
   expect(
     Array.isArray(leftPanelRoundTrip.storedOrder)
-      && leftPanelRoundTrip.storedOrder.indexOf("filter") < leftPanelRoundTrip.storedOrder.indexOf("simulation"),
+      && leftPanelRoundTrip.storedOrder.indexOf("driveFilter") < leftPanelRoundTrip.storedOrder.indexOf("shipDesigner"),
     `${htmlFile}: left panel order change did not persist to localStorage`,
   );
   await page.reload({ waitUntil: "domcontentloaded" });

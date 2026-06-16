@@ -4,6 +4,7 @@ export const presetRuntimeApi = {
   renderDryMassCalcModal: () => {},
   render: () => {},
   setLanguage: () => {},
+  syncMissionDvPresetControl: () => {},
   syncMinDvInputs: () => {},
   syncMinTwrInputs: () => {},
   updateChartControls: () => {},
