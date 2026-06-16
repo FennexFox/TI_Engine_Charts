@@ -1,6 +1,8 @@
-# Native ES Module Architecture
+# Client Architecture
 
-This project uses native browser ES modules for the drive comparison client. The published GitHub Pages app loads `docs/assets/js/main.js` with `type="module"`; the source modules live under `tools/drive_comparison_client/` and are copied into `docs/assets/js/` during the page rebuild.
+This document describes the editable source layout, generated GitHub Pages assets, module boundaries, and verification rules for the drive comparison client.
+
+The project uses native browser ES modules for the published GitHub Pages app. Source modules live under `tools/drive_comparison_client/` and are copied into `docs/assets/js/` during page rebuilds. Treat `docs/index.html` and `docs/assets/js/**` as generated outputs; change source modules and rebuild instead of editing published assets directly.
 
 ## Goals
 
@@ -55,7 +57,7 @@ The dry mass calculator is now split along feature boundaries:
 - `calc/dry_mass.js` remains a narrow compatibility facade that re-exports the model API for existing calculation/debug callers.
 - `ui/dry_mass_calculator.js` owns the modal DOM rendering, localized text refresh, searchable-select enhancement, and event wiring. It receives the chart render callback from the UI composition layer instead of importing chart internals directly.
 
-Current pre-release chart ownership:
+## Current ownership boundaries
 
 - `tools/build_drive_comparison.py` owns generated `DATA.driveLinks`. The browser client consumes the edge list and should not re-infer research dependencies from family membership.
 - `chart/rendering.js` owns line-segment rendering, point visual state helpers, impractical warning rings, and hover/selected/pinned SVG overlays. Calculation modules should only provide numeric values and filtering semantics.

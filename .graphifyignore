@@ -1,0 +1,35 @@
+# .graphifyignore for TI_Engine_Charts
+# Goal: focus Graphify on editable source, scripts, tests, and human-authored docs.
+# Generated GitHub Pages output and generated data are excluded.
+
+# VCS / dependencies / local env
+.git/
+node_modules/
+.venv*/
+__pycache__/
+.pytest_cache/
+.cache/
+
+# Generated GitHub Pages output
+/docs/
+
+# Generated data
+/data/generated/
+
+# Human-authored development docs are intentionally kept visible.
+# dev-docs/ is not ignored.
+
+# Browser/test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# Archives / local transfer artifacts
+*.tar.gz
+*.zip
+*.7z
+*.log
+
+# Graphify output/cache
+graphify-out/
+.graphify/
