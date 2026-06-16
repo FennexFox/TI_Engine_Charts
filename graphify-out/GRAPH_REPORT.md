@@ -1,210 +1,256 @@
-# Graph Report - .  (2026-06-15)
+# Graph Report - .  (2026-06-17)
 
 ## Corpus Check
-- 66 files · ~113,361 words
+- 50 files · ~73,770 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 902 nodes · 2549 edges · 29 communities (28 shown, 1 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 60 edges (avg confidence: 0.8)
+- 998 nodes · 2800 edges · 39 communities (37 shown, 2 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 66 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_Controller Dry Mass|Controller Dry Mass]]
-- [[_COMMUNITY_Preset Codec Sync|Preset Codec Sync]]
-- [[_COMMUNITY_Drive Page Builder|Drive Page Builder]]
-- [[_COMMUNITY_Drive Filtering Logic|Drive Filtering Logic]]
-- [[_COMMUNITY_Research Catalog Builder|Research Catalog Builder]]
-- [[_COMMUNITY_Chart Rendering Metrics|Chart Rendering Metrics]]
-- [[_COMMUNITY_Module Effects Diagnostics|Module Effects Diagnostics]]
-- [[_COMMUNITY_Chart Core State|Chart Core State]]
-- [[_COMMUNITY_Chart Context Interaction|Chart Context Interaction]]
-- [[_COMMUNITY_Static Server Verification|Static Server Verification]]
-- [[_COMMUNITY_Tooltip Interaction|Tooltip Interaction]]
-- [[_COMMUNITY_Axis Tick Planning|Axis Tick Planning]]
+- [[_COMMUNITY_Preset Codec|Preset Codec]]
+- [[_COMMUNITY_Drive Filtering|Drive Filtering]]
+- [[_COMMUNITY_Dashboard Builder|Dashboard Builder]]
+- [[_COMMUNITY_Research Catalog|Research Catalog]]
+- [[_COMMUNITY_Dry Mass Model|Dry Mass Model]]
+- [[_COMMUNITY_Module Effects|Module Effects]]
+- [[_COMMUNITY_Diagnostics Interaction|Diagnostics Interaction]]
+- [[_COMMUNITY_Chart Rendering|Chart Rendering]]
+- [[_COMMUNITY_Chart Pointer Tools|Chart Pointer Tools]]
+- [[_COMMUNITY_Core State|Core State]]
+- [[_COMMUNITY_Preset Importer|Preset Importer]]
+- [[_COMMUNITY_Localized Controls|Localized Controls]]
+- [[_COMMUNITY_Browser Verification Server|Browser Verification Server]]
+- [[_COMMUNITY_UI Controls|UI Controls]]
 - [[_COMMUNITY_Package Scripts|Package Scripts]]
-- [[_COMMUNITY_Import Graph Verifier|Import Graph Verifier]]
-- [[_COMMUNITY_Render Diagnostics Flow|Render Diagnostics Flow]]
-- [[_COMMUNITY_Template UI Sections|Template UI Sections]]
+- [[_COMMUNITY_Axis Ticks|Axis Ticks]]
+- [[_COMMUNITY_App Controller|App Controller]]
+- [[_COMMUNITY_Import Graph Guard|Import Graph Guard]]
+- [[_COMMUNITY_Chart Viewport|Chart Viewport]]
+- [[_COMMUNITY_Template Loading|Template Loading]]
 - [[_COMMUNITY_Build Workflow Policy|Build Workflow Policy]]
-- [[_COMMUNITY_Pointer Pan Hover|Pointer Pan Hover]]
-- [[_COMMUNITY_Page Rebuild Script|Page Rebuild Script]]
-- [[_COMMUNITY_WSL Build Guard|WSL Build Guard]]
-- [[_COMMUNITY_Filter Warning Plans|Filter Warning Plans]]
-- [[_COMMUNITY_GitHub Contribution Rules|GitHub Contribution Rules]]
-- [[_COMMUNITY_Zoom Domain Research|Zoom Domain Research]]
-- [[_COMMUNITY_ESM Ship Designer Architecture|ESM Ship Designer Architecture]]
-- [[_COMMUNITY_Ship Catalog Concepts|Ship Catalog Concepts]]
-- [[_COMMUNITY_Client Syntax Verifier|Client Syntax Verifier]]
-- [[_COMMUNITY_Ship Designer Issue Plan|Ship Designer Issue Plan]]
-- [[_COMMUNITY_Issue Template Routing|Issue Template Routing]]
-- [[_COMMUNITY_Release Checklist|Release Checklist]]
+- [[_COMMUNITY_Source Ownership Docs|Source Ownership Docs]]
+- [[_COMMUNITY_Page Template|Page Template]]
+- [[_COMMUNITY_Deploy Rebuild Script|Deploy Rebuild Script]]
+- [[_COMMUNITY_WSL Build Script|WSL Build Script]]
+- [[_COMMUNITY_Preset Import Tests|Preset Import Tests]]
+- [[_COMMUNITY_Pointer Hit Testing|Pointer Hit Testing]]
+- [[_COMMUNITY_Chart Architecture Docs|Chart Architecture Docs]]
+- [[_COMMUNITY_App Preset Architecture|App Preset Architecture]]
+- [[_COMMUNITY_Ship Designer UI Docs|Ship Designer UI Docs]]
+- [[_COMMUNITY_Readme Dashboard|Readme Dashboard]]
+- [[_COMMUNITY_Syntax Verification|Syntax Verification]]
+- [[_COMMUNITY_Searchable Select|Searchable Select]]
+- [[_COMMUNITY_Generated Data Policy|Generated Data Policy]]
+- [[_COMMUNITY_Dry Mass Architecture|Dry Mass Architecture]]
+- [[_COMMUNITY_Import Cycle Rationale|Import Cycle Rationale]]
+- [[_COMMUNITY_Preset Library Docs|Preset Library Docs]]
+- [[_COMMUNITY_Playwright Verification Docs|Playwright Verification Docs]]
+- [[_COMMUNITY_Diagnostics Architecture|Diagnostics Architecture]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `localText()` - 53 edges
-2. `clamp()` - 33 edges
+1. `localText()` - 64 edges
+2. `clamp()` - 35 edges
 3. `renderDryMassCalcModal()` - 28 edges
 4. `build_data()` - 27 edges
 5. `renderChart()` - 26 edges
-6. `refreshTooltip()` - 24 edges
-7. `handleImportedPresetObject()` - 23 edges
-8. `render()` - 22 edges
-9. `formatNumber()` - 21 edges
-10. `ResearchCostIndex` - 20 edges
+6. `refreshTooltip()` - 26 edges
+7. `formatNumber()` - 25 edges
+8. `render()` - 24 edges
+9. `setupControls()` - 24 edges
+10. `handleImportedPresetObject()` - 23 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Build and Browser Verification Phase` --semantically_similar_to--> `Generated Artifact Policy`  [INFERRED] [semantically similar]
-  docs/plan/issue_32/02-verification.md → AGENTS.md
-- `Default Checked-in UI-only Build` --semantically_similar_to--> `Default Checked-in UI-only Build`  [INFERRED] [semantically similar]
+- `Current dashboard features` --semantically_similar_to--> `Chart shell`  [INFERRED] [semantically similar]
+  README.md → tools/drive_comparison_template.html
+- `Static dashboard` --semantically_similar_to--> `Drive comparison page template`  [INFERRED] [semantically similar]
+  README.md → tools/drive_comparison_template.html
+- `Built-in presets` --semantically_similar_to--> `Scenario preset card`  [INFERRED] [semantically similar]
+  README.md → tools/drive_comparison_template.html
+- `presets layer` --semantically_similar_to--> `Scenario preset card`  [INFERRED] [semantically similar]
+  dev-docs/architecture.md → tools/drive_comparison_template.html
+- `Default checked-in UI-only build` --semantically_similar_to--> `Default checked-in UI-only build`  [INFERRED] [semantically similar]
   AGENTS.md → README.md
-- `Local Game Data Rebuild` --semantically_similar_to--> `Local Terra Invicta Data Rebuild`  [INFERRED] [semantically similar]
-  AGENTS.md → README.md
-- `Generated Artifact Policy` --semantically_similar_to--> `Generated Output and Deployment Scope`  [INFERRED] [semantically similar]
-  AGENTS.md → README.md
-- `Cross Phase Invariants` --semantically_similar_to--> `Generated Artifact Policy`  [INFERRED] [semantically similar]
-  docs/plan/issue_33/00-master-plan.md → AGENTS.md
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **Default UI-only Build Guardrails** — agents_default_checked_in_ui_only_build, readme_default_checked_in_ui_only_build, dev_native_esm_architecture_native_esm_architecture, agents_generated_artifact_policy [INFERRED 0.85]
-- **Ship Designer Discoverability Workflow** — issue_32_00_master_plan_promoted_ship_designer_workflow, issue_32_01_ship_designer_entry_visible_text_cta, issue_32_02_verification_focused_ship_designer_smoke, tools_drive_comparison_template_ship_designer_card, tools_drive_comparison_template_dry_mass_calculator_modal [EXTRACTED 1.00]
-- **Actionable Filter Banner Workflow** — issue_33_01_diagnostics_model_hidden_summary, issue_33_01_diagnostics_model_search_summary, issue_33_02_action_banner_ui_filter_action_banner_model, issue_33_03_browser_verifier_actionable_banner_playwright_checks, tools_drive_comparison_template_filter_action_banner [EXTRACTED 1.00]
+- **Safe Default Build Policy** — agents_default_checked_in_ui_only_build, readme_default_checked_in_ui_only_build, dev_docs_architecture_generated_github_pages_assets, agents_generated_external_data_policy [INFERRED 0.85]
+- **Client Source To Published Assets** — agents_drive_comparison_client_source, agents_docs_assets_js, dev_docs_architecture_source_modules, dev_docs_architecture_generated_github_pages_assets, tools_drive_comparison_template_client_entry_script [INFERRED 0.85]
+- **Ship Designer Dry Mass Flow** — tools_drive_comparison_template_ship_designer_card, tools_drive_comparison_template_dry_mass_calculator_modal, dev_docs_architecture_ship_designer_grouping, dev_docs_architecture_dry_mass_model_js, dev_docs_architecture_dry_mass_calculator_js [INFERRED 0.75]
 
-## Communities (29 total, 1 thin omitted)
+## Communities (39 total, 2 thin omitted)
 
-### Community 0 - "Controller Dry Mass"
-Cohesion: 0.05
-Nodes (94): refreshLocalizedControls(), resetApplicationStateToDefaults(), setLanguage(), applyDryMassCalculatorPreset(), applyShipDesignSimulationDefaultsToState(), armorMassTons(), armorMaxDepthM(), armorMaxPoints() (+86 more)
-
-### Community 1 - "Preset Codec Sync"
+### Community 0 - "Preset Codec"
 Cohesion: 0.06
-Nodes (97): syncFilterInputs(), base64ToBytes(), bytesToBase64(), copyToClipboard(), formatExportPayloadObject(), gunzipBytes(), gzipBytes(), parsePresetPayload() (+89 more)
+Nodes (95): base64ToBytes(), bytesToBase64(), copyToClipboard(), formatExportPayloadObject(), gunzipBytes(), gzipBytes(), parsePresetPayload(), readFromClipboard() (+87 more)
 
-### Community 2 - "Drive Page Builder"
+### Community 1 - "Drive Filtering"
 Cohesion: 0.06
-Nodes (77): apply_preset_library(), build_data(), build_drive_links(), build_html(), category_sort_key(), compatible_power_sequence(), copy_client_modules(), drive_category_key() (+69 more)
+Nodes (84): actualPowerFrontier(), bandMetricHiddenReasons(), chartMassOptions(), chartSummaryMassOptions(), closestDriveRowForThrusterCount(), driveRowsByBaseKey, driveRowsForBaseKey(), effectiveDriveValues() (+76 more)
 
-### Community 3 - "Drive Filtering Logic"
-Cohesion: 0.06
-Nodes (71): actualPowerFrontier(), bandMetricHiddenReasons(), chartMassOptions(), closestDriveRowForThrusterCount(), dominantHiddenReason(), driveRowsByBaseKey, driveRowsForBaseKey(), effectiveDriveValues() (+63 more)
+### Community 2 - "Dashboard Builder"
+Cohesion: 0.07
+Nodes (61): apply_preset_library(), build_data(), build_drive_links(), build_html(), category_sort_key(), compatible_power_sequence(), copy_client_modules(), drive_category_key() (+53 more)
 
-### Community 4 - "Research Catalog Builder"
+### Community 3 - "Research Catalog"
 Cohesion: 0.08
 Nodes (63): build_catalog(), build_graph_links(), build_markdown(), clean_value(), context_values(), infer_node_kind(), load_research_localizations(), localized_fields() (+55 more)
 
-### Community 5 - "Chart Rendering Metrics"
-Cohesion: 0.08
-Nodes (49): chartSummaryMassOptions(), optionMetricValue(), renderChartGuide(), appendImpracticalPointMarker(), appendParetoDominatedPointMarker(), bandPointData(), bandPointVisual(), bandPointVisualState() (+41 more)
+### Community 4 - "Dry Mass Model"
+Cohesion: 0.10
+Nodes (55): applyDryMassCalculatorPreset(), applyShipDesignSimulationDefaultsToState(), armorMassTons(), armorMaxDepthM(), armorMaxPoints(), armorPlateThicknessM(), armorSectionThicknessM(), armorSectionVolumeM3() (+47 more)
 
-### Community 6 - "Module Effects Diagnostics"
+### Community 5 - "Module Effects"
 Cohesion: 0.06
 Nodes (47): baseDriveValues(), compactModuleName(), diagnosticFields(), DRIVE_CHART_UNMODELED_RULE_CATEGORIES, drivePropellant(), driveSatisfiesRequirement(), evaluateModuleEffectsForDrive(), finiteNumber() (+39 more)
 
-### Community 7 - "Chart Core State"
-Cohesion: 0.07
-Nodes (46): connectionLineModeDescription(), connectionLineModeHelpText(), applyLeftPanelOrder(), categoryRoot, chartDefaultState(), cleanRadiatorDisplayName(), CONNECTION_LINE_MODES, connectionLineModeLabel() (+38 more)
+### Community 6 - "Diagnostics Interaction"
+Cohesion: 0.09
+Nodes (47): computeDriveDiagnostics(), dominantHiddenReason(), filteredRows(), setCurrentDiagnostics(), appendReadingCue(), appliedShipAssumptionText(), applyFilterAction(), axisDebugTickSummary() (+39 more)
 
-### Community 8 - "Chart Context Interaction"
-Cohesion: 0.11
-Nodes (35): chartHitTargets, chartLadderHitTargets, currentChartRows, setChartHitTargets(), setChartLadderHitTargets(), setChartViewport(), setCurrentChartRows(), setCurrentDiagnostics() (+27 more)
+### Community 7 - "Chart Rendering"
+Cohesion: 0.10
+Nodes (38): appendImpracticalPointMarker(), appendParetoDominatedPointMarker(), bandPointData(), bandPointVisual(), betterPowerMetricValue(), drawBestAvailablePowerPath(), drawDriveLinkSegments(), drawFirstCompatiblePowerPoint() (+30 more)
 
-### Community 9 - "Static Server Verification"
+### Community 8 - "Chart Pointer Tools"
+Cohesion: 0.14
+Nodes (36): endChartPan(), handleChartClick(), handleChartKeyDown(), handleChartPointerLeave(), isEditableTarget(), dedupeTooltipRefs(), drawPointStateOverlay(), isPinnedTooltipKey() (+28 more)
+
+### Community 9 - "Core State"
+Cohesion: 0.09
+Nodes (35): allDriveRowsById, applyLeftPanelOrder(), cleanRadiatorDisplayName(), CONNECTION_LINE_MODES, currentModuleEffectAssumptions(), HELP_TEXT, HIDDEN_REASON_PRIORITY, HUMAN_ARMORS (+27 more)
+
+### Community 10 - "Preset Importer"
+Cohesion: 0.18
+Nodes (33): add_or_update_entry(), chart_name(), clone_json(), convert_payload(), design_dedupe_key(), design_source(), extract_chart_settings(), extract_design_entries() (+25 more)
+
+### Community 11 - "Localized Controls"
+Cohesion: 0.13
+Nodes (26): isModuleRuleRelevantToDriveChart(), connectionLineModeDescription(), connectionLineModeHelpText(), filterActionLabel(), connectionLineModeLabel(), localText(), normalizeConnectionLineMode(), normalizePowerResearchView() (+18 more)
+
+### Community 12 - "Browser Verification Server"
 Cohesion: 0.11
 Nodes (19): ALLOWED_METHODS, CHROMIUM_UNSAFE_PORTS, listenOnEphemeralPort(), MIME_TYPES, startStaticHttpServer(), axisSpace(), expect(), failures (+11 more)
 
-### Community 10 - "Tooltip Interaction"
-Cohesion: 0.23
-Nodes (24): handleChartClick(), handleChartKeyDown(), handleChartPointerLeave(), isEditableTarget(), dedupeTooltipRefs(), isPinnedTooltipKey(), mergePinnedFocusTooltipRefs(), mergePinnedTooltipRefs() (+16 more)
+### Community 13 - "UI Controls"
+Cohesion: 0.14
+Nodes (25): syncFilterInputs(), updateSortHeaders(), setupPresetExportModal(), setupPresetLibraryControls(), categoryRoot, chart, familyRoot, tooltip (+17 more)
 
-### Community 11 - "Axis Tick Planning"
-Cohesion: 0.18
-Nodes (22): AXIS_TICK_MULTIPLIERS, axisSpaceValue(), axisTickIndexRange(), axisTickOptions(), buildAxisTickPlan(), chooseAxisTickStep(), downsampleTicksWithCoverage(), estimatedAxisTickCount() (+14 more)
-
-### Community 12 - "Package Scripts"
+### Community 14 - "Package Scripts"
 Cohesion: 0.09
 Nodes (21): description, devDependencies, playwright, name, private, scripts, build, build:fast (+13 more)
 
-### Community 13 - "Import Graph Verifier"
+### Community 15 - "Axis Ticks"
+Cohesion: 0.20
+Nodes (20): AXIS_TICK_MULTIPLIERS, axisSpaceValue(), axisTickIndexRange(), axisTickOptions(), buildAxisTickPlan(), chooseAxisTickStep(), downsampleTicksWithCoverage(), estimatedAxisTickCount() (+12 more)
+
+### Community 16 - "App Controller"
+Cohesion: 0.17
+Nodes (16): refreshLocalizedControls(), resetApplicationStateToDefaults(), setLanguage(), registerRenderingCallbacks(), installDebugHooks(), applyHelp(), helpText(), applyStaticLanguage() (+8 more)
+
+### Community 17 - "Import Graph Guard"
 Cohesion: 0.14
 Nodes (13): buildGraph(), clientDir, cycles, files, { graph, unresolved }, importSpecifiers(), moduleKey(), repoRoot (+5 more)
 
-### Community 14 - "Render Diagnostics Flow"
+### Community 18 - "Chart Viewport"
 Cohesion: 0.16
-Nodes (16): computeDriveDiagnostics(), filteredRows(), endChartPan(), redrawChartOnly(), render(), renderChartDiagnostic(), renderConnectionLineControls(), renderFamilyDiagnostics() (+8 more)
+Nodes (17): chartHitTargets, chartLadderHitTargets, currentChartRows, setChartHitTargets(), setChartLadderHitTargets(), setChartViewport(), setCurrentChartRows(), baseValueDomain() (+9 more)
 
-### Community 15 - "Template UI Sections"
+### Community 19 - "Template Loading"
+Cohesion: 0.26
+Nodes (16): candidate_steamapps_dirs(), candidate_templates_dirs(), detect_game_version(), file_fingerprint(), find_steam_appmanifest(), json_default(), load_named_templates(), _load_named_templates_cached() (+8 more)
+
+### Community 20 - "Build Workflow Policy"
+Cohesion: 0.15
+Nodes (16): Agent Instructions, Default checked-in UI-only build, No full refresh or deep extraction workflow, Local-game-data rebuild, Rebuild workflow, Verification step, WSL build helper, scripts/build-wsl.sh helper (+8 more)
+
+### Community 21 - "Source Ownership Docs"
 Cohesion: 0.17
-Nodes (13): Ko-fi Sponsorship, Built-in Presets, Chart Diagnostic, Client Entry Script, Control Card Layout, Drive Comparison Template, Drive Filter Controls, Embedded Data Scripts (+5 more)
+Nodes (13): tools/build_drive_comparison.py, tools/build_research_catalog.py, tools/build_ship_catalog.py, docs/assets/js/**, tools/drive_comparison_client/**, tools/drive_comparison_template.html, data/preset_library.json, scripts/rebuild_pages.py (+5 more)
 
-### Community 16 - "Build Workflow Policy"
-Cohesion: 0.20
-Nodes (12): Agent Instructions, Default Checked-in UI-only Build, Generated Artifact Policy, Local Game Data Rebuild, Source of Truth Paths, Cross Phase Invariants, Dashboard Features, Default Checked-in UI-only Build (+4 more)
+### Community 22 - "Page Template"
+Cohesion: 0.17
+Nodes (13): App loading screen, Calculation notes, Client entry module script, Connection line controls, Display controls, Drive comparison page template, Drive filter controls, Embedded JSON data scripts (+5 more)
 
-### Community 17 - "Pointer Pan Hover"
-Cohesion: 0.30
-Nodes (12): handleChartPointerDown(), handleChartPointerMove(), hitTargetsAt(), ladderHitTargetsAt(), panDomainByPixels(), pointInPlot(), resolveLadderHoverRefs(), svgPointFromEvent() (+4 more)
-
-### Community 18 - "Page Rebuild Script"
+### Community 23 - "Deploy Rebuild Script"
 Cohesion: 0.38
 Nodes (11): CompletedProcess, build_pages(), commit_and_push(), current_branch(), generated_paths_changed(), main(), optional_arg(), parse_args() (+3 more)
 
-### Community 19 - "WSL Build Guard"
+### Community 24 - "WSL Build Script"
 Cohesion: 0.36
 Nodes (10): build-wsl.sh script, check_playwright_chromium(), fail(), is_windows_tool_path(), PATH, reject_windows_tool_if_present(), require_linux_tool(), require_value() (+2 more)
 
-### Community 20 - "Filter Warning Plans"
-Cohesion: 0.21
-Nodes (12): Actionable Filter Warnings Plan, Phased Diagnostics Refactor Strategy, Diagnostics Model Phase, Hidden Summary, Reason Key Split, Search Summary, Action Banner UI Phase, Banner Action Handlers (+4 more)
+### Community 25 - "Preset Import Tests"
+Cohesion: 0.36
+Nodes (6): AddBuiltInPresetTests, chart_export(), design_export(), load_json(), Path, write_json()
 
-### Community 21 - "GitHub Contribution Rules"
-Cohesion: 0.24
-Nodes (11): Git Text Workflow, Repository-wide Copilot Instructions, Generated Output Deployment Impact, Pull Request Template, Reviewer Checklist, Commit Message Instructions, Conventional Commit Format, Type Selection Rules (+3 more)
+### Community 26 - "Pointer Hit Testing"
+Cohesion: 0.35
+Nodes (11): handleChartPointerDown(), handleChartPointerMove(), hitTargetsAt(), ladderHitTargetsAt(), panDomainByPixels(), pointInPlot(), resolveLadderHoverRefs(), svgPointFromEvent() (+3 more)
 
-### Community 22 - "Zoom Domain Research"
-Cohesion: 0.33
-Nodes (11): isBandMetric(), baseValueDomain(), constrainDomain(), currentZoomContext(), paddedDomain(), renderChart(), sameDomain(), setZoomDomains() (+3 more)
+### Community 27 - "Chart Architecture Docs"
+Cohesion: 0.28
+Nodes (9): chart/interaction.js, chart layer, chart/rendering.js, DATA.driveLinks, Chart guide, Chart options controls, Chart shell, Chart SVG (+1 more)
 
-### Community 23 - "ESM Ship Designer Architecture"
-Cohesion: 0.24
-Nodes (10): Chart Ownership, Dependency Direction, Dry Mass Calculator Split, Module Boundary Verifier, Native ES Module Architecture, Dry Mass Status Copy, Ship Designer Entry Phase, Visible Text CTA (+2 more)
+### Community 28 - "App Preset Architecture"
+Cohesion: 0.25
+Nodes (8): app/controller.js, app layer, main.js composition root, presets/codec.js, presets layer, presets/library.js, presets/repository.js, presets/runtime.js
 
-### Community 24 - "Ship Catalog Concepts"
-Cohesion: 0.33
-Nodes (9): Armor Catalog, Dry Mass Interpretation Notes, Hull Catalog, Module Effects Normalization, Ship Catalog Generation Source, Terra Invicta Ship Catalog, Utility Module Catalog, Weapon Module Catalog (+1 more)
+### Community 29 - "Ship Designer UI Docs"
+Cohesion: 0.29
+Nodes (8): ui/dry_mass_calculator.js, Ship Designer grouping inside Simulation Conditions, ui layer, Dry mass calculator modal, Dry mass preset library, Module effects controls, Ship Designer card, Ship preset simulation defaults
 
-### Community 25 - "Client Syntax Verifier"
+### Community 30 - "Readme Dashboard"
+Cohesion: 0.29
+Nodes (7): Current dashboard features, GitHub Pages builder, Korean and English language selector, Static dashboard, Terra Invicta Engine Charts, Header project links, UI language selector
+
+### Community 31 - "Syntax Verification"
 Cohesion: 0.29
 Nodes (5): clientDir, failures, files, repoRoot, toolsDir
 
-### Community 26 - "Ship Designer Issue Plan"
-Cohesion: 0.40
-Nodes (5): One Modal Reuse Strategy, Promoted Ship Designer Workflow, Ship Designer Discoverability Plan, Build and Browser Verification Phase, Focused Ship Designer Smoke
+### Community 32 - "Searchable Select"
+Cohesion: 0.43
+Nodes (4): enhanceSearchableSelect(), renderSearchableSelectOptions(), searchableSelectLabel(), searchableSelectOptions()
 
-### Community 27 - "Issue Template Routing"
+### Community 33 - "Generated Data Policy"
+Cohesion: 0.40
+Nodes (5): Deploy workflow, Generated artifacts, Generated and external data policy, Search and review scope, Generated output and deployment scope
+
+### Community 34 - "Dry Mass Architecture"
+Cohesion: 0.40
+Nodes (5): calc layer, calc/dry_mass.js facade, calc/dry_mass_model.js, shared layer, state layer
+
+### Community 35 - "Import Cycle Rationale"
+Cohesion: 0.50
+Nodes (4): Circular import guard, Dependency direction, Import graph verifier, Module layout goal
+
+### Community 36 - "Preset Library Docs"
 Cohesion: 0.67
-Nodes (4): Bug Report, Issue Area Taxonomy, Issue Discussions Routing, Feature Request
+Nodes (3): tools/add_builtin_preset.py, Built-in presets, data/preset_library.json
 
 ## Knowledge Gaps
-- **101 isolated node(s):** `name`, `version`, `private`, `description`, `build` (+96 more)
+- **122 isolated node(s):** `name`, `version`, `private`, `description`, `build` (+117 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **1 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **2 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `evaluateModuleEffectsForDrive()` connect `Module Effects Diagnostics` to `Drive Filtering Logic`?**
-  _High betweenness centrality (0.028) - this node is a cross-community bridge._
-- **Why does `localText()` connect `Controller Dry Mass` to `Preset Codec Sync`, `Chart Rendering Metrics`, `Chart Core State`, `Chart Context Interaction`, `Render Diagnostics Flow`?**
+- **Why does `evaluateModuleEffectsForDrive()` connect `Module Effects` to `Drive Filtering`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
+- **Why does `localText()` connect `Localized Controls` to `Preset Codec`, `Drive Filtering`, `Searchable Select`, `Dry Mass Model`, `Diagnostics Interaction`, `Chart Rendering`, `Core State`, `UI Controls`, `App Controller`?**
   _High betweenness centrality (0.022) - this node is a cross-community bridge._
 - **Are the 5 inferred relationships involving `build_data()` (e.g. with `ship_plan_drive_open_cycle()` and `ship_plan_drive_power_requirement_gw()`) actually correct?**
   _`build_data()` has 5 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `name`, `version`, `private` to the rest of the system?**
-  _113 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Controller Dry Mass` be split into smaller, more focused modules?**
-  _Cohesion score 0.05313257182416061 - nodes in this community are weakly interconnected._
-- **Should `Preset Codec Sync` be split into smaller, more focused modules?**
-  _Cohesion score 0.06030619865571322 - nodes in this community are weakly interconnected._
-- **Should `Drive Page Builder` be split into smaller, more focused modules?**
-  _Cohesion score 0.05787545787545788 - nodes in this community are weakly interconnected._
+  _135 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Preset Codec` be split into smaller, more focused modules?**
+  _Cohesion score 0.06251213356629781 - nodes in this community are weakly interconnected._
+- **Should `Drive Filtering` be split into smaller, more focused modules?**
+  _Cohesion score 0.057971014492753624 - nodes in this community are weakly interconnected._
+- **Should `Dashboard Builder` be split into smaller, more focused modules?**
+  _Cohesion score 0.07256571640133284 - nodes in this community are weakly interconnected._
