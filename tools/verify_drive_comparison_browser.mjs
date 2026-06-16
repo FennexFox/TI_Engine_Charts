@@ -129,6 +129,102 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       && /Basic information \(thrust, efficiency, power\)/.test(englishMetricGroups[1] || ""),
     `${htmlFile}: English metric group labels were not localized`,
   );
+
+  const firstRunReadabilityChecks = await page.evaluate(() => {
+    const axisTitles = [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || "");
+    const readingGuide = document.getElementById("chartReadingGuide");
+    const activeSummary = document.getElementById("chartActiveSummary")?.textContent || "";
+    const chartScaleText = document.getElementById("chartScaleControls")?.textContent || "";
+    return {
+      stateLogX: state.logX,
+      stateLogY: state.logY,
+      leftLogX: document.getElementById("logX")?.checked ?? null,
+      leftLogY: document.getElementById("logY")?.checked ?? null,
+      chartLogX: document.getElementById("chartLogX")?.checked ?? null,
+      chartLogY: document.getElementById("chartLogY")?.checked ?? null,
+      axisTitles,
+      activeSummary,
+      chartScaleText,
+      readingGuideExists: !!readingGuide,
+      readingGuideText: readingGuide?.textContent || "",
+      readingGuideAria: readingGuide?.getAttribute("aria-label") || "",
+      dataPointCount: document.querySelectorAll("#chart .data-point").length,
+    };
+  });
+  expect(firstRunReadabilityChecks.stateLogX && firstRunReadabilityChecks.stateLogY, `${htmlFile}: first-run state should default to log/log after built-in preset application`);
+  expect(firstRunReadabilityChecks.leftLogX && firstRunReadabilityChecks.leftLogY, `${htmlFile}: left-panel log checkboxes should reflect first-run log/log defaults`);
+  expect(firstRunReadabilityChecks.chartLogX && firstRunReadabilityChecks.chartLogY, `${htmlFile}: chart-adjacent log checkboxes should reflect first-run log/log defaults`);
+  expect(firstRunReadabilityChecks.axisTitles.every(title => /\(log\)/.test(title)), `${htmlFile}: first-run axis titles should show log scale on both axes`);
+  expect(/Scale: Log X \/ Log Y/.test(firstRunReadabilityChecks.activeSummary), `${htmlFile}: chart active summary should expose active log scales`);
+  expect(/Engine x\d+/.test(firstRunReadabilityChecks.activeSummary) && /categories/.test(firstRunReadabilityChecks.activeSummary), `${htmlFile}: chart active summary should expose active filter state`);
+  expect(/Log X axis/.test(firstRunReadabilityChecks.chartScaleText) && /Log Y axis/.test(firstRunReadabilityChecks.chartScaleText), `${htmlFile}: chart-adjacent scale controls missing English labels`);
+  expect(firstRunReadabilityChecks.readingGuideExists, `${htmlFile}: chart-reading guide is missing`);
+  expect(/How to read this chart/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide missing English heading`);
+  expect(/Lower cumulative research/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not explain the X axis`);
+  expect(/lighter ship|less propellant|mass tradeoff/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not explain lower mass interpretation`);
+  expect(/lower-left/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not tell users where to look first`);
+  expect(/Acceleration/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide should use Acceleration terminology in English`);
+  expect(/Dry mass|Ship:/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide should reference current ship or dry-mass assumptions`);
+  expect(!/[가-힣]/u.test(firstRunReadabilityChecks.readingGuideText + firstRunReadabilityChecks.activeSummary + firstRunReadabilityChecks.chartScaleText), `${htmlFile}: English chart readability controls contain Korean text`);
+  expect(firstRunReadabilityChecks.dataPointCount > 0, `${htmlFile}: first-run log/log default rendered no chart points`);
+
+  const scaleControlSyncChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    document.getElementById("chartLogX")?.click();
+    const afterChartToggle = {
+      stateLogX: state.logX,
+      leftLogX: document.getElementById("logX")?.checked ?? null,
+      chartLogX: document.getElementById("chartLogX")?.checked ?? null,
+      activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
+      axisTitles: [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || ""),
+    };
+    document.getElementById("logX")?.click();
+    const afterLeftToggle = {
+      stateLogX: state.logX,
+      leftLogX: document.getElementById("logX")?.checked ?? null,
+      chartLogX: document.getElementById("chartLogX")?.checked ?? null,
+      activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
+      axisTitles: [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || ""),
+    };
+    applyPresetToState({ metric: "totalMassTons", logX: false, logY: true });
+    syncUiFromState();
+    const afterExplicitPreset = {
+      stateLogX: state.logX,
+      stateLogY: state.logY,
+      leftLogX: document.getElementById("logX")?.checked ?? null,
+      leftLogY: document.getElementById("logY")?.checked ?? null,
+      chartLogX: document.getElementById("chartLogX")?.checked ?? null,
+      chartLogY: document.getElementById("chartLogY")?.checked ?? null,
+      activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
+      axisTitles: [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || ""),
+    };
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const korean = {
+      activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
+      chartScaleText: document.getElementById("chartScaleControls")?.textContent || "",
+      readingGuideText: document.getElementById("chartReadingGuide")?.textContent || "",
+    };
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    return { afterChartToggle, afterLeftToggle, afterExplicitPreset, korean };
+  });
+  expect(!scaleControlSyncChecks.afterChartToggle.stateLogX, `${htmlFile}: chart-adjacent Log X toggle did not update state`);
+  expect(!scaleControlSyncChecks.afterChartToggle.leftLogX && !scaleControlSyncChecks.afterChartToggle.chartLogX, `${htmlFile}: chart-adjacent Log X toggle did not sync both controls`);
+  expect(/Linear X/.test(scaleControlSyncChecks.afterChartToggle.activeSummary), `${htmlFile}: active summary did not reflect chart-adjacent Log X toggle`);
+  expect(!/\(log\)/.test(scaleControlSyncChecks.afterChartToggle.axisTitles[0] || ""), `${htmlFile}: X axis title stayed log after chart-adjacent Log X toggle`);
+  expect(scaleControlSyncChecks.afterLeftToggle.stateLogX && scaleControlSyncChecks.afterLeftToggle.leftLogX && scaleControlSyncChecks.afterLeftToggle.chartLogX, `${htmlFile}: left-panel Log X toggle did not resync chart-adjacent control`);
+  expect(/Log X/.test(scaleControlSyncChecks.afterLeftToggle.activeSummary), `${htmlFile}: active summary did not reflect left-panel Log X toggle`);
+  expect(scaleControlSyncChecks.afterExplicitPreset.stateLogX === false && scaleControlSyncChecks.afterExplicitPreset.stateLogY === true, `${htmlFile}: explicit preset logX/logY choices were not preserved`);
+  expect(!scaleControlSyncChecks.afterExplicitPreset.leftLogX && scaleControlSyncChecks.afterExplicitPreset.leftLogY, `${htmlFile}: explicit preset did not sync left-panel scale controls`);
+  expect(!scaleControlSyncChecks.afterExplicitPreset.chartLogX && scaleControlSyncChecks.afterExplicitPreset.chartLogY, `${htmlFile}: explicit preset did not sync chart-adjacent scale controls`);
+  expect(/Scale: Linear X \/ Log Y/.test(scaleControlSyncChecks.afterExplicitPreset.activeSummary), `${htmlFile}: active summary did not reflect explicit preset scale choices`);
+  expect(/[가-힣]/u.test(scaleControlSyncChecks.korean.activeSummary + scaleControlSyncChecks.korean.chartScaleText + scaleControlSyncChecks.korean.readingGuideText), `${htmlFile}: Korean chart readability controls did not render Korean text`);
+  expect(!/Scale:|Log X axis|How to read this chart|lower-left/.test(scaleControlSyncChecks.korean.activeSummary + scaleControlSyncChecks.korean.chartScaleText + scaleControlSyncChecks.korean.readingGuideText), `${htmlFile}: Korean chart readability controls contain English UI text`);
+
   const cardSummaryChecks = await page.evaluate(() => {
     const simulationSummaryText = () => document.querySelector('.control-card[data-control-card="simulation"] [data-card-summary]')?.textContent || "";
     const filterSummaryText = () => document.querySelector('.control-card[data-control-card="filter"] [data-card-summary]')?.textContent || "";
@@ -1311,6 +1407,9 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     render();
     const guide = document.getElementById("chartGuide");
     const guideDetails = document.getElementById("chartGuideDetails");
+    const readingGuide = document.getElementById("chartReadingGuide");
+    const activeSummary = document.getElementById("chartActiveSummary");
+    const scaleControls = document.getElementById("chartScaleControls");
     const lineControls = document.getElementById("connectionLineControls");
     const displayCard = document.querySelector('.control-card[data-control-card="display"]');
     const plotFrame = document.querySelector(".chart-plot-frame");
@@ -1322,6 +1421,14 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
         return box.left < guideBox.left - 1 || box.right > guideBox.right + 1;
       })
       : true;
+    const elementChildOverflow = element => {
+      const box = element?.getBoundingClientRect();
+      if (!element || !box) return true;
+      return [...element.children].some(child => {
+        const childBox = child.getBoundingClientRect();
+        return childBox.left < box.left - 1 || childBox.right > box.right + 1;
+      });
+    };
     const floatingInPlotCorner = !!(guideBox && plotFrameBox)
       && guideBox.left >= plotFrameBox.left - 1
       && guideBox.right <= plotFrameBox.right + 1
@@ -1342,6 +1449,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const englishPowerItems = [...(guide?.querySelectorAll(".chart-guide-item") || [])]
       .filter(item => /Power view|Hover a point/.test(item.textContent || "")).length;
     const paretoHelp = guide?.querySelector(".chart-guide-item .chart-guide-symbol.is-pareto + .chart-guide-help") || null;
+    const englishReadingGuideText = readingGuide?.textContent || "";
+    const englishActiveSummaryText = activeSummary?.textContent || "";
+    const englishScaleControlsText = scaleControls?.textContent || "";
+    const englishReadingGuideChildOverflow = elementChildOverflow(readingGuide);
+    const englishScaleControlsChildOverflow = elementChildOverflow(scaleControls);
     setLanguage("ko", { rerender: false });
     syncUiFromState();
     render();
@@ -1355,6 +1467,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       guideDetailsCollapsed: !!guideDetails && !guideDetails.open,
       floatingInPlotCorner,
       lineModeSingleRow,
+      readingGuideExists: !!readingGuide,
+      readingGuideText: englishReadingGuideText,
+      activeSummaryText: englishActiveSummaryText,
+      scaleControlsText: englishScaleControlsText,
+      readingGuideChildOverflow: englishReadingGuideChildOverflow,
+      scaleControlsChildOverflow: englishScaleControlsChildOverflow,
       englishText,
       paretoHelpText: paretoHelp?.dataset.help || paretoHelp?.getAttribute("aria-label") || "",
       paretoHelpHasNativeTitle: !!paretoHelp?.getAttribute("title"),
@@ -1373,6 +1491,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(chartGuideChecks.guideDetailsCollapsed, `${htmlFile}: chart guide details should be collapsed by default`);
   expect(chartGuideChecks.floatingInPlotCorner, `${htmlFile}: chart guide card should float in the chart plot's top-right corner`);
   expect(chartGuideChecks.lineModeSingleRow, `${htmlFile}: connection line mode buttons should stay on one row`);
+  expect(chartGuideChecks.readingGuideExists, `${htmlFile}: chart-reading guide missing on narrow viewport`);
+  expect(/How to read this chart/.test(chartGuideChecks.readingGuideText), `${htmlFile}: chart-reading guide missing English copy on narrow viewport`);
+  expect(/Scale: Log X \/ Log Y/.test(chartGuideChecks.activeSummaryText), `${htmlFile}: active summary missing log/log state on narrow viewport`);
+  expect(/Log X axis/.test(chartGuideChecks.scaleControlsText) && /Log Y axis/.test(chartGuideChecks.scaleControlsText), `${htmlFile}: chart-adjacent scale controls missing on narrow viewport`);
+  expect(!chartGuideChecks.readingGuideChildOverflow, `${htmlFile}: chart-reading guide overflows on mobile`);
+  expect(!chartGuideChecks.scaleControlsChildOverflow, `${htmlFile}: chart-adjacent scale controls overflow on mobile`);
   expect(chartGuideChecks.englishItemCount >= 4, `${htmlFile}: compact chart guide is missing required items`);
   const lineModeDescriptions = new Map(chartGuideChecks.englishModeDescriptions.map(item => [item.mode, item.title]));
     expect(/Lines: drive progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain progression lines`);

@@ -1,6 +1,7 @@
 import { chartSummaryMassOptions, computeDriveDiagnostics, filteredRows } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
+import { formatNumber, formatTwrDynamicUnit } from "../shared/formatting.js";
 import { localLabel, selectedChartPresetEntry, syncUiFromState } from "../presets/library.js";
 import { CHART_CLICK_TOLERANCE_PX, CHART_HIT_RADIUS_PX, CHART_LADDER_HIT_RADIUS_PX, CONNECTION_LINE_MODES, DATA, DEFAULT_MIN_TWR, UI_LANG, chart, connectionLineModeLabel, localText, metricDefs, metricHint, metricLabel, normalizeConnectionLineMode, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state, updateLeftPanelCardSummaries } from "../state/core.js";
 import { updateChartControls } from "../ui/control_state.js";
@@ -24,6 +25,7 @@ export function render() {
       renderLegend(rows);
       renderConnectionLineControls();
       renderChartGuide();
+      renderChartReadingGuide();
       renderChart(rows);
       renderTable(rows);
       updateSortHeaders();
@@ -506,6 +508,112 @@ export function renderChartGuide() {
       appendItem("is-pareto", localText("×: Pareto 지배", "×: Pareto-dominated"), paretoHelpText);
       appendItem("is-warning", localText("경고 링: 낮은 TWR/극단 질량비", "Warning ring: low TWR/extreme mass"));
       appendItem("is-pin", localText("윤곽선: 호버/선택/고정, 재클릭 해제", "Outline: hover/select/pin; click again unpins"));
+    }
+
+function appliedShipAssumptionText() {
+      const template = state.appliedShipTemplate;
+      let templateName = "";
+      if (template && typeof template === "object") {
+        const display = template.displayName;
+        if (display && typeof display === "object") {
+          templateName = UI_LANG === "en"
+            ? display.en || display.ko || display.kor || template.name || ""
+            : display.ko || display.kor || display.en || template.name || "";
+        } else {
+          templateName = template.name || "";
+        }
+      }
+      if (templateName) return localText(`함선: ${templateName}`, `Ship: ${templateName}`);
+      return localText(`건조질량: ${formatNumber(state.dryMassTons, " t")}`, `Dry mass: ${formatNumber(state.dryMassTons, " t")}`);
+    }
+
+function yAxisReadingText() {
+      if (state.metric === "totalMassTons") {
+        return localText(
+          "총질량 차트에서는 아래쪽이 선택한 dV와 현재 함선 가정에서 더 가벼운 함선을 뜻합니다.",
+          "On total-mass charts, lower means a lighter ship for the selected dV and current ship assumptions.",
+        );
+      }
+      if (state.metric === "fuelMassTons") {
+        return localText(
+          "연료질량 차트에서는 아래쪽이 선택한 dV와 현재 함선 가정에서 필요한 추진체가 더 적다는 뜻입니다.",
+          "On fuel-mass charts, lower means less propellant for the selected dV and current ship assumptions.",
+        );
+      }
+      if (state.metric === "twr") {
+        return localText(
+          "가속도 차트에서는 위쪽이 더 높은 가속도입니다. 질량 판단은 총질량/연료질량 차트도 함께 보세요.",
+          "On the Acceleration chart, higher means more Acceleration. Check total-mass or fuel-mass charts for the mass tradeoff.",
+        );
+      }
+      return localText(
+        `세로축은 현재 선택한 지표인 ${metricLabel(state.metric)}입니다. 질량 판단은 총질량/연료질량 차트에서 아래쪽을 보세요.`,
+        `The Y axis is the selected metric: ${metricLabel(state.metric)}. For mass tradeoffs, use lower positions on total-mass or fuel-mass charts.`,
+      );
+    }
+
+function accelerationAssumptionText() {
+      if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
+        return localText(
+          `가속도 ≥ ${formatTwrDynamicUnit(state.minTwr)}`,
+          `Acceleration ≥ ${formatTwrDynamicUnit(state.minTwr)}`,
+        );
+      }
+      if (state.metric === "twr" && state.minDvKps > 0) {
+        return localText(`최소 dV ${formatNumber(state.minDvKps, " km/s")}`, `Minimum dV ${formatNumber(state.minDvKps, " km/s")}`);
+      }
+      return localText("가속도 요구는 임무 역할에 따라 달라집니다.", "Acceleration needs depend on mission role.");
+    }
+
+function appendReadingCue(root, label, text) {
+      const item = document.createElement("div");
+      item.className = "chart-reading-cue";
+      const badge = document.createElement("span");
+      badge.className = "chart-reading-cue-label";
+      badge.textContent = label;
+      const copy = document.createElement("span");
+      copy.className = "chart-reading-cue-text";
+      copy.textContent = text;
+      item.append(badge, copy);
+      root.appendChild(item);
+    }
+
+export function renderChartReadingGuide() {
+      const root = document.getElementById("chartReadingGuide");
+      if (!root) return;
+      root.innerHTML = "";
+      root.setAttribute("aria-label", localText("차트 읽기 요약", "Chart reading summary"));
+
+      const heading = document.createElement("div");
+      heading.className = "chart-reading-heading";
+      heading.textContent = localText("차트 읽기", "How to read this chart");
+
+      const cues = document.createElement("div");
+      cues.className = "chart-reading-cues";
+      appendReadingCue(
+        cues,
+        localText("왼쪽", "Left"),
+        localText(
+          "최초 호환 전원을 포함한 누적 연구력이 더 낮습니다.",
+          "Lower cumulative research, including the first compatible power plant.",
+        ),
+      );
+      appendReadingCue(cues, localText("아래", "Lower"), yAxisReadingText());
+      appendReadingCue(
+        cues,
+        localText("먼저 볼 곳", "Look first"),
+        localText(
+          "좋은 후보는 보통 왼쪽 아래에서 시작하지만, 가속도와 임무 역할이 답을 바꿀 수 있습니다.",
+          "Good candidates often start near the lower-left, but Acceleration and mission role can change the answer.",
+        ),
+      );
+      appendReadingCue(
+        cues,
+        localText("현재 가정", "Assumptions"),
+        `${appliedShipAssumptionText()} · dV ${formatNumber(state.targetDvKps, " km/s")} · ${accelerationAssumptionText()}`,
+      );
+
+      root.append(heading, cues);
     }
 
 export function valueDomain(rows) {

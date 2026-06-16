@@ -1,7 +1,7 @@
 import { isBandMetric } from "../calc/metrics.js";
 import { isModuleRuleRelevantToDriveChart } from "../calc/module_effects.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, powerResearchViewLabel, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, connectionLineModeLabel, currentModuleEffectAssumptions, localText, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state } from "../state/core.js";
 import { formatNumber, formatTwrDynamicUnit } from "./formatting.js";
 
 function utilityModuleById(id) {
@@ -192,6 +192,27 @@ export function updateModuleEffectsPanel() {
   }
 }
 
+export function updateChartActiveSummary() {
+  const root = document.getElementById("chartActiveSummary");
+  if (!root) return;
+  const activeCategories = DATA.categories.filter(category => !!state.categories[category.key]).length;
+  const selectedFamilies = DATA.subfamilies.filter(family => !!state.categories[family.categoryKey] && !!state.families[family.key]).length;
+  const scaleParts = [
+    state.logX ? localText("X 로그", "Log X") : localText("X 선형", "Linear X"),
+    state.logY ? localText("Y 로그", "Log Y") : localText("Y 선형", "Linear Y"),
+  ];
+  const parts = [
+    `${localText("스케일", "Scale")}: ${scaleParts.join(" / ")}`,
+    `${localText("엔진", "Engine")} x${state.thrusters}`,
+    `${activeCategories}/${DATA.categories.length} ${localText("대분류", "categories")}`,
+    `${selectedFamilies}/${DATA.subfamilies.length} ${localText("계열", "families")}`,
+    state.searchTerm ? localText("검색 있음", "Search active") : localText("검색 없음", "No search"),
+    powerResearchActive() ? `${localText("전원", "Power")}: ${powerResearchViewLabel()}` : "",
+    `${localText("연결선", "Lines")}: ${connectionLineModeLabel()}`,
+  ].filter(Boolean);
+  root.textContent = parts.join(" · ");
+}
+
 export function updateChartControls() {
   const fuelUnitBlock = document.getElementById("chartFuelUnit");
   const bandAnalysisControls = document.getElementById("bandAnalysisControls");
@@ -200,6 +221,12 @@ export function updateChartControls() {
   const minTwrControl = document.getElementById("minTwrControl");
   const minDvControl = document.getElementById("minDvControl");
   const powerResearchViewControl = document.getElementById("powerResearchViewControl");
+  const chartScaleControls = document.getElementById("chartScaleControls");
+  const chartLogX = document.getElementById("chartLogX");
+  const chartLogY = document.getElementById("chartLogY");
+  const chartScaleLabel = document.getElementById("chartScaleLabel");
+  const chartLogXLabel = document.getElementById("chartLogXLabel");
+  const chartLogYLabel = document.getElementById("chartLogYLabel");
   fuelUnitBlock.style.display = state.metric === "fuelEfficiency" ? "" : "none";
   bandAnalysisControls.style.display = isBandMetric() ? "" : "none";
   showTwrInfoRow.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
@@ -207,6 +234,12 @@ export function updateChartControls() {
   minTwrControl.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
   minDvControl.style.display = state.metric === "twr" ? "" : "none";
   powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
+  if (chartScaleControls) chartScaleControls.setAttribute("aria-label", localText("축 스케일", "Axis scale"));
+  if (chartScaleLabel) chartScaleLabel.textContent = localText("축", "Axes");
+  if (chartLogX) chartLogX.checked = !!state.logX;
+  if (chartLogY) chartLogY.checked = !!state.logY;
+  if (chartLogXLabel) chartLogXLabel.textContent = localText("X축 로그", "Log X axis");
+  if (chartLogYLabel) chartLogYLabel.textContent = localText("Y축 로그", "Log Y axis");
   const powerResearchViewSelect = document.getElementById("powerResearchView");
   if (powerResearchViewSelect) {
     [...powerResearchViewSelect.options].forEach(option => {
@@ -218,6 +251,7 @@ export function updateChartControls() {
   if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
   updateShipDesignerPanel();
   updateModuleEffectsPanel();
+  updateChartActiveSummary();
   syncMinTwrInputs();
   syncMinDvInputs();
 }

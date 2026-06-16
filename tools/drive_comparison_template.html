@@ -189,7 +189,7 @@ __STYLES__
         <section class="control-block">
           <span class="label">축 스케일</span>
           <div class="control-inline-grid">
-            <label class="check-row"><input id="logX" type="checkbox"> X축 로그</label>
+            <label class="check-row"><input id="logX" type="checkbox" checked> X축 로그</label>
             <label class="check-row"><input id="logY" type="checkbox" checked> Y축 로그</label>
           </div>
         </section>
@@ -280,6 +280,11 @@ __STYLES__
           <div><strong id="visibleCount">0</strong>개 드라이브 표시</div>
         </div>
         <div class="summary-controls">
+          <div id="chartScaleControls" class="chart-scale-controls" aria-label="축 스케일">
+            <span id="chartScaleLabel" class="chart-toggle-label">축</span>
+            <label class="chart-toggle chart-scale-toggle"><input id="chartLogX" type="checkbox" checked> <span id="chartLogXLabel">X축 로그</span></label>
+            <label class="chart-toggle chart-scale-toggle"><input id="chartLogY" type="checkbox" checked> <span id="chartLogYLabel">Y축 로그</span></label>
+          </div>
           <div id="chartFuelUnit" class="segmented compact" style="display: none;">
             <label><input type="radio" name="fuelUnit" value="kps" checked>km/s</label>
             <label><input type="radio" name="fuelUnit" value="seconds">s</label>
@@ -296,6 +301,7 @@ __STYLES__
           <div id="metricHint"></div>
         </div>
       </div>
+      <div id="chartActiveSummary" class="chart-active-summary" aria-live="polite"></div>
       <div id="chartDiagnostic" class="diagnostic-banner" hidden></div>
       <div id="filterActionBanner" class="filter-action-banner" hidden aria-live="polite">
         <div class="filter-action-banner-copy">
@@ -304,6 +310,7 @@ __STYLES__
         </div>
         <div id="filterActionBannerActions" class="filter-action-banner-actions"></div>
       </div>
+      <section id="chartReadingGuide" class="chart-reading-guide" aria-label="차트 읽기 요약"></section>
       <div class="chart-body">
         <div class="chart-plot-frame">
           <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>

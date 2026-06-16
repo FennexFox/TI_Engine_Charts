@@ -995,6 +995,8 @@ export function syncUiFromState() {
       const radiator = document.getElementById("radiator");
       const logX = document.getElementById("logX");
       const logY = document.getElementById("logY");
+      const chartLogX = document.getElementById("chartLogX");
+      const chartLogY = document.getElementById("chartLogY");
       const showTwrInfo = document.getElementById("showTwrInfo");
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
@@ -1014,6 +1016,8 @@ export function syncUiFromState() {
       }
       if (logX) logX.checked = !!state.logX;
       if (logY) logY.checked = !!state.logY;
+      if (chartLogX) chartLogX.checked = !!state.logX;
+      if (chartLogY) chartLogY.checked = !!state.logY;
       if (showTwrInfo) showTwrInfo.checked = !!state.showTwrInfo;
       if (showMassInfo) showMassInfo.checked = !!state.showMassInfo;
       if (paretoHighlight) paretoHighlight.checked = !!state.paretoHighlight;
@@ -1031,4 +1035,3 @@ export function syncUiFromState() {
       presetRuntimeApi.renderDryMassCalcModal();
       presetRuntimeApi.render();
     }
-
