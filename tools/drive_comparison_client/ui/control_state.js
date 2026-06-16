@@ -111,13 +111,49 @@ function appliedTemplateDisplayName(template) {
   return template.name || "";
 }
 
+function updateInlineHelp(element, text) {
+  if (!element || !text) return;
+  element.dataset.help = text;
+  element.title = text;
+  element.setAttribute("aria-label", text);
+}
+
+
+
+function updateEngineCountControl() {
+  const labelText = document.getElementById("shipEngineCountLabelText");
+  const help = document.getElementById("shipEngineCountHelp");
+  if (labelText) labelText.textContent = localText("함선 엔진 수", "Assumed engine count");
+  updateInlineHelp(
+    help,
+    localText(
+      "엔진 수 제한이 있는 드라이브는 선택값에 가장 가까운 유효 엔진 수로 표시됩니다.",
+      "Drives with engine-count limits are shown at the nearest valid engine count to the selected assumption.",
+    ),
+  );
+}
+
+function appendShipDesignerStatusLine(container, label, value = "") {
+  const line = document.createElement("div");
+  line.className = "ship-designer-status-line";
+  line.textContent = value ? `${label}: ${value}` : label;
+  container.appendChild(line);
+}
+
 export function updateShipDesignerPanel() {
   const title = document.getElementById("shipDesignerTitle");
   const calcButton = document.getElementById("dryMassCalcButton");
+  const actionNote = document.getElementById("shipDesignerActionNote");
   const status = document.getElementById("shipDesignerAppliedTemplate");
   if (title) title.textContent = localText("함선 설계", "Ship Designer");
+  if (actionNote) {
+    actionNote.textContent = localText(
+      "함선, 장갑, 모듈, 건조질량, 기본값을 편집합니다.",
+      "Edit hull, armor, modules, dry mass, and design defaults.",
+    );
+  }
   const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
-  const dryMassText = `${localText("건조질량", "Dry mass")}: ${formatNumber(state.dryMassTons, " t")}`;
+  const dryMassValue = formatNumber(state.dryMassTons, " t");
   if (calcButton) {
     const openLabel = templateName
       ? localText("함선 설계 편집", "Edit Ship Design")
@@ -127,13 +163,15 @@ export function updateShipDesignerPanel() {
     calcButton.title = openLabel;
   }
   if (!status) return;
+  status.replaceChildren();
   if (templateName) {
     status.dataset.appliedTemplate = "true";
-    status.textContent = `${localText("적용된 설계", "Applied design")}: ${templateName} · ${dryMassText}`;
+    appendShipDesignerStatusLine(status, localText("적용된 설계", "Applied design"), templateName);
   } else {
     status.dataset.appliedTemplate = "false";
-    status.textContent = `${localText("적용된 함선 템플릿 없음", "No ship template applied")} · ${dryMassText}`;
+    appendShipDesignerStatusLine(status, localText("적용된 함선 템플릿 없음", "No ship template applied"));
   }
+  appendShipDesignerStatusLine(status, localText("건조질량", "Dry mass"), dryMassValue);
 }
 
 export function updateModuleEffectsPanel() {
@@ -252,6 +290,7 @@ export function updateChartControls() {
   }
   const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
   if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
+  updateEngineCountControl();
   updateShipDesignerPanel();
   updateModuleEffectsPanel();
   updateChartActiveSummary();

@@ -128,9 +128,16 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
       applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
+      const thrusterCountHelp = document.getElementById("thrusterCountHelp");
+      applyHelp(thrusterCountHelp, helpText("thrusters"));
+      if (thrusterCountHelp) {
+        thrusterCountHelp.setAttribute("aria-label", localText("엔진 수 도움말", "Engine count help"));
+      }
 
       metric.value = state.metric;
       enhanceSearchableSelect(metric);
+      thrusters.value = String(clamp(state.thrusters, Number(thrusters.min), Number(thrusters.max)));
+      thrustersNumber.value = String(Math.round(state.thrusters));
       dryMass.value = String(clamp(state.dryMassTons, Number(dryMass.min), Number(dryMass.max)));
       dryMassNumber.value = String(Math.round(state.dryMassTons));
       targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
