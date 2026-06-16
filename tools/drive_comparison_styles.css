@@ -2446,19 +2446,98 @@
     }
 
 
-/* Pre-release UI relayout: detail-panel controls, compact guide, and table power steps. */
+/* Pre-release UI relayout: fixed detail panel, chart quick controls, compact guide, and table power steps. */
 .detail-panel {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  align-self: stretch;
-  height: 100%;
+  align-self: start;
+  height: var(--detail-panel-target-height, calc(min(70vh, 680px) + 88px));
+  min-height: calc(520px + 72px);
+  max-height: var(--detail-panel-target-height, calc(min(70vh, 680px) + 88px));
+  overflow: hidden;
 }
 .detail-panel .tooltip {
   flex: 1 1 auto;
-  height: auto;
+  height: 100%;
   min-height: 0;
+}
+.chart-floating-dock {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+}
+.chart-floating-dock > * {
+  pointer-events: auto;
+}
+.chart-floating-details,
+.chart-guide {
+  position: static;
+  width: min(280px, calc(100vw - 56px));
+  max-width: min(280px, calc(100vw - 56px));
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 10px;
+  background: rgba(17, 24, 21, 0.88);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.26);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  backdrop-filter: blur(8px);
+}
+.chart-floating-summary {
+  cursor: pointer;
+  padding: 0;
+  color: #e5eee8;
+  font-weight: 800;
+  list-style: none;
+  white-space: nowrap;
+}
+.chart-floating-summary::-webkit-details-marker {
+  display: none;
+}
+.chart-floating-summary::before {
+  content: ">";
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--muted);
+  transition: transform 140ms ease;
+}
+.chart-floating-details[open] .chart-floating-summary::before {
+  transform: rotate(90deg);
+}
+.chart-floating-content {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  max-height: min(56vh, 440px);
+  overflow: auto;
+  padding: 8px 2px 0 0;
+  scrollbar-color: var(--strong-line) transparent;
+  scrollbar-width: thin;
+}
+.chart-floating-content .control-stack {
+  gap: 0;
+}
+.chart-floating-content .control-block + .control-block {
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.chart-floating-content .searchable-select {
+  min-width: 0;
+}
+.chart-floating-content .split {
+  grid-template-columns: minmax(0, 1fr) minmax(76px, 96px);
 }
 .connection-line-controls {
   display: grid;
@@ -2584,14 +2663,29 @@
   margin-top: 8px;
 }
 @media (max-width: 980px) {
+  .chart-floating-dock {
+    top: 10px;
+    right: 10px;
+    max-width: calc(100% - 20px);
+  }
+  .chart-floating-details,
+  .chart-guide {
+    width: min(300px, calc(100vw - 48px));
+    max-width: min(300px, calc(100vw - 48px));
+  }
+  .chart-floating-content {
+    max-height: min(48vh, 380px);
+  }
   .detail-panel {
     min-width: 0;
-    height: auto;
-  }
-  .detail-panel .tooltip {
-    flex: 0 0 auto;
     height: min(52vh, 520px);
     min-height: 220px;
+    max-height: min(52vh, 520px);
+  }
+  .detail-panel .tooltip {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
   }
 }
 

@@ -63,7 +63,6 @@ export function unpinTooltipItemByKey(key) {
 
 export function tooltipHtml(row, option = null, key = "", index = 0, itemCount = 1) {
       const metrics = tooltipMetricsHtml(row, option);
-      const selected = option ? tooltipBreakdownHtml(row, option) : "";
       const powerName = option ? option.displayName : (UI_LANG === "en" ? "No power plant candidate" : "전원 후보 없음");
       const pinned = isPinnedTooltipKey(key);
       const pinLabel = UI_LANG === "en" ? (pinned ? "Unpin this card" : "Pin this card") : (pinned ? "이 카드 고정 해제" : "이 카드 고정");
@@ -80,7 +79,6 @@ export function tooltipHtml(row, option = null, key = "", index = 0, itemCount =
           <h2>${escapeHtml(row.displayName)}<span class="tooltip-title-power">${escapeHtml(powerName)}</span></h2>
           <div class="muted">${escapeHtml(rowCategoryLabel(row))} / ${escapeHtml(rowFamilyLabel(row))} · ${escapeHtml(rowProjectLabel(row))}</div>
           ${metrics}
-          ${selected}
         </section>
       `;
     }
@@ -156,6 +154,7 @@ export function tooltipMetricsHtml(row, option = null) {
           </div>
         </details>
         ${moduleEffects}
+        ${option ? tooltipBreakdownHtml(row, option) : ""}
         <details class="tooltip-section" open>
           <summary>${UI_LANG === "en" ? "Research detail" : "연구 상세"}</summary>
           <div class="tooltip-section-body">

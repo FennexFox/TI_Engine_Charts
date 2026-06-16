@@ -11,6 +11,47 @@ import { backgroundStyle } from "./formatting.js";
 import { updateChartControls, syncMinTwrInputs, syncMinDvInputs, updateModuleEffectsPanel } from "./control_state.js";
 import { clearTooltip, moveTooltipItemByOffset, removeTooltipItem, renderTable, toggleTooltipItemPin } from "./tooltip_table.js";
 
+
+function setupChartFloatingPanels() {
+      const panels = Array.from(document.querySelectorAll(".chart-floating-details, #chartGuideDetails"));
+      panels.forEach(panel => {
+        panel.addEventListener("toggle", () => {
+          if (!panel.open) return;
+          panels.forEach(other => {
+            if (other !== panel) other.open = false;
+          });
+        });
+      });
+    }
+
+function setupDetailPanelHeightSync() {
+      const plotFrame = document.querySelector(".chart-plot-frame");
+      const detailPanel = document.querySelector(".detail-panel");
+      if (!plotFrame || !detailPanel) return;
+
+      let scheduled = false;
+      const sync = () => {
+        scheduled = false;
+        const height = plotFrame.getBoundingClientRect().height;
+        if (height > 0) {
+          detailPanel.style.setProperty("--detail-panel-target-height", `${Math.round(height)}px`);
+        }
+      };
+      const scheduleSync = () => {
+        if (scheduled) return;
+        scheduled = true;
+        window.requestAnimationFrame(sync);
+      };
+
+      sync();
+      window.addEventListener("resize", scheduleSync);
+      window.addEventListener("load", scheduleSync, { once: true });
+      if (typeof ResizeObserver !== "undefined") {
+        const observer = new ResizeObserver(scheduleSync);
+        observer.observe(plotFrame);
+      }
+    }
+
 export function setupControls({ setLanguage = () => {}, refreshLocalizedControls = () => {} } = {}) {
       const metric = document.getElementById("metric");
       const thrusters = document.getElementById("thrusters");
@@ -78,6 +119,8 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         languageSelect.addEventListener("change", () => setLanguage(languageSelect.value));
       }
       applyStaticLanguage();
+      setupChartFloatingPanels();
+      setupDetailPanelHeightSync();
       setupLeftPanelCards();
       applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
       applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));

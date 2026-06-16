@@ -156,37 +156,6 @@ __STYLES__
         </div>
         </div>
       </section>
-      <section class="control-card" data-control-card="filter">
-        <div class="control-card-header">
-          <div class="control-card-heading">
-            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
-              <span class="control-card-caret" aria-hidden="true">▾</span>
-              <span class="control-card-title">필터 및 표시</span>
-            </button>
-            <div class="control-card-summary" data-card-summary></div>
-          </div>
-          <div class="control-card-actions" aria-label="순서 변경">
-            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
-            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
-          </div>
-        </div>
-        <div class="control-card-body">
-        <section id="bandAnalysisControls" class="control-block">
-          <span class="label">총질량/연료질량/가속도 보조 표시</span>
-          <label id="showTwrInfoRow" class="check-row"><input id="showTwrInfo" type="checkbox" checked> 가속도 정보 표시</label>
-          <label id="showMassInfoRow" class="check-row" style="display: none;"><input id="showMassInfo" type="checkbox" checked> 총질량 정보 표시</label>
-          <label class="check-row"><input id="paretoHighlight" type="checkbox" checked> 파레토 후보 강조</label>
-          <div id="minDvControl" style="margin-top: 10px; display: none;">
-            <label class="label" for="minDv">최소 dV (km/s)</label>
-            <div class="split">
-              <input id="minDv" type="range" min="0" max="2000" value="0" step="5">
-              <input id="minDvNumber" type="number" min="0" max="100000" value="0" step="1">
-            </div>
-            <div id="minDvReadout" class="control-hint">표시: dV >= 0 km/s</div>
-          </div>
-        </section>
-        </div>
-      </section>
       <section class="control-card" data-control-card="driveFilter">
         <div class="control-card-header">
           <div class="control-card-heading">
@@ -305,11 +274,32 @@ __STYLES__
       <div class="chart-body">
         <div class="chart-plot-frame">
           <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
-          <div id="chartGuide" class="chart-guide" aria-label="Chart guide">
-            <details id="chartGuideDetails" class="chart-guide-details">
-              <summary id="chartGuideSummary" class="chart-guide-summary">Chart Guide</summary>
-              <div id="chartGuideContent" class="chart-guide-content"></div>
+          <div id="chartFloatingDock" class="chart-floating-dock" aria-label="차트 빠른 설정">
+            <details id="chartFilterDetails" class="chart-floating-details chart-filter-details">
+              <summary class="chart-floating-summary">필터</summary>
+              <div class="chart-floating-content">
+                <section id="bandAnalysisControls" class="control-block">
+                  <span class="label">총질량/연료질량/가속도 보조 표시</span>
+                  <label id="showTwrInfoRow" class="check-row"><input id="showTwrInfo" type="checkbox" checked> 가속도 정보 표시</label>
+                  <label id="showMassInfoRow" class="check-row" style="display: none;"><input id="showMassInfo" type="checkbox" checked> 총질량 정보 표시</label>
+                  <label class="check-row"><input id="paretoHighlight" type="checkbox" checked> 파레토 후보 강조</label>
+                  <div id="minDvControl" style="margin-top: 10px; display: none;">
+                    <label class="label" for="minDv">최소 dV (km/s)</label>
+                    <div class="split">
+                      <input id="minDv" type="range" min="0" max="2000" value="0" step="5">
+                      <input id="minDvNumber" type="number" min="0" max="100000" value="0" step="1">
+                    </div>
+                    <div id="minDvReadout" class="control-hint">표시: dV >= 0 km/s</div>
+                  </div>
+                </section>
+              </div>
             </details>
+            <div id="chartGuide" class="chart-guide" aria-label="Chart guide">
+              <details id="chartGuideDetails" class="chart-guide-details">
+                <summary id="chartGuideSummary" class="chart-guide-summary">Chart Guide</summary>
+                <div id="chartGuideContent" class="chart-guide-content"></div>
+              </details>
+            </div>
           </div>
           <section id="chartReadingGuide" class="chart-reading-guide" aria-label="차트 읽기 요약"></section>
         </div>
