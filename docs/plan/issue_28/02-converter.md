@@ -76,13 +76,30 @@
 
 ## Progress
 
-- Not started.
+- Added `tools/add_builtin_preset.py` with JSON input loading, built-in preset library
+  validation, snapshot extraction, chart settings sanitization, selected design ID rewrite,
+  and deterministic conflict handling.
+- Added focused converter tests covering full chart exports, duplicate ID/name suffixing,
+  existing built-in design reference rewrite, and design-library-only import.
+- Documented the developer workflow and options in `README.md`.
+- Wired the focused converter test into `npm run verify:python`.
 
 ## Decision log
 
 - The script will operate on JSON files only; browser import/export keeps ownership of
   compressed clipboard strings.
+- If neither `--chart` nor `--dry-mass-library` is passed, the script performs the core
+  workflow: add a chart preset and extract design presets.
+- Duplicate source IDs use stable numeric suffixes by default. `--on-conflict skip` reuses
+  existing IDs, and `--on-conflict replace` overwrites matching IDs.
+- Unmapped local `selectedDesignPresetId` values are removed from generated built-in chart
+  settings instead of leaving invalid user-local references.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Phase 2 completed. The converter updates only the chosen preset library, keeps unsafe
+  design snapshot arrays out of generated built-in chart settings, and emits formatted JSON.
+- Validation passed:
+  - `python -m compileall -q tools/add_builtin_preset.py`
+  - `python tools/test_add_builtin_preset.py`
+  - `npm run build`
