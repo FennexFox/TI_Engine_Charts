@@ -163,6 +163,7 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("목표 dV (km/s)", "Target dV (km/s)"),
     ("라디에이터", "Radiator"),
     ("축 스케일", "Axis scale"),
+    ("시나리오 프리셋", "Scenario Preset"),
     ("총질량/연료질량/가속도 보조 표시", "Total mass/fuel mass/acceleration overlay"),
     ("가속도 정보 표시", "Show acceleration information"),
     ("총질량 정보 표시", "Show total mass information"),

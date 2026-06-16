@@ -40,6 +40,58 @@ __STYLES__
       <div class="controls-toolbar">
         <button id="resetLeftPanelLayout" class="compact-command" type="button">패널 배열 초기화</button>
       </div>
+      <section class="control-card scenario-preset-card" data-control-card="scenarioPreset">
+        <div class="control-card-header">
+          <div class="control-card-heading">
+            <button class="control-card-toggle" data-card-toggle="true" type="button" aria-expanded="true">
+              <span class="control-card-caret" aria-hidden="true">▾</span>
+              <span class="control-card-title">시나리오 프리셋</span>
+            </button>
+            <div class="control-card-summary" data-card-summary></div>
+          </div>
+          <div class="control-card-actions" aria-label="순서 변경">
+            <button class="control-card-move" data-panel-move="up" type="button" aria-label="위로 이동" title="위로 이동">↑</button>
+            <button class="control-card-move" data-panel-move="down" type="button" aria-label="아래로 이동" title="아래로 이동">↓</button>
+          </div>
+        </div>
+        <div class="control-card-body">
+          <div id="presetLibrary" class="preset-manager" aria-label="차트 프리셋 라이브러리">
+            <div class="preset-library-row preset-toolbar-row chart-preset-toolbar">
+              <select id="chartPresetSelect" aria-label="차트 프리셋"></select>
+              <div class="preset-button-row">
+                <details class="preset-actions-menu" id="chartPresetActionsMenu">
+                  <summary><span id="chartPresetMoreLabel">프리셋 관리</span></summary>
+                  <div id="presetClipboard" class="preset-menu-panel preset-menu-grouped" aria-label="설정 가져오기/내보내기">
+                    <div class="preset-menu-section">
+                      <div id="chartPresetSelectedGroupLabel" class="preset-menu-heading">선택 프리셋</div>
+                      <div class="preset-menu-actions">
+                        <button id="chartPresetSave" class="compact-command" type="button">저장</button>
+                        <button id="chartPresetRename" class="compact-command" type="button">이름 변경</button>
+                        <button id="chartPresetDelete" class="compact-command" type="button">삭제</button>
+                      </div>
+                    </div>
+                    <div class="preset-menu-section">
+                      <div id="chartPresetDefaultGroupLabel" class="preset-menu-heading">기본 프리셋</div>
+                      <div class="preset-menu-actions preset-menu-actions-two">
+                        <button id="chartPresetSetStartup" class="compact-command" type="button">기본 지정</button>
+                        <button id="chartPresetClearStartup" class="compact-command" type="button">기본 해제</button>
+                      </div>
+                    </div>
+                    <div class="preset-menu-section">
+                      <div id="chartPresetTransferGroupLabel" class="preset-menu-heading">가져오기 / 내보내기</div>
+                      <div class="preset-menu-actions preset-menu-actions-transfer">
+                        <button id="presetExport" class="compact-command" type="button">현재 설정 Export</button>
+                        <button id="presetImport" class="compact-command" type="button">설정 Import</button>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+            <span id="presetStatus" class="preset-status" aria-live="polite"></span>
+          </div>
+        </div>
+      </section>
       <section class="control-card" data-control-card="display">
         <div class="control-card-header">
           <div class="control-card-heading">
@@ -209,55 +261,6 @@ __STYLES__
       </section>
     </aside>
     <section class="chart-shell">
-      <div class="summary-strip">
-        <div class="summary-left">
-          <div id="presetLibrary" class="preset-manager" aria-label="차트 프리셋 라이브러리">
-            <div class="preset-library-row preset-toolbar-row chart-preset-toolbar">
-              <select id="chartPresetSelect" aria-label="차트 프리셋"></select>
-              <div class="preset-button-row">
-                <details class="preset-actions-menu" id="chartPresetActionsMenu">
-                  <summary><span id="chartPresetMoreLabel">프리셋 관리</span></summary>
-                  <div id="presetClipboard" class="preset-menu-panel preset-menu-grouped" aria-label="설정 가져오기/내보내기">
-                    <div class="preset-menu-section">
-                      <div id="chartPresetSelectedGroupLabel" class="preset-menu-heading">선택 프리셋</div>
-                      <div class="preset-menu-actions">
-                        <button id="chartPresetSave" class="compact-command" type="button">저장</button>
-                        <button id="chartPresetRename" class="compact-command" type="button">이름 변경</button>
-                        <button id="chartPresetDelete" class="compact-command" type="button">삭제</button>
-                      </div>
-                    </div>
-                    <div class="preset-menu-section">
-                      <div id="chartPresetDefaultGroupLabel" class="preset-menu-heading">기본 프리셋</div>
-                      <div class="preset-menu-actions preset-menu-actions-two">
-                        <button id="chartPresetSetStartup" class="compact-command" type="button">기본 지정</button>
-                        <button id="chartPresetClearStartup" class="compact-command" type="button">기본 해제</button>
-                      </div>
-                    </div>
-                    <div class="preset-menu-section">
-                      <div id="chartPresetTransferGroupLabel" class="preset-menu-heading">가져오기 / 내보내기</div>
-                      <div class="preset-menu-actions preset-menu-actions-transfer">
-                        <button id="presetExport" class="compact-command" type="button">현재 설정 Export</button>
-                        <button id="presetImport" class="compact-command" type="button">설정 Import</button>
-                      </div>
-                    </div>
-                  </div>
-                </details>
-              </div>
-            </div>
-            <span id="presetStatus" class="preset-status" aria-live="polite"></span>
-          </div>
-          <div><strong id="visibleCount">0</strong>개 드라이브 표시</div>
-        </div>
-      </div>
-      <div id="chartActiveSummary" class="chart-active-summary" aria-live="polite"></div>
-      <div id="chartDiagnostic" class="diagnostic-banner" hidden></div>
-      <div id="filterActionBanner" class="filter-action-banner" hidden aria-live="polite">
-        <div class="filter-action-banner-copy">
-          <strong id="filterActionBannerTitle"></strong>
-          <div id="filterActionBannerDetail"></div>
-        </div>
-        <div id="filterActionBannerActions" class="filter-action-banner-actions"></div>
-      </div>
       <div class="chart-body">
         <div class="chart-plot-frame">
           <div class="chart-plot-header" aria-label="차트 컨트롤">
@@ -296,6 +299,14 @@ __STYLES__
               <button id="resetZoom" class="compact-command" type="button" disabled>보기 초기화</button>
             </div>
           </div>
+          <div id="filterActionBanner" class="filter-action-banner" hidden aria-live="polite">
+            <div class="filter-action-banner-copy">
+              <strong id="filterActionBannerTitle"></strong>
+              <div id="filterActionBannerDetail"></div>
+            </div>
+            <div id="filterActionBannerActions" class="filter-action-banner-actions"></div>
+          </div>
+          <div id="chartDiagnostic" class="diagnostic-banner" hidden></div>
           <div id="metricHint" class="chart-metric-hint"></div>
           <div class="chart-plot-area">
             <svg id="chart" role="img" aria-label="Drive comparison chart"></svg>
@@ -306,7 +317,10 @@ __STYLES__
               </details>
             </div>
           </div>
-          <section id="chartReadingGuide" class="chart-reading-guide" aria-label="차트 읽기 요약"></section>
+          <div class="chart-status-caption" aria-live="polite">
+            <div class="chart-caption-count"><strong id="visibleCount">0</strong>개 드라이브 표시</div>
+            <div id="chartActiveSummary" class="chart-active-summary"></div>
+          </div>
         </div>
         <div class="detail-panel">
           <div id="tooltip" class="tooltip tooltip-empty"><div class="tooltip-placeholder">선택 없음</div></div>

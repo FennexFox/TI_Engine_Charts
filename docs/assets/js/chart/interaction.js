@@ -479,6 +479,10 @@ export function renderChartGuide() {
         "A candidate is Pareto-dominated when another visible option needs no more research, is at least as good on the selected chart metric, and is better on at least one plotted axis."
       );
 
+      const legend = document.createElement("div");
+      legend.className = "chart-guide-section chart-guide-legend";
+      guide.appendChild(legend);
+
       const appendItem = (symbolClass, text, helpText = "") => {
         const item = document.createElement("span");
         item.className = "chart-guide-item";
@@ -495,7 +499,7 @@ export function renderChartGuide() {
           help.dataset.help = helpText;
           item.appendChild(help);
         }
-        guide.appendChild(item);
+        legend.appendChild(item);
       };
 
       appendItem("is-line", localText("선: 드라이브 진행 경로", "Lines: drive progression"));
@@ -508,6 +512,42 @@ export function renderChartGuide() {
       appendItem("is-pareto", localText("×: Pareto 지배", "×: Pareto-dominated"), paretoHelpText);
       appendItem("is-warning", localText("경고 링: 낮은 TWR/극단 질량비", "Warning ring: low TWR/extreme mass"));
       appendItem("is-pin", localText("윤곽선: 호버/선택/고정, 재클릭 해제", "Outline: hover/select/pin; click again unpins"));
+
+      const divider = document.createElement("div");
+      divider.className = "chart-guide-divider";
+      divider.setAttribute("aria-hidden", "true");
+
+      const reading = document.createElement("div");
+      reading.className = "chart-guide-section chart-guide-reading";
+      const heading = document.createElement("div");
+      heading.className = "chart-guide-subheading";
+      heading.textContent = localText("차트 읽기", "How to read");
+      const cues = document.createElement("div");
+      cues.className = "chart-reading-cues";
+      appendReadingCue(
+        cues,
+        localText("왼쪽", "Left"),
+        localText(
+          "최초 호환 전원을 포함한 누적 연구력이 더 낮습니다.",
+          "Lower cumulative research, including the first compatible power plant.",
+        ),
+      );
+      appendReadingCue(cues, localText("아래", "Lower"), yAxisReadingText());
+      appendReadingCue(
+        cues,
+        localText("먼저 볼 곳", "Look first"),
+        localText(
+          "좋은 후보는 보통 왼쪽 아래에서 시작하지만, 가속도와 임무 역할이 답을 바꿀 수 있습니다.",
+          "Good candidates often start near the lower-left, but Acceleration and mission role can change the answer.",
+        ),
+      );
+      appendReadingCue(
+        cues,
+        localText("현재 가정", "Assumptions"),
+        `${appliedShipAssumptionText()} · dV ${formatNumber(state.targetDvKps, " km/s")} · ${accelerationAssumptionText()}`,
+      );
+      reading.append(heading, cues);
+      guide.append(divider, reading);
     }
 
 function appliedShipAssumptionText() {
@@ -584,38 +624,7 @@ export function renderChartReadingGuide() {
       const root = document.getElementById("chartReadingGuide");
       if (!root) return;
       root.innerHTML = "";
-      root.setAttribute("aria-label", localText("차트 읽기 요약", "Chart reading summary"));
-
-      const heading = document.createElement("div");
-      heading.className = "chart-reading-heading";
-      heading.textContent = localText("차트 읽기", "How to read this chart");
-
-      const cues = document.createElement("div");
-      cues.className = "chart-reading-cues";
-      appendReadingCue(
-        cues,
-        localText("왼쪽", "Left"),
-        localText(
-          "최초 호환 전원을 포함한 누적 연구력이 더 낮습니다.",
-          "Lower cumulative research, including the first compatible power plant.",
-        ),
-      );
-      appendReadingCue(cues, localText("아래", "Lower"), yAxisReadingText());
-      appendReadingCue(
-        cues,
-        localText("먼저 볼 곳", "Look first"),
-        localText(
-          "좋은 후보는 보통 왼쪽 아래에서 시작하지만, 가속도와 임무 역할이 답을 바꿀 수 있습니다.",
-          "Good candidates often start near the lower-left, but Acceleration and mission role can change the answer.",
-        ),
-      );
-      appendReadingCue(
-        cues,
-        localText("현재 가정", "Assumptions"),
-        `${appliedShipAssumptionText()} · dV ${formatNumber(state.targetDvKps, " km/s")} · ${accelerationAssumptionText()}`,
-      );
-
-      root.append(heading, cues);
+      root.hidden = true;
     }
 
 export function valueDomain(rows) {
