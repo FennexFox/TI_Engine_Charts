@@ -244,13 +244,8 @@ export function renderDryMassCalcModal() {
       const minTwrInput = document.getElementById("shipPresetMinTwr");
       const radiatorLabel = document.getElementById("shipPresetRadiatorLabel");
       const radiatorSelect = document.getElementById("shipPresetRadiator");
-      const button = document.getElementById("dryMassCalcButton") || document.getElementById("shipDesignerTitle");
 
-      if (button) {
-        const label = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
-        button.setAttribute("aria-label", label);
-        button.title = label;
-      }
+      updateShipDesignerPanel();
       if (title) title.textContent = localText("건조질량 계산기", "Dry-mass calculator");
       if (close) close.textContent = localText("닫기", "Close");
       if (apply) apply.textContent = localText("건조질량만 적용", "Apply dry mass only");
@@ -263,7 +258,7 @@ export function renderDryMassCalcModal() {
       if (notesLabel) notesLabel.textContent = localText("메모", "Notes");
       if (simulationDefaultsLabel) simulationDefaultsLabel.textContent = localText("시뮬레이션 기본 조건", "Simulation defaults");
       if (targetDvLabel) targetDvLabel.textContent = localText("목표 dV (km/s)", "Target dV (km/s)");
-      if (minTwrLabel) minTwrLabel.textContent = localText("최소 TWR (mg)", "Minimum TWR (mg)");
+      if (minTwrLabel) minTwrLabel.textContent = localText("최소 가속도 (mg)", "Minimum acceleration (mg)");
       if (radiatorLabel) radiatorLabel.textContent = localText("라디에이터", "Radiator");
       const simulationDefaults = normalizeShipDesignSimulationDefaults();
       if (targetDvInput) targetDvInput.value = String(Math.round(simulationDefaults.targetDvKps));

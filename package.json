@@ -4,11 +4,11 @@
   "private": true,
   "description": "Terra Invicta engine chart builder and GitHub Pages publisher.",
   "scripts": {
-    "build": "python scripts/rebuild_pages.py --no-commit --no-push",
-    "build:fast": "python scripts/rebuild_pages.py --no-commit --no-push --skip-verify",
+    "build": "python scripts/rebuild_pages.py --ui-only --no-commit --no-push --skip-verify",
+    "build:fast": "npm run build",
     "deploy": "python scripts/rebuild_pages.py",
     "verify": "npm run verify:python && npm run verify:js && npm run verify:axis && npm run verify:links && npm run verify:browser",
-    "verify:python": "python -m compileall -q tools scripts",
+    "verify:python": "python -m compileall -q tools scripts && python tools/test_add_builtin_preset.py",
     "verify:js": "node tools/verify_drive_comparison_client_syntax.mjs && npm run verify:effects && npm run verify:modules",
     "verify:axis": "node tools/verify_axis_ticks.mjs",
     "verify:links": "python tools/verify_drive_links.py",
@@ -16,7 +16,8 @@
     "playwright:install": "playwright install chromium",
     "verify:modules": "node tools/verify_drive_comparison_import_graph.mjs",
     "verify:effects": "node tools/verify_module_effects.mjs",
-    "build:verify": "npm run build && npm run verify"
+    "build:verify": "npm run build && npm run verify",
+    "build:from-game": "python scripts/rebuild_pages.py --no-commit --no-push --skip-verify"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

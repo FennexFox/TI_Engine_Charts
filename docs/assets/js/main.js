@@ -7,7 +7,7 @@ import { applyDryMassCalculatorPreset, exportedDryMassCalculatorPreset } from ".
 import { renderDryMassCalcModal } from "./ui/dry_mass_calculator.js";
 import { registerPresetRuntimeApi } from "./presets/library.js";
 import { registerMetricCalculationHooks } from "./state/core.js";
-import { setupControls } from "./ui/controls.js";
+import { setupControls, syncMissionDvPresetControl } from "./ui/controls.js";
 import { updateChartControls, syncMinDvInputs, syncMinTwrInputs } from "./ui/control_state.js";
 
 registerMetricCalculationHooks({
@@ -25,12 +25,22 @@ registerPresetRuntimeApi({
   render,
   renderDryMassCalcModal,
   setLanguage,
+  syncMissionDvPresetControl,
   syncMinDvInputs,
   syncMinTwrInputs,
   updateChartControls,
 });
 
+function dismissLoadingScreen() {
+  const loading = document.getElementById("appLoading");
+  if (!loading) return;
+  loading.setAttribute("data-loading-state", "done");
+  loading.setAttribute("aria-hidden", "true");
+  window.setTimeout(() => loading.remove(), 240);
+}
+
 installDebugHooks();
 setupControls({ setLanguage, refreshLocalizedControls });
 render();
+dismissLoadingScreen();
 window.addEventListener("resize", render);

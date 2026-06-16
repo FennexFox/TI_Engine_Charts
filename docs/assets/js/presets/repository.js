@@ -90,6 +90,13 @@ export function builtInPresetId(prefix, rawEntry, index) {
   return `${prefix}:${rawId}`;
 }
 
+export function stripDesignLibrarySnapshots(settings) {
+  if (!settings || typeof settings !== "object") return settings;
+  delete settings.designPresetLibrary;
+  delete settings.dryMassPresetLibrary;
+  return settings;
+}
+
 export function normalizeBuiltInChartPresetEntry(rawEntry, index) {
   if (!rawEntry || typeof rawEntry !== "object") return null;
   const source = rawEntry.preset && typeof rawEntry.preset === "object" ? rawEntry.preset : rawEntry;
@@ -97,7 +104,10 @@ export function normalizeBuiltInChartPresetEntry(rawEntry, index) {
     { ...source, id: builtInPresetId("built-in-chart", rawEntry, index) },
     `Built-in chart preset ${index + 1}`,
   );
-  if (entry) entry.builtIn = true;
+  if (entry) {
+    stripDesignLibrarySnapshots(entry.settings);
+    entry.builtIn = true;
+  }
   return entry;
 }
 

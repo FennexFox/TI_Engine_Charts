@@ -4,3 +4,14 @@ __pycache__/
 node_modules/
 playwright-report/
 test-results/
+.venv-wsl/
+
+# Graphify local runtime/cache artifacts. Keep the durable exports
+# (`graphify-out/GRAPH_REPORT.md`, `graphify-out/graph.html`, and
+# `graphify-out/graph.json`) trackable when intentionally generated.
+graphify-out/.graphify_*
+graphify-out/.needs_update
+graphify-out/cache/
+graphify-out/converted/
+graphify-out/cost.json
+graphify-out/manifest.json

@@ -15,6 +15,26 @@ from typing import Any
 
 ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     (
+        '<div id="connectionLineControls" class="connection-line-controls" aria-label="연결선 표시">\n'
+        '              <div class="connection-line-mode-label">연결선</div>\n'
+        '              <div class="segmented compact connection-line-mode" role="radiogroup" aria-label="연결선 표시">\n'
+        '                <label title="연결선을 숨깁니다." aria-label="끔: 연결선을 숨깁니다."><input type="radio" name="connectionLineMode" value="off" title="연결선을 숨깁니다.">끔</label>\n'
+        '                <label title="드라이브 연구 선후관계가 확인되는 연결선만 표시합니다." aria-label="엄격: 드라이브 연구 선후관계가 확인되는 연결선만 표시합니다."><input type="radio" name="connectionLineMode" value="strict" title="드라이브 연구 선후관계가 확인되는 연결선만 표시합니다.">엄격</label>\n'
+        '                <label title="드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다." aria-label="계통: 드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다."><input type="radio" name="connectionLineMode" value="lineage" title="드라이브 연구 연결선에 더해 반응로/전원 계통 진행선을 표시합니다." checked>계통</label>\n'
+        '                <label title="넓은 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다." aria-label="전체: 넓은 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다."><input type="radio" name="connectionLineMode" value="all" title="넓은 계열 보조선까지 포함해 가능한 진행선을 모두 표시합니다.">전체</label>\n'
+        '              </div>\n'
+        '            </div>',
+        '<div id="connectionLineControls" class="connection-line-controls" aria-label="Connection line mode">\n'
+        '              <div class="connection-line-mode-label">Connection lines</div>\n'
+        '              <div class="segmented compact connection-line-mode" role="radiogroup" aria-label="Connection line mode">\n'
+        '                <label title="Hide connection lines." aria-label="Off: Hide connection lines."><input type="radio" name="connectionLineMode" value="off" title="Hide connection lines.">Off</label>\n'
+        '                <label title="Show only prerequisite-backed drive research links." aria-label="Strict: Show only prerequisite-backed drive research links."><input type="radio" name="connectionLineMode" value="strict" title="Show only prerequisite-backed drive research links.">Strict</label>\n'
+        '                <label title="Show drive research links plus reactor/power-lineage progression." aria-label="Lineage: Show drive research links plus reactor/power-lineage progression."><input type="radio" name="connectionLineMode" value="lineage" title="Show drive research links plus reactor/power-lineage progression." checked>Lineage</label>\n'
+        '                <label title="Show all available progression lines, including broader family fallback lines." aria-label="All: Show all available progression lines, including broader family fallback lines."><input type="radio" name="connectionLineMode" value="all" title="Show all available progression lines, including broader family fallback lines.">All</label>\n'
+        '              </div>\n'
+        '            </div>',
+    ),
+    (
         "<strong>계산 메모.</strong> 총질량은 기본 선체 건조 질량, 드라이브 질량, 전원 질량, 선택 라디에이터 질량, 목표 Δv에 필요한 추진체 질량을 합산합니다. 기본 드라이브 출력, 드라이브 질량, 전원 질량, 폐열, 라디에이터 질량은 이 저장소의 ship-plan 계산과 같은 항을 사용합니다. 모듈 효과가 켜져 있으면 지원되는 추진, 보조 전력, 폐열 배율이 표시되는 수정값에 반영되고, 지원되지 않는 모듈 규칙은 UI에 표시됩니다.",
         "<strong>Calculation note.</strong> Total mass adds the base hull dry mass, drive mass, power plant mass, selected radiator mass, and propellant mass required for the target Δv. Base drive power, drive mass, power plant mass, waste heat, and radiator mass use the same terms as this repository's ship-plan calculation. When module effects are enabled, supported drive, auxiliary-power, and waste-heat modifiers are folded into the displayed modified values; unsupported module rules are listed in the UI.",
     ),
@@ -38,6 +58,14 @@ ENGLISH_BLOCK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ('<html lang="ko">', '<html lang="en">'),
     ("함선 설계", "Ship Designer"),
+    ("함선 설계 열기", "Open Ship Designer"),
+    ("함선 설계 편집", "Edit Ship Design"),
+    ("적용된 함선 템플릿 없음", "No ship template applied"),
+    ("적용된 설계", "Applied design"),
+    ("건조질량", "Dry mass"),
+    ("모듈 성능 효과 적용", "Apply module performance effects"),
+    ("선택 모듈 목록", "Selected modules"),
+    ("성능 모듈 선택 없음", "No performance modules selected"),
     ("설계 열기", "Open Designer"),
     ("새 이름으로 저장", "Save as New"),
     ("전원 보기", "Power view"),
@@ -63,10 +91,16 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("누적 연구력 (전원 진행 포함)", "Cumulative research (power progression included)"),
     ("Terra Invicta 드라이브 비교", "Terra Invicta Drive Comparison"),
     (
-        "X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, TWR, 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.",
-        "The X axis is cumulative research including the first compatible power plant. Use it to compare total mass, TWR, thrust, and efficiency at similar research costs and decide which drive path to invest in.",
+        "X축은 최초 호환 전원을 포함한 누적 연구력입니다. 같은 연구력 대비 총질량, 가속도(TWR), 추력, 효율을 비교해 어느 추진기 계통에 투자할지 판단하는 데 초점을 둡니다.",
+        "The X axis is cumulative research including the first compatible power plant. Use it to compare total mass, acceleration (TWR), thrust, and efficiency at similar research costs and decide which drive path to invest in.",
     ),
+    ("차트 빠른 설정", "Chart quick controls"),
+    ("차트 컨트롤", "Chart controls"),
+    ("차트 옵션", "Chart options"),
+    ("차트 보조 표시", "Chart overlays"),
+    ("차트 신호", "Signals"),
     ("표시", "Display"),
+    ("필터", "Filters"),
     ("시뮬레이션 조건", "Simulation conditions"),
     ("필터 및 표시", "Filters and display"),
     ("드라이브 필터", "Drive filters"),
@@ -80,7 +114,14 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("엔진", "Engine"),
     ("계열", "families"),
     ("세로축", "Vertical axis"),
-    ("시뮬레이션(총 질량, 연료질량, TWR)", "Simulation (total mass, fuel mass, TWR)"),
+    ("시뮬레이션(총 질량, 연료질량, 가속도)", "Simulation (total mass, fuel mass, acceleration)"),
+    ("가속도 (TWR)", "Acceleration (TWR)"),
+    ("가속도", "Acceleration"),
+    ("계산 메모", "Calculation note"),
+    ("현재 최소 가속도 필터", "the current minimum acceleration filter"),
+    ("현재 dV / 최소 가속도 설정", "current dV / minimum acceleration settings"),
+    ("최소 가속도 필터 낮추기 또는 해제하기", "Lower or disable the minimum acceleration filter"),
+    ("최소 가속도 또는 극단적 질량비", "minimum acceleration or extreme mass ratio"),
     ("엔진/프로젝트 검색", "Engine/project search"),
     ("드라이브 또는 프로젝트 검색", "Search drive or project"),
     ("추력 (MN)", "Thrust (MN)"),
@@ -125,10 +166,14 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("목표 dV (km/s)", "Target dV (km/s)"),
     ("라디에이터", "Radiator"),
     ("축 스케일", "Axis scale"),
-    ("총질량/연료질량/TWR 보조 표시", "Total mass/fuel mass/TWR overlay"),
-    ("TWR 정보 표시", "Show TWR information"),
+    ("시나리오 프리셋", "Scenario Preset"),
+    ("총질량/연료질량/가속도 보조 표시", "Total mass/fuel mass/acceleration overlay"),
+    ("가속도 정보 표시", "Show acceleration information"),
     ("총질량 정보 표시", "Show total mass information"),
     ("파레토 후보 강조", "Highlight Pareto candidates"),
+    ("가속도 정보", "Acceleration info"),
+    ("총질량 정보", "Total mass info"),
+    ("파레토 강조", "Pareto highlight"),
     ("비현실적 후보 표시", "Show impractical candidates"),
     ("추가 전원 연구력 반영", "Include additional power research"),
     ("X축: 최초+추가 전원 포함 연구력", "X axis: first + additional power research"),
@@ -138,14 +183,36 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("누적 연구력 (최초 전원 포함)", "Cumulative research (first power included)"),
     ("개방 연구력:", "Unlock research:"),
     ("추진기 연구:", "Drive research:"),
-    ("최소 TWR (mg)", "Minimum TWR (mg)"),
-    ("최소 TWR", "Minimum TWR"),
+    ("최소 가속도 (mg)", "Minimum acceleration (mg)"),
+    ("최소 가속도", "Minimum acceleration"),
+    ("최소 가속도 (TWR)", "Minimum acceleration (TWR)"),
     ("최소 dV", "Minimum dV"),
     ("최소 dV (km/s)", "Minimum dV (km/s)"),
-    ("표시: TWR >= 0.1mg", "Showing: TWR >= 0.1mg"),
+    ("미션 프리셋", "Mission preset"),
+    ("임무 dV 프리셋 열기", "Open mission dV preset menu"),
+    ("임무 dV 프리셋", "Mission dV preset"),
+    ("사용자 지정 목표 dV", "Custom target dV"),
+    ("사용자 지정", "Custom"),
+    ("방어", "Defense"),
+    ("강습 / 요격", "Assault / Intercept"),
+    ("LEO / 비지구 궤도", "LEO / non-Earth orbit"),
+    ("신속착륙 요격", "Decel Intercept"),
+    ("고속 소행성", "Fast Asteroid"),
+    ("카이퍼 벨트", "Kuiper Belt"),
+    ("고속 카이퍼", "Fast Kuiper"),
+    ("LEO 방어 / 비지구 궤도 - 2 km/s", "LEO Defense / non-Earth orbit - 2 km/s"),
+    ("MEO에서 LEO - 4 km/s", "MEO to LEO - 4 km/s"),
+    ("전 지구권 방어 - 8 km/s", "All Earth Defense - 8 km/s"),
+    ("신속착륙 요격 - 20 km/s", "Deceleration Burn Intercept - 20 km/s"),
+    ("소행성 강습 - 30 km/s", "Asteroid Assault - 30 km/s"),
+    ("목성 강습 - 50 km/s", "Jupiter Assault - 50 km/s"),
+    ("고속 소행성 강습 - 150 km/s", "Fast Asteroid Assault - 150 km/s"),
+    ("카이퍼 벨트 강습 - 200 km/s", "Kuiper Belt Assault - 200 km/s"),
+    ("고속 카이퍼 벨트 - 500 km/s", "Fast Kuiper Belt - 500 km/s"),
+    ("표시: 가속도 >= 0.1mg", "Showing: acceleration >= 0.1mg"),
     ("표시: dV >= 0 km/s", "Showing: dV >= 0 km/s"),
     ("기준 없음", "No minimum threshold"),
-    ("점 밝기: TWR 높을수록 밝음", "Point brightness: brighter means higher TWR"),
+    ("점 밝기: 가속도 높을수록 밝음", "Point brightness: brighter means higher acceleration"),
     ("점 밝기: 총질량 낮을수록 밝음", "Point brightness: brighter means lower total mass"),
     ("흐린 점: Pareto 지배 후보", "Dim points: Pareto-dominated candidates"),
     ("X축 로그", "Log X axis"),
@@ -169,7 +236,7 @@ ENGLISH_REPLACEMENTS: tuple[tuple[str, str], ...] = (
       "연료질량 = (기준 건조질량 + 드라이브 + 전원 + 라디에이터) * (질량비 - 1)",
       "Fuel mass = (base dry mass + drive + power plant + radiator) * (mass ratio - 1)",
     ),
-    ("추력 / (목표 Δv 달성 총질량 * g)", "Thrust / (total mass for target Δv * g)"),
+    ("가속도 = 추력 / (목표 Δv 달성 총질량 * g). Terra Invicta의 함선 acceleration과 같은 값이며, TWR은 이를 g 단위로 표현한 기술 용어입니다.", "Acceleration = thrust / (total mass for target Δv * g). Terra Invicta shows this as ship acceleration; TWR is the same value expressed in g."),
     ("추력:", "Thrust:"),
     ("출력 요구량:", "Power requirement:"),
     ("선택 해제", "Clear selection"),
@@ -232,5 +299,7 @@ def apply_static_english_html(html: str) -> str:
 
 
 def note_html_translations() -> dict[str, str]:
-    korean, english = ENGLISH_BLOCK_REPLACEMENTS[0]
-    return {"ko": korean, "en": english}
+    for korean, english in ENGLISH_BLOCK_REPLACEMENTS:
+        if korean.startswith("<strong>계산 메모."):
+            return {"ko": korean, "en": english}
+    raise RuntimeError("Calculation note translation is missing")

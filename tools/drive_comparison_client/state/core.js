@@ -160,7 +160,7 @@ export function powerResearchActive() {
     }
 
 export const LEFT_PANEL_LAYOUT_STORAGE_KEY = "tiEngineChartLeftPanelLayout";
-export const LEFT_PANEL_DEFAULT_ORDER = ["display", "shipDesigner", "simulation", "filter", "driveFilter"];
+export const LEFT_PANEL_DEFAULT_ORDER = ["simulation", "shipDesigner", "driveFilter", "display", "scenarioPreset"];
 export const CHART_PRESET_STORAGE_KEY = "tiEngineChartNamedPresets";
 export const CHART_PRESET_STARTUP_STORAGE_KEY = "tiEngineChartStartupPresetId";
 export const DRY_MASS_PRESET_STORAGE_KEY = "tiEngineChartDryMassPresets";
@@ -213,7 +213,15 @@ export function metricSelectLabel() {
       return metric?.selectedOptions?.[0]?.textContent?.trim() || metricLabel(state.metric);
     }
 
+export function chartPresetSelectLabel() {
+      const select = document.getElementById("chartPresetSelect");
+      return select?.selectedOptions?.[0]?.textContent?.trim() || localText("차트 프리셋 없음", "No chart presets");
+    }
+
 export function leftPanelCardSummary(key) {
+      if (key === "scenarioPreset") {
+        return `${localText("선택", "Selected")} · ${chartPresetSelectLabel()}`;
+      }
       if (key === "display") {
         return `${metricSelectLabel()} · ${localText("연결선", "Lines")} ${connectionLineModeLabel()}`;
       }
@@ -222,6 +230,7 @@ export function leftPanelCardSummary(key) {
         const assumptions = currentModuleEffectAssumptions();
         const parts = [
           templateName ? localText("함선 적용됨", "Ship applied") : localText("함선 미적용", "No ship applied"),
+          `${localText("엔진", "Engine")} ×${state.thrusters}`,
           assumptions.moduleEffectsEnabled
             ? `${localText("모듈 효과", "Module effects")} ${assumptions.activeModuleIds.length}`
             : localText("모듈 효과 꺼짐", "Module effects off"),
@@ -234,8 +243,8 @@ export function leftPanelCardSummary(key) {
           formatNumber(state.dryMassTons, " t"),
           formatNumber(state.targetDvKps, " km/s"),
         ];
-        if (state.metric === "totalMassTons" || state.metric === "fuelMassTons") {
-          parts.push(`TWR ≥ ${formatTwrDynamicUnit(state.minTwr)}`);
+        if (isBandMetricKey(state.metric)) {
+          parts.push(`${localText("가속도", "Acceleration")} ≥ ${formatTwrDynamicUnit(state.minTwr)}`);
         }
         parts.push(radiator ? radiatorDisplayName(radiator) : state.radiatorId);
         return parts.filter(Boolean).join(" · ");
@@ -246,20 +255,13 @@ export function leftPanelCardSummary(key) {
           parts.push(`dV ≥ ${formatNumber(state.minDvKps, " km/s")}`);
         }
         if (state.paretoHighlight) parts.push(localText("파레토 ON", "Pareto ON"));
-        if (state.showImpracticalCandidates) parts.push(localText("비현실 후보 ON", "Impractical ON"));
-        if (state.logX || state.logY) {
-          parts.push([
-            state.logX ? localText("X축 로그", "Log X") : "",
-            state.logY ? localText("Y축 로그", "Log Y") : "",
-          ].filter(Boolean).join(" · "));
-        }
         return parts.filter(Boolean).join(" · ") || localText("기본 필터", "Default filters");
       }
       if (key === "driveFilter") {
         const selectedFamilies = DATA.subfamilies.filter(family => !!state.categories[family.categoryKey] && !!state.families[family.key]).length;
         const activeCategories = DATA.categories.filter(category => !!state.categories[category.key]).length;
         const search = state.searchTerm ? localText("검색 있음", "Search active") : localText("검색 없음", "No search");
-        return `${localText("엔진", "Engine")} ×${state.thrusters} · ${activeCategories}/${DATA.categories.length} ${localText("대분류", "categories")} · ${selectedFamilies}/${DATA.subfamilies.length} ${localText("계열", "families")} · ${search}`;
+        return `${activeCategories}/${DATA.categories.length} ${localText("대분류", "categories")} · ${selectedFamilies}/${DATA.subfamilies.length} ${localText("계열", "families")} · ${search}`;
       }
       return "";
     }
@@ -430,7 +432,7 @@ export function syncMetricGroupLabels() {
       if (!metric) return;
       const selectedValue = metric.value;
       const groups = metric.querySelectorAll("optgroup");
-      if (groups[0]) groups[0].label = localText("시뮬레이션(총 질량, 연료질량, TWR)", "Simulation (total mass, fuel mass, TWR)");
+      if (groups[0]) groups[0].label = localText("시뮬레이션(총 질량, 연료질량, 가속도)", "Simulation (total mass, fuel mass, acceleration)");
       if (groups[1]) groups[1].label = localText("기본 정보(추력, 효율, 출력)", "Basic information (thrust, efficiency, power)");
       metric.innerHTML = metric.innerHTML;
       metric.value = selectedValue;
@@ -516,8 +518,8 @@ export const metricDefs = {
         format: value => formatNumber(value, " t"),
       },
       twr: {
-        label: "TWR",
-        hint: "추력 / (목표 Δv 달성 총질량 * g)",
+        label: "Acceleration (TWR)",
+        hint: "가속도 = 추력 / (목표 Δv 달성 총질량 * g). Terra Invicta의 함선 acceleration과 같은 값이며, TWR은 이를 g 단위로 표현한 기술 용어입니다.",
         value: row => {
           const values = metricCalculationHooks.chartMassOptions(row);
           return values.length ? values[0].twr : NaN;
@@ -547,12 +549,14 @@ export const HIDDEN_REASON_PRIORITY = [
       "minTwr",
       "minDv",
       "targetDvOrMassRatio",
+      "familyFilter",
+      "thrusterCountFilter",
       "researchFilter",
       "invalidPowerPlant",
       "invalidComputation",
       "axisRange",
       "other",
-      "familyFilter",
+      "searchFilter",
     ];
 export const HELP_TEXT = {
       showTwrInfo: {
@@ -568,12 +572,16 @@ export const HELP_TEXT = {
         en: "Dims candidates that are dominated by another option with no more research, no more total mass, and at least as much TWR. It narrows attention to stronger investment candidates.",
       },
       showImpracticalCandidates: {
-        ko: "최소 TWR 또는 극단적 질량비 때문에 보통 숨겨지는 후보도 차트에 남깁니다. 왜 특정 계열이 사라지는지 조사하거나 낮은 dV 프리셋을 찾을 때 사용하세요.",
-        en: "Keeps candidates that would normally be hidden by minimum TWR or extreme mass ratio. Use it to inspect why a family disappears or to design lower-dV presets.",
+        ko: "최소 가속도 또는 극단적 질량비 때문에 보통 숨겨지는 후보도 차트에 남깁니다. 왜 특정 계열이 사라지는지 조사하거나 낮은 dV 프리셋을 찾을 때 사용하세요.",
+        en: "Keeps candidates that would normally be hidden by minimum acceleration or extreme mass ratio. Use it to inspect why a family disappears or to design lower-dV presets.",
+      },
+      thrusters: {
+        ko: "드라이브별 최대/최소 엔진 수 제한이 있으면 선택한 엔진 수에 가장 가까운 유효 엔진 수로 표시됩니다. 예: 최대 4개 제한 드라이브는 5~6 선택 시 4개로 계산됩니다.",
+        en: "If a drive has engine-count limits, the chart uses the closest valid engine count for that drive. For example, a drive capped at 4 engines is calculated as 4 when the global control is set to 5 or 6.",
       },
       minTwr: {
-        ko: "총질량 그래프에서 습질량 기준 TWR이 이 값보다 낮은 후보를 숨깁니다. 값을 낮추면 장거리 dV에는 가능하지만 가속이 매우 느린 조합까지 확인할 수 있습니다.",
-        en: "On total-mass charts, hides candidates whose wet-mass TWR is below this threshold. Lower it to inspect designs that can reach the dV but accelerate very slowly.",
+        ko: "목표 dV 질량 그래프와 가속도 그래프에서 Terra Invicta의 함선 acceleration, 즉 습질량 기준 TWR이 이 값보다 낮은 후보를 숨깁니다. 값을 낮추면 장거리 dV에는 가능하지만 가속이 매우 느린 조합까지 확인할 수 있습니다.",
+        en: "On target-dV mass and Acceleration charts, hides candidates whose Terra Invicta ship acceleration, equivalent to wet-mass TWR, is below this threshold. Lower it to inspect designs that can reach the dV but accelerate very slowly.",
       },
       minDv: {
         ko: "TWR 그래프에서 실용 질량비 한계(극단적 질량비 기준)로 계산한 최대 dV가 이 값보다 낮은 후보를 숨깁니다.",
@@ -683,4 +691,3 @@ export function currentModuleEffectAssumptions(value = state) {
         moduleIds: normalized.moduleEffectsEnabled ? activeModuleIds.slice() : [],
       };
     }
-

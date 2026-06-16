@@ -11,6 +11,227 @@ import { backgroundStyle } from "./formatting.js";
 import { updateChartControls, syncMinTwrInputs, syncMinDvInputs, updateModuleEffectsPanel } from "./control_state.js";
 import { clearTooltip, moveTooltipItemByOffset, removeTooltipItem, renderTable, toggleTooltipItemPin } from "./tooltip_table.js";
 
+const MISSION_DV_PRESET_CUSTOM = "custom";
+const MISSION_DV_PRESET_GROUPS = [
+  {
+    id: "defense",
+    label: { ko: "방어", en: "Defense" },
+    presets: [
+      { value: 2, label: { ko: "LEO / 비지구 궤도", en: "LEO / non-Earth orbit" }, optionLabel: { ko: "LEO 방어 / 비지구 궤도", en: "LEO Defense / non-Earth orbit" } },
+      { value: 4, label: { ko: "MEO → LEO", en: "MEO → LEO" }, optionLabel: { ko: "MEO에서 LEO", en: "MEO to LEO" } },
+      { value: 8, label: { ko: "전 지구권 방어", en: "All Earth Defense" }, optionLabel: { ko: "전 지구권 방어", en: "All Earth Defense" } },
+    ],
+  },
+  {
+    id: "assault",
+    label: { ko: "강습 / 요격", en: "Assault / Intercept" },
+    presets: [
+      { value: 20, label: { ko: "신속착륙 요격", en: "Decel Intercept" }, optionLabel: { ko: "신속착륙 요격", en: "Deceleration Burn Intercept" } },
+      { value: 30, label: { ko: "소행성 강습", en: "Asteroid Assault" }, optionLabel: { ko: "소행성 강습", en: "Asteroid Assault" } },
+      { value: 50, label: { ko: "목성 강습", en: "Jupiter Assault" }, optionLabel: { ko: "목성 강습", en: "Jupiter Assault" } },
+      { value: 150, label: { ko: "고속 소행성", en: "Fast Asteroid" }, optionLabel: { ko: "고속 소행성 강습", en: "Fast Asteroid Assault" } },
+      { value: 200, label: { ko: "카이퍼 벨트", en: "Kuiper Belt" }, optionLabel: { ko: "카이퍼 벨트 강습", en: "Kuiper Belt Assault" } },
+      { value: 500, label: { ko: "고속 카이퍼", en: "Fast Kuiper" }, optionLabel: { ko: "고속 카이퍼 벨트", en: "Fast Kuiper Belt" } },
+    ],
+  },
+];
+const MISSION_DV_PRESETS = MISSION_DV_PRESET_GROUPS.flatMap(group => group.presets);
+
+function localizedMissionText(value) {
+  return localText(value?.ko || "", value?.en || "");
+}
+
+function missionDvOptionLabel(preset) {
+  return `${localizedMissionText(preset.optionLabel || preset.label)} - ${preset.value} km/s`;
+}
+
+function missionDvStatusText(value = state.targetDvKps) {
+  const preset = MISSION_DV_PRESETS.find(item => item.value === Number(value));
+  if (!preset) return localText("사용자 지정 목표 dV", "Custom target dV");
+  return `${localizedMissionText(preset.optionLabel || preset.label)} · ${preset.value} km/s`;
+}
+
+function targetDvPresetValue(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return MISSION_DV_PRESET_CUSTOM;
+  const preset = MISSION_DV_PRESETS.find(item => item.value === numeric);
+  return preset ? String(preset.value) : MISSION_DV_PRESET_CUSTOM;
+}
+
+function renderMissionDvNativeOptions(select) {
+  if (!select) return;
+  const selectedValue = select.value || targetDvPresetValue(state.targetDvKps);
+  select.innerHTML = "";
+  const custom = document.createElement("option");
+  custom.value = MISSION_DV_PRESET_CUSTOM;
+  custom.textContent = localText("사용자 지정", "Custom");
+  select.appendChild(custom);
+  MISSION_DV_PRESETS.forEach(preset => {
+    const option = document.createElement("option");
+    option.value = String(preset.value);
+    option.textContent = missionDvOptionLabel(preset);
+    select.appendChild(option);
+  });
+  select.value = [...select.options].some(option => option.value === selectedValue)
+    ? selectedValue
+    : targetDvPresetValue(state.targetDvKps);
+}
+
+function renderMissionDvMenu() {
+  const list = document.getElementById("missionDvPresetList");
+  const buttonText = document.getElementById("missionDvPresetButtonText");
+  const button = document.getElementById("missionDvPresetButton");
+  if (buttonText) buttonText.textContent = localText("미션 프리셋", "Mission preset");
+  if (button) button.setAttribute("aria-label", localText("임무 dV 프리셋 열기", "Open mission dV preset menu"));
+  if (!list) return;
+  list.innerHTML = "";
+
+  const custom = document.createElement("button");
+  custom.type = "button";
+  custom.className = "mission-dv-option mission-dv-custom-option";
+  custom.dataset.missionDvValue = MISSION_DV_PRESET_CUSTOM;
+  custom.setAttribute("role", "radio");
+  custom.innerHTML = `<span class="mission-dv-option-name">${localText("사용자 지정 목표 dV", "Custom target dV")}</span>`;
+  list.appendChild(custom);
+
+  MISSION_DV_PRESET_GROUPS.forEach(group => {
+    const heading = document.createElement("div");
+    heading.className = "mission-dv-group-label";
+    heading.textContent = localizedMissionText(group.label);
+    list.appendChild(heading);
+    group.presets.forEach(preset => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "mission-dv-option";
+      button.dataset.missionDvValue = String(preset.value);
+      button.setAttribute("role", "radio");
+      button.innerHTML = [
+        `<span class="mission-dv-option-name">${localizedMissionText(preset.label)}</span>`,
+        `<span class="mission-dv-option-value">${preset.value}</span>`,
+      ].join("");
+      list.appendChild(button);
+    });
+  });
+}
+
+export function syncMissionDvPresetControl() {
+  const missionDvPreset = document.getElementById("missionDvPreset");
+  const selectedValue = targetDvPresetValue(state.targetDvKps);
+  renderMissionDvNativeOptions(missionDvPreset);
+  renderMissionDvMenu();
+  if (missionDvPreset) missionDvPreset.value = selectedValue;
+  const status = document.getElementById("missionDvPresetStatus");
+  if (status) status.textContent = missionDvStatusText(state.targetDvKps);
+  document.querySelectorAll("[data-mission-dv-value]").forEach(button => {
+    const isSelected = button.dataset.missionDvValue === selectedValue;
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-checked", isSelected ? "true" : "false");
+  });
+}
+
+function syncTargetDvInputsFromState() {
+  const targetDv = document.getElementById("targetDv");
+  const targetDvNumber = document.getElementById("targetDvNumber");
+  if (targetDv) targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
+  if (targetDvNumber) targetDvNumber.value = String(Math.round(state.targetDvKps));
+  syncMissionDvPresetControl();
+}
+
+function setTargetDvKps(value) {
+  const numeric = Number(value);
+  state.targetDvKps = clamp(Number.isFinite(numeric) ? numeric : 0, 0, 100000);
+  syncTargetDvInputsFromState();
+}
+
+function applyMissionDvPresetValue(value) {
+  if (value === MISSION_DV_PRESET_CUSTOM) {
+    syncMissionDvPresetControl();
+    return false;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    syncMissionDvPresetControl();
+    return false;
+  }
+  setTargetDvKps(numeric);
+  return true;
+}
+
+function setupMissionDvPresetControl() {
+  const missionDvPreset = document.getElementById("missionDvPreset");
+  const menu = document.getElementById("missionDvPresetMenu");
+  const list = document.getElementById("missionDvPresetList");
+  syncMissionDvPresetControl();
+  if (missionDvPreset && !missionDvPreset.dataset.missionDvHandler) {
+    missionDvPreset.dataset.missionDvHandler = "true";
+    missionDvPreset.addEventListener("change", () => {
+      if (applyMissionDvPresetValue(missionDvPreset.value)) render();
+    });
+  }
+  if (list && !list.dataset.missionDvHandler) {
+    list.dataset.missionDvHandler = "true";
+    list.addEventListener("click", event => {
+      const option = event.target.closest("[data-mission-dv-value]");
+      if (!option) return;
+      event.preventDefault();
+      if (menu) menu.open = false;
+      if (applyMissionDvPresetValue(option.dataset.missionDvValue)) render();
+    });
+  }
+  if (menu && !menu.dataset.missionDvOutsideClickHandler) {
+    menu.dataset.missionDvOutsideClickHandler = "true";
+    document.addEventListener("click", event => {
+      if (!menu.open || menu.contains(event.target)) return;
+      menu.open = false;
+    });
+    menu.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      menu.open = false;
+      document.getElementById("missionDvPresetButton")?.focus();
+    });
+  }
+}
+
+function setupChartFloatingPanels() {
+      const panels = Array.from(document.querySelectorAll(".chart-floating-details, #chartGuideDetails"));
+      panels.forEach(panel => {
+        panel.addEventListener("toggle", () => {
+          if (!panel.open) return;
+          panels.forEach(other => {
+            if (other !== panel) other.open = false;
+          });
+        });
+      });
+    }
+
+function setupDetailPanelHeightSync() {
+      const plotFrame = document.querySelector(".chart-plot-frame");
+      const detailPanel = document.querySelector(".detail-panel");
+      if (!plotFrame || !detailPanel) return;
+
+      let scheduled = false;
+      const sync = () => {
+        scheduled = false;
+        const height = plotFrame.getBoundingClientRect().height;
+        if (height > 0) {
+          detailPanel.style.setProperty("--detail-panel-target-height", `${Math.round(height)}px`);
+        }
+      };
+      const scheduleSync = () => {
+        if (scheduled) return;
+        scheduled = true;
+        window.requestAnimationFrame(sync);
+      };
+
+      sync();
+      window.addEventListener("resize", scheduleSync);
+      window.addEventListener("load", scheduleSync, { once: true });
+      if (typeof ResizeObserver !== "undefined") {
+        const observer = new ResizeObserver(scheduleSync);
+        observer.observe(plotFrame);
+      }
+    }
+
 export function setupControls({ setLanguage = () => {}, refreshLocalizedControls = () => {} } = {}) {
       const metric = document.getElementById("metric");
       const thrusters = document.getElementById("thrusters");
@@ -23,6 +244,8 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
       const radiator = document.getElementById("radiator");
       const logX = document.getElementById("logX");
       const logY = document.getElementById("logY");
+      const chartLogX = document.getElementById("chartLogX");
+      const chartLogY = document.getElementById("chartLogY");
       const showTwrInfo = document.getElementById("showTwrInfo");
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
@@ -76,20 +299,29 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         languageSelect.addEventListener("change", () => setLanguage(languageSelect.value));
       }
       applyStaticLanguage();
+      setupChartFloatingPanels();
+      setupDetailPanelHeightSync();
       setupLeftPanelCards();
       applyHelp(showTwrInfo.closest(".check-row"), helpText("showTwrInfo"));
       applyHelp(showMassInfo.closest(".check-row"), helpText("showMassInfo"));
       applyHelp(paretoHighlight.closest(".check-row"), helpText("paretoHighlight"));
-      applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
+      if (showImpracticalCandidates) applyHelp(showImpracticalCandidates.closest(".check-row"), helpText("showImpracticalCandidates"));
       applyHelp(document.querySelector("#minTwrControl .label"), helpText("minTwr"));
       applyHelp(document.querySelector("#minDvControl .label"), helpText("minDv"));
+      const shipEngineCountHelp = document.getElementById("shipEngineCountHelp");
+      applyHelp(shipEngineCountHelp, helpText("thrusters"));
+      if (shipEngineCountHelp) {
+        shipEngineCountHelp.setAttribute("aria-label", localText("엔진 수 도움말", "Engine count help"));
+      }
 
       metric.value = state.metric;
       enhanceSearchableSelect(metric);
+      thrusters.value = String(clamp(state.thrusters, Number(thrusters.min), Number(thrusters.max)));
+      thrustersNumber.value = String(Math.round(state.thrusters));
       dryMass.value = String(clamp(state.dryMassTons, Number(dryMass.min), Number(dryMass.max)));
       dryMassNumber.value = String(Math.round(state.dryMassTons));
-      targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
-      targetDvNumber.value = String(Math.round(state.targetDvKps));
+      setupMissionDvPresetControl();
+      syncTargetDvInputsFromState();
 
       tooltip.addEventListener("click", event => {
         const moveButton = event.target.closest(".tooltip-item-move");
@@ -235,29 +467,35 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         render();
       });
       targetDv.addEventListener("input", () => {
-        state.targetDvKps = Number(targetDv.value);
-        targetDvNumber.value = String(Math.round(state.targetDvKps));
+        setTargetDvKps(targetDv.value);
         render();
       });
       targetDvNumber.addEventListener("input", () => {
         const raw = Number(targetDvNumber.value);
         const value = clamp(Number.isFinite(raw) ? raw : 0, 0, 100000);
-        state.targetDvKps = value;
-        targetDv.value = String(clamp(value, Number(targetDv.min), Number(targetDv.max)));
+        setTargetDvKps(value);
         render();
       });
       radiator.addEventListener("change", () => {
         state.radiatorId = radiator.value;
         render();
       });
-      logX.addEventListener("change", () => {
-        state.logX = logX.checked;
+      const setLogX = checked => {
+        state.logX = !!checked;
+        if (logX) logX.checked = state.logX;
+        if (chartLogX) chartLogX.checked = state.logX;
         render();
-      });
-      logY.addEventListener("change", () => {
-        state.logY = logY.checked;
+      };
+      const setLogY = checked => {
+        state.logY = !!checked;
+        if (logY) logY.checked = state.logY;
+        if (chartLogY) chartLogY.checked = state.logY;
         render();
-      });
+      };
+      logX?.addEventListener("change", () => setLogX(logX.checked));
+      logY?.addEventListener("change", () => setLogY(logY.checked));
+      chartLogX?.addEventListener("change", () => setLogX(chartLogX.checked));
+      chartLogY?.addEventListener("change", () => setLogY(chartLogY.checked));
       showTwrInfo.addEventListener("change", () => {
         state.showTwrInfo = showTwrInfo.checked;
         render();
@@ -270,10 +508,12 @@ export function setupControls({ setLanguage = () => {}, refreshLocalizedControls
         state.paretoHighlight = paretoHighlight.checked;
         render();
       });
-      showImpracticalCandidates.addEventListener("change", () => {
-        state.showImpracticalCandidates = showImpracticalCandidates.checked;
-        render();
-      });
+      if (showImpracticalCandidates) {
+        showImpracticalCandidates?.addEventListener("change", () => {
+          state.showImpracticalCandidates = showImpracticalCandidates.checked;
+          render();
+        });
+      }
       if (powerResearchViewSelect) {
         powerResearchViewSelect.value = normalizePowerResearchView(state.powerResearchView);
         powerResearchViewSelect.addEventListener("change", () => {

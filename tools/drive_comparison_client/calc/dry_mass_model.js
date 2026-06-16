@@ -177,9 +177,22 @@ export function weaponFitsSection(module, section) {
       return slotClass === section || slotClass === "any";
     }
 
+export function isExofighterWeaponPod(module) {
+      if (!module || module.dataName === EMPTY_WEAPON_MODULE.dataName) return false;
+      const names = [
+        module.dataName,
+        module.friendlyName,
+        module.displayName && module.displayName.en,
+        module.displayName && module.displayName.kor,
+      ].map(value => String(value || ""));
+      const isPodName = names.some(value => /Pod$/i.test(value) || /\bPod\b/i.test(value));
+      return String(module.weaponType || "") === "missile" && String(module.mount || "") === "HalfHull" && isPodName;
+    }
+
 export function weaponModulesForSection(section) {
       const modules = ALL_WEAPON_MODULES.filter(item => {
         if (!item || item.alien) return false;
+        if (isExofighterWeaponPod(item)) return false;
         return weaponFitsSection(item, section) && weaponSlotSize(item) > 0;
       });
       return [EMPTY_WEAPON_MODULE, ...sortedByCatalogTitle(modules)];

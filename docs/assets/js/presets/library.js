@@ -1,6 +1,6 @@
 import { syncFilterInputs } from "../calc/filtering.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeConnectionLineMode, normalizeModuleEffectPresetState, normalizePowerResearchView, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeConnectionLineMode, normalizeModuleEffectPresetState, normalizePowerResearchView, state, updateLeftPanelCardSummaries } from "../state/core.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 import { presetRuntimeApi } from "./runtime.js";
 import {
@@ -124,7 +124,7 @@ export function selectedDryMassPresetEntry() {
 
 export function applyChartPresetEntry(entry, { showStatus = true } = {}) {
       if (!entry) return false;
-      if (!applyPresetToState(entry.settings)) {
+      if (!applyPresetToState(entry.settings, { allowDesignPresetLibraryRestore: !entry.builtIn })) {
         if (showStatus) showPresetStatus(localText("프리셋을 적용하지 못했습니다.", "Failed to apply preset."), true);
         return false;
       }
@@ -162,7 +162,7 @@ export function applyStartupChartPreset() {
         : null;
       if (startupChartPresetId && !entry) setStartupChartPreset("");
       entry = entry || firstChartPresetEntry();
-      return !!entry && applyPresetToState(entry.settings);
+      return !!entry && applyPresetToState(entry.settings, { allowDesignPresetLibraryRestore: !entry.builtIn });
     }
 
 export function setDisabled(id, disabled) {
@@ -214,6 +214,7 @@ export function renderChartPresetControls(preferredId = "") {
       setDisabled("chartPresetSave", false);
       ["chartPresetRename", "chartPresetDelete"].forEach(id => setDisabled(id, !entry || !!entry.builtIn));
       setDisabled("chartPresetClearStartup", !startupChartPresetId);
+      updateLeftPanelCardSummaries();
     }
 
 export function renderDryMassPresetControls(preferredId = "") {
@@ -909,7 +910,8 @@ export async function serializePresetPayload() {
     }
 
 
-export function applyPresetToState(rawPreset) {
+export function applyPresetToState(rawPreset, options = {}) {
+      const { allowDesignPresetLibraryRestore = true } = options || {};
       const preset = rawPreset && rawPreset.settings ? rawPreset.settings : rawPreset;
       if (!preset || typeof preset !== "object") return false;
 
@@ -962,13 +964,15 @@ export function applyPresetToState(rawPreset) {
         });
       }
 
-      const designLibrarySnapshot = Array.isArray(preset.designPresetLibrary)
-        ? preset.designPresetLibrary
-        : Array.isArray(preset.dryMassPresetLibrary)
-          ? preset.dryMassPresetLibrary
-          : null;
-      if (designLibrarySnapshot) {
-        restoreDesignPresetLibrarySnapshot(designLibrarySnapshot);
+      if (allowDesignPresetLibraryRestore) {
+        const designLibrarySnapshot = Array.isArray(preset.designPresetLibrary)
+          ? preset.designPresetLibrary
+          : Array.isArray(preset.dryMassPresetLibrary)
+            ? preset.dryMassPresetLibrary
+            : null;
+        if (designLibrarySnapshot) {
+          restoreDesignPresetLibrarySnapshot(designLibrarySnapshot);
+        }
       }
 
       const selectedDesignPresetId = typeof preset.selectedDesignPresetId === "string" ? preset.selectedDesignPresetId : "";
@@ -995,6 +999,8 @@ export function syncUiFromState() {
       const radiator = document.getElementById("radiator");
       const logX = document.getElementById("logX");
       const logY = document.getElementById("logY");
+      const chartLogX = document.getElementById("chartLogX");
+      const chartLogY = document.getElementById("chartLogY");
       const showTwrInfo = document.getElementById("showTwrInfo");
       const showMassInfo = document.getElementById("showMassInfo");
       const paretoHighlight = document.getElementById("paretoHighlight");
@@ -1008,12 +1014,15 @@ export function syncUiFromState() {
       if (dryMassNumber) dryMassNumber.value = String(Math.round(state.dryMassTons));
       if (targetDv) targetDv.value = String(clamp(state.targetDvKps, Number(targetDv.min), Number(targetDv.max)));
       if (targetDvNumber) targetDvNumber.value = String(Math.round(state.targetDvKps));
+      presetRuntimeApi.syncMissionDvPresetControl();
       if (radiator) {
         radiator.value = state.radiatorId;
         enhanceSearchableSelect(radiator);
       }
       if (logX) logX.checked = !!state.logX;
       if (logY) logY.checked = !!state.logY;
+      if (chartLogX) chartLogX.checked = !!state.logX;
+      if (chartLogY) chartLogY.checked = !!state.logY;
       if (showTwrInfo) showTwrInfo.checked = !!state.showTwrInfo;
       if (showMassInfo) showMassInfo.checked = !!state.showMassInfo;
       if (paretoHighlight) paretoHighlight.checked = !!state.paretoHighlight;
@@ -1031,4 +1040,3 @@ export function syncUiFromState() {
       presetRuntimeApi.renderDryMassCalcModal();
       presetRuntimeApi.render();
     }
-

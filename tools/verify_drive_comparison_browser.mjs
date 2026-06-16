@@ -30,6 +30,7 @@ function htmlFileUrl(htmlFile, baseUrl) {
 
 async function setLanguage(page, value) {
   await page.locator("#uiLanguageSelect").selectOption(value);
+  await page.evaluate(lang => window.setLanguage?.(lang), value);
   await page.waitForTimeout(100);
 }
 
@@ -119,19 +120,105 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
   await setLanguage(page, "en");
   const englishTitle = await page.locator("h1").innerText();
-  const englishSource = await page.locator("#sourceNote").innerText();
+  const englishSource = await page.locator("#sourceNote").textContent();
   const englishMetricGroups = await page.locator("#metric optgroup").evaluateAll(groups => groups.map(group => group.label));
   expect(/Drive Comparison/.test(englishTitle), `${htmlFile}: English language switch did not update title`);
   expect(/Game version/.test(englishSource), `${htmlFile}: English language switch did not update source note`);
   expect(
     englishMetricGroups.length === 2
-      && /Simulation \(total mass, fuel mass, TWR\)/.test(englishMetricGroups[0] || "")
+      && /Simulation \(total mass, fuel mass, acceleration\)/.test(englishMetricGroups[0] || "")
       && /Basic information \(thrust, efficiency, power\)/.test(englishMetricGroups[1] || ""),
     `${htmlFile}: English metric group labels were not localized`,
   );
+
+  const firstRunReadabilityChecks = await page.evaluate(() => {
+    const axisTitles = [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || "");
+    const readingGuide = document.getElementById("chartGuideContent");
+    const activeSummary = document.getElementById("chartActiveSummary")?.textContent || "";
+    const chartScaleText = document.getElementById("chartScaleControls")?.textContent || "";
+    const filterCardText = document.querySelector('.control-card[data-control-card="driveFilter"]')?.textContent || "";
+    return {
+      stateLogX: state.logX,
+      stateLogY: state.logY,
+      legacyLeftAxisControls: !!document.getElementById("logX") || !!document.getElementById("logY"),
+      chartLogX: document.getElementById("chartLogX")?.checked ?? null,
+      chartLogY: document.getElementById("chartLogY")?.checked ?? null,
+      axisTitles,
+      activeSummary,
+      chartScaleText,
+      filterCardText,
+      readingGuideExists: !!readingGuide,
+      readingGuideText: readingGuide?.textContent || "",
+      readingGuideAria: readingGuide?.getAttribute("aria-label") || "",
+      dataPointCount: document.querySelectorAll("#chart .data-point").length,
+    };
+  });
+  expect(firstRunReadabilityChecks.stateLogX && firstRunReadabilityChecks.stateLogY, `${htmlFile}: first-run state should default to log/log after built-in preset application`);
+  expect(!firstRunReadabilityChecks.legacyLeftAxisControls, `${htmlFile}: redundant left-panel axis controls should not render`);
+  expect(firstRunReadabilityChecks.chartLogX && firstRunReadabilityChecks.chartLogY, `${htmlFile}: chart-adjacent log checkboxes should reflect first-run log/log defaults`);
+  expect(firstRunReadabilityChecks.axisTitles.every(title => /\(log\)/.test(title)), `${htmlFile}: first-run axis titles should show log scale on both axes`);
+  expect(/Scale: Log X \/ Log Y/.test(firstRunReadabilityChecks.activeSummary), `${htmlFile}: chart active summary should expose active log scales`);
+  expect(/Engine x\d+/.test(firstRunReadabilityChecks.activeSummary) && /categories/.test(firstRunReadabilityChecks.activeSummary), `${htmlFile}: chart active summary should expose active filter state`);
+  expect(/Log X axis/.test(firstRunReadabilityChecks.chartScaleText) && /Log Y axis/.test(firstRunReadabilityChecks.chartScaleText), `${htmlFile}: chart-adjacent scale controls missing English labels`);
+  expect(!/Axis scale|Log X axis|Log Y axis/.test(firstRunReadabilityChecks.filterCardText), `${htmlFile}: filter/display card should not contain redundant axis controls`);
+  expect(firstRunReadabilityChecks.readingGuideExists, `${htmlFile}: chart-reading guide is missing`);
+  expect(/How to read/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart guide missing English reading heading`);
+  expect(/Lower cumulative research/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not explain the X axis`);
+  expect(/lighter ship|less propellant|mass tradeoff/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not explain lower mass interpretation`);
+  expect(/lower-left/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide does not tell users where to look first`);
+  expect(/Acceleration/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide should use Acceleration terminology in English`);
+  expect(/Dry mass|Ship:/.test(firstRunReadabilityChecks.readingGuideText), `${htmlFile}: chart-reading guide should reference current ship or dry-mass assumptions`);
+  expect(!/[가-힣]/u.test(firstRunReadabilityChecks.readingGuideText + firstRunReadabilityChecks.activeSummary + firstRunReadabilityChecks.chartScaleText), `${htmlFile}: English chart readability controls contain Korean text`);
+  expect(firstRunReadabilityChecks.dataPointCount > 0, `${htmlFile}: first-run log/log default rendered no chart points`);
+
+  const scaleControlSyncChecks = await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    document.getElementById("chartLogX")?.click();
+    const afterChartToggle = {
+      stateLogX: state.logX,
+      chartLogX: document.getElementById("chartLogX")?.checked ?? null,
+      legacyLeftAxisControls: !!document.getElementById("logX") || !!document.getElementById("logY"),
+      activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
+      axisTitles: [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || ""),
+    };
+    applyPresetToState({ metric: "totalMassTons", logX: false, logY: true });
+    syncUiFromState();
+    const afterExplicitPreset = {
+      stateLogX: state.logX,
+      stateLogY: state.logY,
+      chartLogX: document.getElementById("chartLogX")?.checked ?? null,
+      chartLogY: document.getElementById("chartLogY")?.checked ?? null,
+      activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
+      axisTitles: [...document.querySelectorAll("#chart .axis-title")].map(item => item.textContent || ""),
+    };
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const korean = {
+      activeSummary: document.getElementById("chartActiveSummary")?.textContent || "",
+      chartScaleText: document.getElementById("chartScaleControls")?.textContent || "",
+      readingGuideText: document.getElementById("chartGuideContent")?.textContent || "",
+    };
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    return { afterChartToggle, afterExplicitPreset, korean };
+  });
+  expect(!scaleControlSyncChecks.afterChartToggle.stateLogX, `${htmlFile}: chart-adjacent Log X toggle did not update state`);
+  expect(!scaleControlSyncChecks.afterChartToggle.chartLogX, `${htmlFile}: chart-adjacent Log X toggle did not sync its checkbox`);
+  expect(!scaleControlSyncChecks.afterChartToggle.legacyLeftAxisControls, `${htmlFile}: redundant left-panel axis controls appeared after chart scale toggle`);
+  expect(/Linear X/.test(scaleControlSyncChecks.afterChartToggle.activeSummary), `${htmlFile}: active summary did not reflect chart-adjacent Log X toggle`);
+  expect(!/\(log\)/.test(scaleControlSyncChecks.afterChartToggle.axisTitles[0] || ""), `${htmlFile}: X axis title stayed log after chart-adjacent Log X toggle`);
+  expect(scaleControlSyncChecks.afterExplicitPreset.stateLogX === false && scaleControlSyncChecks.afterExplicitPreset.stateLogY === true, `${htmlFile}: explicit preset logX/logY choices were not preserved`);
+  expect(!scaleControlSyncChecks.afterExplicitPreset.chartLogX && scaleControlSyncChecks.afterExplicitPreset.chartLogY, `${htmlFile}: explicit preset did not sync chart-adjacent scale controls`);
+  expect(/Scale: Linear X \/ Log Y/.test(scaleControlSyncChecks.afterExplicitPreset.activeSummary), `${htmlFile}: active summary did not reflect explicit preset scale choices`);
+  expect(/[가-힣]/u.test(scaleControlSyncChecks.korean.activeSummary + scaleControlSyncChecks.korean.chartScaleText + scaleControlSyncChecks.korean.readingGuideText), `${htmlFile}: Korean chart readability controls did not render Korean text`);
+  expect(!/Scale:|Log X axis|How to read this chart|lower-left/.test(scaleControlSyncChecks.korean.activeSummary + scaleControlSyncChecks.korean.chartScaleText + scaleControlSyncChecks.korean.readingGuideText), `${htmlFile}: Korean chart readability controls contain English UI text`);
+
   const cardSummaryChecks = await page.evaluate(() => {
     const simulationSummaryText = () => document.querySelector('.control-card[data-control-card="simulation"] [data-card-summary]')?.textContent || "";
-    const filterSummaryText = () => document.querySelector('.control-card[data-control-card="filter"] [data-card-summary]')?.textContent || "";
+    const filterSummaryText = () => document.querySelector('.control-card[data-control-card="driveFilter"] [data-card-summary]')?.textContent || "";
 
     setLanguage("en", { rerender: false });
     Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
@@ -145,6 +232,8 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     updateLeftPanelCardSummaries();
     const twrSimulationSummary = simulationSummaryText();
     const twrFilterSummary = filterSummaryText();
+    const twrMinTwrControlDisplay = document.getElementById("minTwrControl")?.style.display || "";
+    const twrMinDvControlDisplay = document.getElementById("minDvControl")?.style.display || "";
 
     setLanguage("ko", { rerender: false });
     Object.assign(state, { metric: "totalMassTons", minTwr: 0.25, minDvKps: 125, logX: true, logY: true });
@@ -152,35 +241,441 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     updateLeftPanelCardSummaries();
     const koreanFilterSummary = filterSummaryText();
 
+    Object.assign(state, {
+      metric: "twr",
+      minTwr: 10,
+      minDvKps: 0,
+      showImpracticalCandidates: false,
+      searchTerm: "",
+      logX: true,
+      logY: true,
+    });
+    render();
+    const twrRowsWithAccelerationCutoff = currentChartRows.length;
+    Object.assign(state, { showImpracticalCandidates: true });
+    render();
+    const twrRowsWithImpracticalShown = currentChartRows.length;
+
     resetChartStateToDefaults();
     setLanguage("en", { rerender: false });
     syncUiFromState();
     updateLeftPanelCardSummaries();
 
-    return { totalMassSimulationSummary, totalMassFilterSummary, twrSimulationSummary, twrFilterSummary, koreanFilterSummary };
+    return {
+      totalMassSimulationSummary,
+      totalMassFilterSummary,
+      twrSimulationSummary,
+      twrFilterSummary,
+      twrMinTwrControlDisplay,
+      twrMinDvControlDisplay,
+      twrRowsWithAccelerationCutoff,
+      twrRowsWithImpracticalShown,
+      koreanFilterSummary,
+    };
   });
   expect(
-    /TWR/.test(cardSummaryChecks.totalMassSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.totalMassSimulationSummary),
-    `${htmlFile}: total-mass simulation summary should show the TWR threshold`,
+    /Acceleration/.test(cardSummaryChecks.totalMassSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.totalMassSimulationSummary),
+    `${htmlFile}: total-mass simulation summary should show the acceleration threshold`,
   );
   expect(
-    !/TWR/.test(cardSummaryChecks.totalMassFilterSummary) && !/dV/.test(cardSummaryChecks.totalMassFilterSummary),
+    !/Acceleration/.test(cardSummaryChecks.totalMassFilterSummary) && !/TWR/.test(cardSummaryChecks.totalMassFilterSummary) && !/dV/.test(cardSummaryChecks.totalMassFilterSummary),
     `${htmlFile}: total-mass filter summary should not show moved simulation thresholds`,
   );
   expect(
-    /dV/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary),
-    `${htmlFile}: TWR filter summary should show only the dV threshold`,
+    !/Acceleration/.test(cardSummaryChecks.twrFilterSummary) && !/TWR/.test(cardSummaryChecks.twrFilterSummary) && !/dV/.test(cardSummaryChecks.twrFilterSummary),
+    `${htmlFile}: drive-filter summary should not show moved simulation thresholds`,
   );
   expect(
-    !/TWR/.test(cardSummaryChecks.twrSimulationSummary),
-    `${htmlFile}: TWR simulation summary should not show the minimum TWR threshold when that control is hidden`,
+    /Acceleration/.test(cardSummaryChecks.twrSimulationSummary) && !/dV ≥/.test(cardSummaryChecks.twrSimulationSummary),
+    `${htmlFile}: acceleration metric simulation summary should show the minimum acceleration threshold`,
   );
   expect(
-    /X축 로그/.test(cardSummaryChecks.koreanFilterSummary)
-      && /Y축 로그/.test(cardSummaryChecks.koreanFilterSummary)
-      && !/log X|log Y|Log X|Log Y/.test(cardSummaryChecks.koreanFilterSummary),
-    `${htmlFile}: Korean filter summary should localize log axis labels`,
+    cardSummaryChecks.twrMinTwrControlDisplay !== "none" && cardSummaryChecks.twrMinDvControlDisplay !== "none",
+    `${htmlFile}: acceleration metric should expose both minimum acceleration and minimum dV controls`,
   );
+  expect(
+    cardSummaryChecks.twrRowsWithAccelerationCutoff < cardSummaryChecks.twrRowsWithImpracticalShown,
+    `${htmlFile}: acceleration metric did not apply the minimum acceleration cutoff`,
+  );
+  expect(
+    !/X축 로그|Y축 로그|log X|log Y|Log X|Log Y/.test(cardSummaryChecks.koreanFilterSummary),
+    `${htmlFile}: filter summary should not include axis scale labels`,
+  );
+
+  const missionDvPresetChecks = await page.evaluate(() => {
+    const select = document.getElementById("missionDvPreset");
+    const targetDv = document.getElementById("targetDv");
+    const targetDvNumber = document.getElementById("targetDvNumber");
+    const label = document.querySelector('label[for="missionDvPreset"]');
+    const valueOf = element => element?.value || "";
+    const textOf = element => (element?.textContent || "").replace(/\s+/g, " ").trim();
+    const optionSnapshot = () => [...(select?.options || [])].map(option => ({
+      value: option.value,
+      text: textOf(option),
+    }));
+    const unrelatedState = () => ({
+      dryMassTons: state.dryMassTons,
+      radiatorId: state.radiatorId,
+      metric: state.metric,
+      powerResearchView: state.powerResearchView,
+      moduleEffectsEnabled: state.moduleEffectsEnabled,
+      moduleEffectSource: state.moduleEffectSource,
+      moduleEffectModuleIds: state.moduleEffectModuleIds.join(","),
+      thrusters: state.thrusters,
+      minTwr: state.minTwr,
+      minDvKps: state.minDvKps,
+    });
+    const dispatchInput = (element, value) => {
+      if (!element) return;
+      element.value = String(value);
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const dispatchSelect = value => {
+      if (!select) return;
+      select.value = String(value);
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const chartGuideText = () => textOf(document.getElementById("chartGuideContent"));
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    Object.assign(state, {
+      metric: "totalMassTons",
+      dryMassTons: 12345,
+      thrusters: 3,
+      radiatorId: DATA.radiators[0]?.id || state.radiatorId,
+      powerResearchView: "best",
+      moduleEffectsEnabled: false,
+      moduleEffectSource: "manual",
+      moduleEffectModuleIds: ["MuonSpiker"],
+      minTwr: 0.0123,
+      minDvKps: 12,
+    });
+    syncUiFromState();
+
+    const beforeUnrelated = unrelatedState();
+    const initial = {
+      exists: !!select,
+      label: textOf(label),
+      options: optionSnapshot(),
+      sliderMax: targetDv?.max || "",
+      sliderStep: targetDv?.step || "",
+      numberMax: targetDvNumber?.max || "",
+      selected: valueOf(select),
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+    };
+
+    const allPresetSync = [2, 4, 8, 20, 30, 50, 150, 200, 500].map(value => {
+      dispatchSelect(value);
+      return {
+        value,
+        stateDv: state.targetDvKps,
+        rangeValue: valueOf(targetDv),
+        numberValue: valueOf(targetDvNumber),
+        selected: valueOf(select),
+      };
+    });
+
+    dispatchSelect(50);
+    const afterJupiter = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+      selectedText: textOf(select?.selectedOptions?.[0]),
+      renderedGuide: chartGuideText(),
+      rows: currentChartRows.length,
+      unrelated: unrelatedState(),
+    };
+
+    dispatchInput(targetDvNumber, 51);
+    const afterManualCustom = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+    };
+
+    dispatchInput(targetDvNumber, 150);
+    const afterManualExact = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+      selectedText: textOf(select?.selectedOptions?.[0]),
+    };
+
+    dispatchInput(targetDvNumber, 1500);
+    const afterAboveSlider = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+    };
+
+    state.targetDvKps = 20;
+    syncUiFromState();
+    const afterStateSync = {
+      stateDv: state.targetDvKps,
+      rangeValue: valueOf(targetDv),
+      numberValue: valueOf(targetDvNumber),
+      selected: valueOf(select),
+      selectedText: textOf(select?.selectedOptions?.[0]),
+    };
+
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const korean = {
+      label: textOf(label),
+      options: optionSnapshot(),
+      selected: valueOf(select),
+      selectedText: textOf(select?.selectedOptions?.[0]),
+    };
+
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+
+    return {
+      initial,
+      allPresetSync,
+      beforeUnrelated,
+      afterJupiter,
+      afterManualCustom,
+      afterManualExact,
+      afterAboveSlider,
+      afterStateSync,
+      korean,
+    };
+  });
+  expect(missionDvPresetChecks.initial.exists, `${htmlFile}: Mission dV preset control is missing`);
+  expect(missionDvPresetChecks.initial.label === "Mission dV preset", `${htmlFile}: Mission dV preset label did not localize to English`);
+  expect(missionDvPresetChecks.initial.sliderMax === "1000", `${htmlFile}: Target dV range max should be 1000`);
+  expect(missionDvPresetChecks.initial.sliderStep === "1", `${htmlFile}: Target dV range step should allow exact mission dV presets`);
+  expect(missionDvPresetChecks.initial.numberMax === "100000", `${htmlFile}: Target dV number input should keep the wider max`);
+  expect(
+    missionDvPresetChecks.initial.options.map(option => option.value).join(",") === "custom,2,4,8,20,30,50,150,200,500",
+    `${htmlFile}: Mission dV preset options do not match the issue values`,
+  );
+  expect(
+    missionDvPresetChecks.initial.options.some(option => option.text === "LEO Defense / non-Earth orbit - 2 km/s")
+      && missionDvPresetChecks.initial.options.some(option => option.text === "Fast Kuiper Belt - 500 km/s"),
+    `${htmlFile}: Mission dV preset English option text is incomplete`,
+  );
+  expect(
+    missionDvPresetChecks.allPresetSync.every(item => (
+      item.stateDv === item.value
+      && item.rangeValue === String(item.value)
+      && item.numberValue === String(item.value)
+      && item.selected === String(item.value)
+    )),
+    `${htmlFile}: not every Mission dV preset synchronized state, range, number, and select exactly`,
+  );
+  expect(missionDvPresetChecks.afterJupiter.stateDv === 50, `${htmlFile}: Jupiter Assault did not update state target dV to 50`);
+  expect(missionDvPresetChecks.afterJupiter.rangeValue === "50", `${htmlFile}: Jupiter Assault did not sync the Target dV range input`);
+  expect(missionDvPresetChecks.afterJupiter.numberValue === "50", `${htmlFile}: Jupiter Assault did not sync the Target dV number input`);
+  expect(missionDvPresetChecks.afterJupiter.selected === "50", `${htmlFile}: Jupiter Assault did not keep the mission select synchronized`);
+  expect(/Jupiter Assault/.test(missionDvPresetChecks.afterJupiter.selectedText), `${htmlFile}: Jupiter Assault option text was not selected`);
+  expect(/dV 50 km\/s/.test(missionDvPresetChecks.afterJupiter.renderedGuide), `${htmlFile}: mission preset did not re-render chart guide assumptions`);
+  expect(missionDvPresetChecks.afterJupiter.rows > 0, `${htmlFile}: mission preset render produced no chart rows`);
+  expect(
+    JSON.stringify(missionDvPresetChecks.afterJupiter.unrelated) === JSON.stringify(missionDvPresetChecks.beforeUnrelated),
+    `${htmlFile}: mission dV preset changed unrelated simulation/display/filter/design state`,
+  );
+  expect(missionDvPresetChecks.afterManualCustom.stateDv === 51, `${htmlFile}: manual Target dV edit did not update state`);
+  expect(missionDvPresetChecks.afterManualCustom.selected === "custom", `${htmlFile}: non-matching manual Target dV should select Custom`);
+  expect(missionDvPresetChecks.afterManualExact.stateDv === 150, `${htmlFile}: manual exact Target dV edit did not update state`);
+  expect(missionDvPresetChecks.afterManualExact.selected === "150", `${htmlFile}: exact manual Target dV should select Fast Asteroid Assault`);
+  expect(/Fast Asteroid Assault/.test(missionDvPresetChecks.afterManualExact.selectedText), `${htmlFile}: exact manual Target dV selected the wrong mission option text`);
+  expect(missionDvPresetChecks.afterAboveSlider.stateDv === 1500, `${htmlFile}: Target dV number input should allow values above the slider max`);
+  expect(missionDvPresetChecks.afterAboveSlider.rangeValue === "1000", `${htmlFile}: Target dV range input should clamp values above its max to 1000`);
+  expect(missionDvPresetChecks.afterAboveSlider.numberValue === "1500", `${htmlFile}: Target dV number input did not retain the above-slider value`);
+  expect(missionDvPresetChecks.afterAboveSlider.selected === "custom", `${htmlFile}: above-slider manual Target dV should select Custom`);
+  expect(missionDvPresetChecks.afterStateSync.selected === "20", `${htmlFile}: syncUiFromState did not select the matching mission preset`);
+  expect(/Deceleration Burn Intercept/.test(missionDvPresetChecks.afterStateSync.selectedText), `${htmlFile}: syncUiFromState selected the wrong mission option text`);
+  expect(missionDvPresetChecks.korean.label === "임무 dV 프리셋", `${htmlFile}: Mission dV preset label did not localize to Korean`);
+  expect(
+    missionDvPresetChecks.korean.options.some(option => option.text === "목성 강습 - 50 km/s")
+      && missionDvPresetChecks.korean.options.some(option => option.text === "고속 카이퍼 벨트 - 500 km/s"),
+    `${htmlFile}: Mission dV preset Korean option text is incomplete`,
+  );
+  expect(!/Mission dV preset|Jupiter Assault|Fast Kuiper Belt/.test(
+    `${missionDvPresetChecks.korean.label} ${missionDvPresetChecks.korean.options.map(option => option.text).join(" ")}`,
+  ), `${htmlFile}: Korean Mission dV preset UI contains English text`);
+
+  const filterActionBannerChecks = await page.evaluate(() => {
+    const builtInSettings = DATA.presetLibrary?.chartPresets?.[0]?.settings;
+    const applyBuiltInBaseline = () => {
+      if (builtInSettings) {
+        applyPresetToState(builtInSettings);
+      } else {
+        resetChartStateToDefaults();
+      }
+      setLanguage("en", { rerender: false });
+      syncUiFromState();
+    };
+    const bannerState = () => {
+      const root = document.getElementById("filterActionBanner");
+      const chartDiagnostic = document.getElementById("chartDiagnostic");
+      const title = document.getElementById("filterActionBannerTitle")?.textContent.trim() || "";
+      const detail = document.getElementById("filterActionBannerDetail")?.textContent.trim() || "";
+      const actions = [...document.querySelectorAll("#filterActionBannerActions button")].map(button => button.textContent.trim());
+      const text = (root?.textContent || "").replace(/\s+/g, " ").trim();
+      return {
+        hidden: root?.hidden ?? null,
+        title,
+        detail,
+        actions,
+        text,
+        chartDiagnosticHidden: chartDiagnostic?.hidden ?? null,
+        chartDiagnosticText: (chartDiagnostic?.textContent || "").replace(/\s+/g, " ").trim(),
+      };
+    };
+    const clickBannerAction = label => {
+      const button = [...document.querySelectorAll("#filterActionBannerActions button")]
+        .find(item => item.textContent.trim() === label);
+      if (!button) return false;
+      button.click();
+      return true;
+    };
+    const highAccelerationScenario = () => {
+      Object.assign(state, {
+        metric: "totalMassTons",
+        minTwr: 10,
+        minDvKps: 0,
+        showImpracticalCandidates: false,
+        searchTerm: "",
+      });
+      syncUiFromState();
+    };
+
+    applyBuiltInBaseline();
+    const defaultBanner = bannerState();
+    const resetAccelerationBaseline = {
+      minTwr: state.minTwr,
+      inputValue: document.getElementById("minTwrNumber")?.value || "",
+      readout: document.getElementById("minTwrReadout")?.textContent.trim() || "",
+    };
+
+    highAccelerationScenario();
+    const highAccelerationBanner = bannerState();
+    const resetClicked = clickBannerAction("Reset acceleration threshold");
+    const afterResetAcceleration = {
+      minTwr: state.minTwr,
+      inputValue: document.getElementById("minTwrNumber")?.value || "",
+      readout: document.getElementById("minTwrReadout")?.textContent.trim() || "",
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    highAccelerationScenario();
+    const showClicked = clickBannerAction("Show impractical candidates");
+    const afterShowImpractical = {
+      checkboxExists: !!document.getElementById("showImpracticalCandidates"),
+      stateValue: state.showImpracticalCandidates === true,
+      banner: bannerState(),
+    };
+    const hideClicked = clickBannerAction("Hide impractical candidates");
+    const afterHideImpractical = {
+      stateValue: state.showImpracticalCandidates === true,
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    const fixture = DATA.drives.find(row => /Nerva/i.test(`${row.displayName || ""} ${row.baseDisplayName || ""}`))
+      || DATA.drives.find(row => row && (row.baseDisplayName || row.displayName));
+    const searchTerm = String((fixture && (fixture.baseDisplayName || fixture.displayName)) || "Drive").split(/\s+/)[0].toLocaleLowerCase();
+    Object.assign(state, {
+      metric: "totalMassTons",
+      minTwr: 10,
+      minDvKps: 0,
+      showImpracticalCandidates: false,
+      searchTerm,
+    });
+    syncUiFromState();
+    const searchHiddenBanner = bannerState();
+    const clearClicked = clickBannerAction("Clear search");
+    const afterClearSearch = {
+      stateSearch: state.searchTerm,
+      inputValue: document.getElementById("nameSearch")?.value || "",
+      banner: bannerState(),
+    };
+
+    applyBuiltInBaseline();
+    highAccelerationScenario();
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const koreanBanner = bannerState();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+
+    applyBuiltInBaseline();
+
+    return {
+      defaultBanner,
+      resetAccelerationBaseline,
+      highAccelerationBanner,
+      resetClicked,
+      afterResetAcceleration,
+      showClicked,
+      afterShowImpractical,
+      hideClicked,
+      afterHideImpractical,
+      searchTerm,
+      searchHiddenBanner,
+      clearClicked,
+      afterClearSearch,
+      koreanBanner,
+    };
+  });
+  expect(
+    filterActionBannerChecks.defaultBanner.hidden || /Some drives are hidden|hidden by current settings/i.test(filterActionBannerChecks.defaultBanner.text),
+    `${htmlFile}: default filter action banner should be hidden or explain hidden settings`,
+  );
+  expect(!filterActionBannerChecks.highAccelerationBanner.hidden, `${htmlFile}: high minimum acceleration did not show the filter action banner`);
+  expect(filterActionBannerChecks.highAccelerationBanner.chartDiagnosticHidden, `${htmlFile}: actionable banner should suppress the older chart diagnostic banner`);
+  expect(/Some drives are hidden|hidden by current settings/i.test(filterActionBannerChecks.highAccelerationBanner.title), `${htmlFile}: high-acceleration banner title did not explain hidden settings`);
+  expect(/minimum acceleration threshold/i.test(filterActionBannerChecks.highAccelerationBanner.detail), `${htmlFile}: high-acceleration banner did not identify the acceleration threshold`);
+  expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Reset acceleration threshold"), `${htmlFile}: high-acceleration banner missing reset action`);
+  expect(filterActionBannerChecks.highAccelerationBanner.actions.includes("Show impractical candidates"), `${htmlFile}: high-acceleration banner missing show-impractical action`);
+  expect(!/[가-힣]/u.test(filterActionBannerChecks.highAccelerationBanner.text), `${htmlFile}: English filter action banner contains Korean text`);
+  expect(filterActionBannerChecks.resetClicked, `${htmlFile}: reset acceleration action could not be clicked`);
+  expect(
+    Math.abs(filterActionBannerChecks.afterResetAcceleration.minTwr - filterActionBannerChecks.resetAccelerationBaseline.minTwr) < 1e-12,
+    `${htmlFile}: reset acceleration action did not restore the selected preset minimum acceleration`,
+  );
+  expect(
+    Math.abs(Number(filterActionBannerChecks.afterResetAcceleration.inputValue) - Number(filterActionBannerChecks.resetAccelerationBaseline.inputValue)) < 1e-12,
+    `${htmlFile}: reset acceleration action did not sync the minimum acceleration input`,
+  );
+  expect(
+    filterActionBannerChecks.afterResetAcceleration.readout === filterActionBannerChecks.resetAccelerationBaseline.readout,
+    `${htmlFile}: reset acceleration action did not sync the minimum acceleration readout`,
+  );
+  expect(
+    !filterActionBannerChecks.afterResetAcceleration.banner.actions.includes("Reset acceleration threshold"),
+    `${htmlFile}: reset acceleration action left the reset action visible`,
+  );
+  expect(filterActionBannerChecks.showClicked, `${htmlFile}: show-impractical action could not be clicked`);
+  expect(!filterActionBannerChecks.afterShowImpractical.checkboxExists, `${htmlFile}: impractical candidates checkbox should not remain in the left panel`);
+  expect(filterActionBannerChecks.afterShowImpractical.stateValue, `${htmlFile}: show-impractical action did not update state`);
+  expect(!filterActionBannerChecks.afterShowImpractical.banner.hidden, `${htmlFile}: show-impractical action should leave the banner visible with a hide action`);
+  expect(filterActionBannerChecks.afterShowImpractical.banner.actions.includes("Hide impractical candidates"), `${htmlFile}: banner missing hide-impractical action after showing impractical candidates`);
+  expect(filterActionBannerChecks.hideClicked, `${htmlFile}: hide-impractical action could not be clicked`);
+  expect(!filterActionBannerChecks.afterHideImpractical.stateValue, `${htmlFile}: hide-impractical action did not update state`);
+  expect(!filterActionBannerChecks.searchHiddenBanner.hidden, `${htmlFile}: hidden search matches did not show the filter action banner`);
+  expect(/Matches found/i.test(filterActionBannerChecks.searchHiddenBanner.title), `${htmlFile}: hidden search banner did not say matches were found`);
+  expect(filterActionBannerChecks.searchHiddenBanner.detail.toLocaleLowerCase().includes(filterActionBannerChecks.searchTerm), `${htmlFile}: hidden search banner did not include the search term`);
+  expect(/minimum acceleration threshold/i.test(filterActionBannerChecks.searchHiddenBanner.detail), `${htmlFile}: hidden search banner did not identify the dominant hidden reason`);
+  expect(filterActionBannerChecks.searchHiddenBanner.actions.includes("Clear search"), `${htmlFile}: hidden search banner missing clear-search action`);
+  expect(filterActionBannerChecks.clearClicked, `${htmlFile}: clear-search action could not be clicked`);
+  expect(filterActionBannerChecks.afterClearSearch.stateSearch === "" && filterActionBannerChecks.afterClearSearch.inputValue === "", `${htmlFile}: clear-search action did not sync state and input`);
+  expect(!/Matches found/i.test(filterActionBannerChecks.afterClearSearch.banner.title), `${htmlFile}: clear-search action left the search-specific banner visible`);
+  expect(!filterActionBannerChecks.koreanBanner.hidden, `${htmlFile}: Korean filter action banner was unexpectedly hidden in high-acceleration scenario`);
+  expect(!/Reset acceleration threshold|Show impractical candidates|Clear search/.test(filterActionBannerChecks.koreanBanner.text), `${htmlFile}: Korean filter action banner contains English action labels`);
+  expect(/[가-힣]/u.test(filterActionBannerChecks.koreanBanner.text), `${htmlFile}: Korean filter action banner did not render Korean text`);
 
   const shipDesignerInitial = await page.evaluate(() => {
     resetChartStateToDefaults();
@@ -198,11 +693,20 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const select = document.getElementById("dryMassPresetSelect");
     const initialStatus = status?.textContent.trim() || "";
     const calcButtonStyle = calcButton ? getComputedStyle(calcButton) : null;
+    const calcButtonRect = calcButton?.getBoundingClientRect();
     if (select && select.options.length > 1) {
       select.selectedIndex = 1;
       select.dispatchEvent(new Event("change", { bubbles: true }));
     }
     const statusAfterUnappliedSelection = status?.textContent.trim() || "";
+    setLanguage("ko", { rerender: false });
+    syncUiFromState();
+    const koreanCopy = {
+      buttonText: calcButton?.textContent.trim() || "",
+      statusText: status?.textContent.trim() || "",
+    };
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
     return {
       sectionExists: !!section,
       cardExists: !!shipDesignerCard,
@@ -211,7 +715,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       titleInsideHeader: !!(title && shipDesignerHeader && shipDesignerHeader.contains(title)),
       titleIsPlainText: title?.tagName === "SPAN",
       calcButtonInsideHeader: !!(calcButton && shipDesignerHeader && shipDesignerHeader.contains(calcButton)),
-      bodyHasOpenDesignerButton: !!section?.querySelector("button.ship-designer-title-button, button#shipDesignerTitle"),
+      calcButtonInsideSection: !!(calcButton && section && section.contains(calcButton)),
       modulePanelInside: !!section && !!modulePanel && section.contains(modulePanel),
       moduleEffectsCheckedByDefault: moduleEffectsCheckbox?.checked === true && state.moduleEffectsEnabled === true,
       titleText: title?.textContent.trim() || "",
@@ -220,11 +724,12 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       calcButtonLooksClickable: !!calcButtonStyle
         && calcButtonStyle.borderTopWidth !== "0px"
         && calcButtonStyle.backgroundColor !== "rgba(0, 0, 0, 0)",
-      calcButtonIsCompact: !!calcButtonStyle && Number.parseFloat(calcButtonStyle.width) <= 32,
+      calcButtonIsTextCta: !!calcButtonRect && calcButtonRect.width > 90,
       defaultStatus: initialStatus,
       defaultAppliedFlag: status?.dataset.appliedTemplate || "",
       statusAfterUnappliedSelection,
       unappliedSelectionPreservedStatus: statusAfterUnappliedSelection === initialStatus,
+      koreanCopy,
     };
   });
   expect(shipDesignerInitial.sectionExists, `${htmlFile}: Ship Designer section missing`);
@@ -233,18 +738,21 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(shipDesignerInitial.sectionOutsideSimulationCard, `${htmlFile}: Ship Designer controls should not remain inside Simulation Conditions`);
   expect(shipDesignerInitial.titleInsideHeader, `${htmlFile}: Ship Designer title should be in the card header`);
   expect(shipDesignerInitial.titleIsPlainText, `${htmlFile}: Ship Designer title should be plain header text, not a button`);
-  expect(shipDesignerInitial.calcButtonInsideHeader, `${htmlFile}: dry-mass calculator button should sit beside the Ship Designer title`);
-  expect(!shipDesignerInitial.bodyHasOpenDesignerButton, `${htmlFile}: separate Open Designer body button should be removed`);
+  expect(!shipDesignerInitial.calcButtonInsideHeader, `${htmlFile}: Ship Designer CTA should not be an icon-only header button`);
+  expect(shipDesignerInitial.calcButtonInsideSection, `${htmlFile}: Ship Designer CTA should be visible inside the card body`);
   expect(shipDesignerInitial.modulePanelInside, `${htmlFile}: module effects controls are not grouped inside Ship Designer`);
   expect(shipDesignerInitial.moduleEffectsCheckedByDefault, `${htmlFile}: module performance effects should be enabled by default`);
   expect(/Ship Designer/.test(shipDesignerInitial.titleText), `${htmlFile}: Ship Designer title text missing`);
-  expect(/Dry Mass Calculator/.test(shipDesignerInitial.calcButtonLabel), `${htmlFile}: dry-mass calculator icon button should expose an accessible label`);
-  expect(shipDesignerInitial.calcButtonText.length > 0, `${htmlFile}: dry-mass calculator icon button should show an icon glyph`);
-  expect(shipDesignerInitial.calcButtonLooksClickable, `${htmlFile}: dry-mass calculator icon button should be visibly styled as a button`);
-  expect(shipDesignerInitial.calcButtonIsCompact, `${htmlFile}: dry-mass calculator button should remain compact beside the title`);
+  expect(/Open Ship Designer/.test(shipDesignerInitial.calcButtonLabel), `${htmlFile}: Ship Designer CTA should expose player-facing accessible text`);
+  expect(/Open Ship Designer/.test(shipDesignerInitial.calcButtonText), `${htmlFile}: Ship Designer CTA should show visible text`);
+  expect(shipDesignerInitial.calcButtonLooksClickable, `${htmlFile}: Ship Designer CTA should be visibly styled as a button`);
+  expect(shipDesignerInitial.calcButtonIsTextCta, `${htmlFile}: Ship Designer CTA should be a text button, not a compact icon`);
   expect(/No ship template applied/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should say no template is applied`);
+  expect(/Dry mass/.test(shipDesignerInitial.defaultStatus), `${htmlFile}: default Ship Designer status should include current dry mass`);
   expect(shipDesignerInitial.defaultAppliedFlag === "false", `${htmlFile}: default Ship Designer applied flag should be false`);
   expect(shipDesignerInitial.unappliedSelectionPreservedStatus, `${htmlFile}: selecting a design preset falsely changed the applied-template status`);
+  expect(/함선 설계/.test(shipDesignerInitial.koreanCopy.buttonText), `${htmlFile}: Korean Ship Designer CTA did not localize`);
+  expect(/[가-힣]/u.test(shipDesignerInitial.koreanCopy.statusText) && !/No ship template applied/.test(shipDesignerInitial.koreanCopy.statusText), `${htmlFile}: Korean Ship Designer status did not localize`);
 
   const shipDesignerPresetFixture = await page.evaluate(() => {
     const entry = saveDryMassPresetFromCalculator("Verifier Ship Design", exportedDryMassCalculatorPreset());
@@ -260,6 +768,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(shipDesignerPresetFixture.saved, `${htmlFile}: could not create dry-mass design preset fixture for Ship Designer applied-template check`);
   expect(shipDesignerPresetFixture.selected, `${htmlFile}: dry-mass design preset fixture was not selected`);
   expect(/No ship template applied/.test(shipDesignerPresetFixture.statusText), `${htmlFile}: saving/selecting a design preset falsely changed the applied-template status`);
+  expect(/Dry mass/.test(shipDesignerPresetFixture.statusText), `${htmlFile}: unapplied Ship Designer status should keep dry mass visible`);
   expect(shipDesignerPresetFixture.appliedFlag === "false", `${htmlFile}: saving/selecting a design preset should not mark it applied`);
 
   await page.locator("#dryMassCalcButton").click();
@@ -275,16 +784,20 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   await page.waitForFunction(() => !document.querySelector("#dryMassCalcModal")?.classList.contains("is-open"), null, { timeout: 5000 });
   const shipDesignerApplied = await page.evaluate(() => {
     const status = document.getElementById("shipDesignerAppliedTemplate");
+    const button = document.getElementById("dryMassCalcButton");
     return {
       text: status?.textContent.trim() || "",
       appliedFlag: status?.dataset.appliedTemplate || "",
       stateTemplateName: state.appliedShipTemplate?.name || "",
+      buttonText: button?.textContent.trim() || "",
     };
   });
   expect(dryMassButtonFocusCheck.hasDesignPreset, `${htmlFile}: dry-mass design preset fixture missing for Ship Designer applied-template check`);
   expect(shipDesignerApplied.appliedFlag === "true", `${htmlFile}: applying a named design did not mark Ship Designer status as applied`);
   expect(shipDesignerApplied.stateTemplateName.trim().length > 0, `${htmlFile}: applied ship template state did not store a named design`);
-  expect(shipDesignerApplied.text === shipDesignerApplied.stateTemplateName, `${htmlFile}: applied Ship Designer status should show only the template name`);
+  expect(shipDesignerApplied.text.includes(shipDesignerApplied.stateTemplateName), `${htmlFile}: applied Ship Designer status should show the template name`);
+  expect(/Applied design/.test(shipDesignerApplied.text) && /Dry mass/.test(shipDesignerApplied.text), `${htmlFile}: applied Ship Designer status should include design and dry-mass summary`);
+  expect(/Edit Ship Design/.test(shipDesignerApplied.buttonText), `${htmlFile}: applied Ship Designer CTA should switch to edit wording`);
 
   const moduleEffectCalculationChecks = await page.evaluate(() => {
     resetChartStateToDefaults();
@@ -635,7 +1148,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       disabledChecked,
       disabledWarnsBase: /base drive values/i.test(disabledText),
       enabledByClick,
-      enabledSummary: /Source: manual preset list/.test(enabledText) && /Selected 2/.test(enabledText) && /Effects 1/.test(enabledText),
+      summaryLineRemoved: !/Source: manual preset list|Selected 2|Effects 1/.test(enabledText),
       activeChipCount,
       mutedChipCount,
       panelWarnsRequirements: panelWarnings.some(text => /requires fusion drive/i.test(text)),
@@ -673,7 +1186,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(moduleEffectUxChecks.disabledChecked, `${htmlFile}: module effects checkbox did not sync disabled state`);
   expect(moduleEffectUxChecks.disabledWarnsBase, `${htmlFile}: disabled module effects panel did not warn that base values are used`);
   expect(moduleEffectUxChecks.enabledByClick, `${htmlFile}: module effects checkbox click did not update state`);
-  expect(moduleEffectUxChecks.enabledSummary, `${htmlFile}: enabled module effects summary did not describe source/selection/effect count`);
+  expect(moduleEffectUxChecks.summaryLineRemoved, `${htmlFile}: module effects source/selection/effect-count summary should be removed from the panel`);
   expect(moduleEffectUxChecks.activeChipCount >= 1, `${htmlFile}: active module-effect chip was not rendered`);
   expect(moduleEffectUxChecks.mutedChipCount >= 1, `${htmlFile}: module without modeled performance effects was not visibly identified`);
   expect(moduleEffectUxChecks.panelWarnsRequirements, `${htmlFile}: module effects panel did not show prerequisite warnings`);
@@ -745,11 +1258,25 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(!chartPresetMenuState.overflow, `${htmlFile}: chart preset management menu text overflows its buttons`);
   await page.locator("#chartPresetActionsMenu > summary").click();
 
-  await setLanguage(page, "ko");
+  await page.evaluate(() => {
+    resetChartStateToDefaults();
+    setLanguage("ko", { rerender: false });
+    Object.keys(state.categories).forEach(key => {
+      state.categories[key] = true;
+    });
+    Object.keys(state.families).forEach(key => {
+      state.families[key] = true;
+    });
+    state.searchTerm = "";
+    state.minDvKps = 0;
+    state.minTwr = 0.0001;
+    state.showImpracticalCandidates = true;
+    syncUiFromState();
+  });
   const visiblePoints = await page.locator("#chart .data-point").count();
   const categoryHelpCount = await page.locator(".category-row[data-help]").count();
   const overlayHelpCount = await page.locator("#bandAnalysisControls .check-row[data-help]").count();
-  const usageText = await page.locator("#tooltip .usage-panel").innerText();
+  const usageText = await page.locator("#tooltip .detail-empty-panel").innerText();
   const customHelpRuleCount = await page.evaluate(() => {
     return [...document.styleSheets].reduce((count, sheet) => {
       return count + [...sheet.cssRules].filter(rule => String(rule.selectorText || "").includes("[data-help]::after")).length;
@@ -758,7 +1285,7 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
 
   expect(visiblePoints > 0, `${htmlFile}: no chart data points rendered`);
   expect(categoryHelpCount >= 5, `${htmlFile}: category help tooltips were not attached`);
-  expect(overlayHelpCount >= 4, `${htmlFile}: overlay help tooltips were not attached`);
+  expect(overlayHelpCount >= 3, `${htmlFile}: overlay help tooltips were not attached`);
   expect(customHelpRuleCount === 0, `${htmlFile}: custom data-help tooltip rule still exists`);
   expect(usageText.trim().length > 0, `${htmlFile}: empty detail panel usage text missing`);
 
@@ -1121,23 +1648,36 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     render();
     const guide = document.getElementById("chartGuide");
     const guideDetails = document.getElementById("chartGuideDetails");
+    const readingGuide = document.getElementById("chartGuideContent");
+    const activeSummary = document.getElementById("chartActiveSummary");
+    const scaleControls = document.getElementById("chartScaleControls");
     const lineControls = document.getElementById("connectionLineControls");
     const displayCard = document.querySelector('.control-card[data-control-card="display"]');
     const plotFrame = document.querySelector(".chart-plot-frame");
+    const chartSvg = document.getElementById("chart");
     const guideBox = guide?.getBoundingClientRect();
     const plotFrameBox = plotFrame?.getBoundingClientRect();
+    const readingGuideBox = readingGuide?.getBoundingClientRect();
+    const chartSvgBox = chartSvg?.getBoundingClientRect();
     const childOverflow = guide && guideBox
       ? [...guide.children].some(child => {
         const box = child.getBoundingClientRect();
         return box.left < guideBox.left - 1 || box.right > guideBox.right + 1;
       })
       : true;
-    const floatingInPlotCorner = !!(guideBox && plotFrameBox)
+    const elementChildOverflow = element => {
+      const box = element?.getBoundingClientRect();
+      if (!element || !box) return true;
+      return [...element.children].some(child => {
+        const childBox = child.getBoundingClientRect();
+        return childBox.left < box.left - 1 || childBox.right > box.right + 1;
+      });
+    };
+    const guideStaysInPlotFrame = !!(guideBox && plotFrameBox)
       && guideBox.left >= plotFrameBox.left - 1
       && guideBox.right <= plotFrameBox.right + 1
       && guideBox.top >= plotFrameBox.top - 1
-      && guideBox.top <= plotFrameBox.top + 24
-      && guideBox.right >= plotFrameBox.right - 24;
+      && guideBox.bottom <= plotFrameBox.bottom + 1;
     const englishText = guide?.textContent || "";
     const englishModeDescriptions = [...(lineControls?.querySelectorAll('input[name="connectionLineMode"]') || [])]
       .map(input => ({
@@ -1152,6 +1692,11 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     const englishPowerItems = [...(guide?.querySelectorAll(".chart-guide-item") || [])]
       .filter(item => /Power view|Hover a point/.test(item.textContent || "")).length;
     const paretoHelp = guide?.querySelector(".chart-guide-item .chart-guide-symbol.is-pareto + .chart-guide-help") || null;
+    const englishReadingGuideText = readingGuide?.textContent || "";
+    const englishActiveSummaryText = activeSummary?.textContent || "";
+    const englishScaleControlsText = scaleControls?.textContent || "";
+    const englishReadingGuideChildOverflow = elementChildOverflow(readingGuide);
+    const englishScaleControlsChildOverflow = elementChildOverflow(scaleControls);
     setLanguage("ko", { rerender: false });
     syncUiFromState();
     render();
@@ -1163,8 +1708,16 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
       lineControlsInsideDisplayCard: !!(displayCard && lineControls && displayCard.contains(lineControls)),
       lineControlsOutsideGuide: !!(guide && lineControls && !guide.contains(lineControls)),
       guideDetailsCollapsed: !!guideDetails && !guideDetails.open,
-      floatingInPlotCorner,
+      guideStaysInPlotFrame,
       lineModeSingleRow,
+      readingGuideExists: !!readingGuide,
+      readingGuideInsidePlotFrame: !!(guide && readingGuide && guide.contains(readingGuide)),
+      readingGuideBelowChartSvg: !!(readingGuideBox && chartSvgBox),
+      readingGuideText: englishReadingGuideText,
+      activeSummaryText: englishActiveSummaryText,
+      scaleControlsText: englishScaleControlsText,
+      readingGuideChildOverflow: englishReadingGuideChildOverflow,
+      scaleControlsChildOverflow: englishScaleControlsChildOverflow,
       englishText,
       paretoHelpText: paretoHelp?.dataset.help || paretoHelp?.getAttribute("aria-label") || "",
       paretoHelpHasNativeTitle: !!paretoHelp?.getAttribute("title"),
@@ -1176,13 +1729,48 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
     };
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.waitForTimeout(100);
+  const desktopChartPanelLayout = await page.evaluate(async () => {
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    state.metric = "totalMassTons";
+    syncUiFromState();
+    render();
+    window.dispatchEvent(new Event("resize"));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const chartBody = document.querySelector(".chart-body");
+    const plotFrame = document.querySelector(".chart-plot-frame");
+    const detailPanel = document.querySelector(".detail-panel");
+    const tooltip = document.getElementById("tooltip");
+    const chartBodyBox = chartBody?.getBoundingClientRect();
+    const plotFrameBox = plotFrame?.getBoundingClientRect();
+    const detailPanelBox = detailPanel?.getBoundingClientRect();
+    const tooltipBox = tooltip?.getBoundingClientRect();
+    return {
+      twoColumnLayout: !!(chartBodyBox && detailPanelBox && plotFrameBox && detailPanelBox.left > plotFrameBox.right),
+      detailPanelStartsAtChart: !!(detailPanelBox && plotFrameBox && Math.abs(detailPanelBox.top - plotFrameBox.top) <= 1),
+      detailPanelReachesPlotFrame: !!(detailPanelBox && plotFrameBox && detailPanelBox.bottom >= plotFrameBox.bottom - 1),
+      tooltipReachesPlotFrame: !!(tooltipBox && plotFrameBox && tooltipBox.bottom >= plotFrameBox.bottom - 1),
+    };
+  });
   expect(chartGuideChecks.exists, `${htmlFile}: compact chart guide is missing`);
   expect(chartGuideChecks.guideInsidePlot, `${htmlFile}: compact chart guide should be inside the chart plot frame`);
   expect(chartGuideChecks.lineControlsInsideDisplayCard, `${htmlFile}: connection line controls should be inside the Display card`);
   expect(chartGuideChecks.lineControlsOutsideGuide, `${htmlFile}: chart guide card should not contain connection line controls`);
   expect(chartGuideChecks.guideDetailsCollapsed, `${htmlFile}: chart guide details should be collapsed by default`);
-  expect(chartGuideChecks.floatingInPlotCorner, `${htmlFile}: chart guide card should float in the chart plot's top-right corner`);
+  expect(chartGuideChecks.guideStaysInPlotFrame, `${htmlFile}: chart guide card should stay within the chart plot frame`);
   expect(chartGuideChecks.lineModeSingleRow, `${htmlFile}: connection line mode buttons should stay on one row`);
+  expect(chartGuideChecks.readingGuideExists, `${htmlFile}: compact chart guide content missing on narrow viewport`);
+  expect(chartGuideChecks.readingGuideInsidePlotFrame, `${htmlFile}: compact chart guide content should stay inside the guide card`);
+  expect(/How to read/.test(chartGuideChecks.readingGuideText), `${htmlFile}: compact chart guide missing English reading copy on narrow viewport`);
+  expect(/Scale: Log X \/ Log Y/.test(chartGuideChecks.activeSummaryText), `${htmlFile}: active summary missing log/log state on narrow viewport`);
+  expect(/Log X axis/.test(chartGuideChecks.scaleControlsText) && /Log Y axis/.test(chartGuideChecks.scaleControlsText), `${htmlFile}: chart-adjacent scale controls missing on narrow viewport`);
+  expect(!chartGuideChecks.readingGuideChildOverflow, `${htmlFile}: compact chart guide content overflows on mobile`);
+  expect(!chartGuideChecks.scaleControlsChildOverflow, `${htmlFile}: chart-adjacent scale controls overflow on mobile`);
+  expect(desktopChartPanelLayout.twoColumnLayout, `${htmlFile}: desktop chart body should keep the detail panel beside the plot`);
+  expect(desktopChartPanelLayout.detailPanelStartsAtChart, `${htmlFile}: detail panel should start at the chart plot top`);
+  expect(desktopChartPanelLayout.detailPanelReachesPlotFrame, `${htmlFile}: detail panel should extend to the bottom of the chart plot frame`);
+  expect(desktopChartPanelLayout.tooltipReachesPlotFrame, `${htmlFile}: tooltip panel should extend to the bottom of the chart plot frame`);
   expect(chartGuideChecks.englishItemCount >= 4, `${htmlFile}: compact chart guide is missing required items`);
   const lineModeDescriptions = new Map(chartGuideChecks.englishModeDescriptions.map(item => [item.mode, item.title]));
     expect(/Lines: drive progression/.test(chartGuideChecks.englishText), `${htmlFile}: guide does not explain progression lines`);
@@ -1816,6 +2404,109 @@ async function verifyHtmlFile(browser, htmlFile, baseUrl) {
   expect(namedPresetRoundTrip.chartControls, `${htmlFile}: chart preset management controls missing`);
   expect(namedPresetRoundTrip.dryMassControls, `${htmlFile}: dry-mass preset management controls missing`);
 
+  const builtInSnapshotGuard = await page.evaluate(() => {
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    renderPresetLibraryControls();
+
+    dryMassCalcState.notes = "keep local design";
+    const localDesign = saveDryMassPresetFromCalculator("Keep Local Design", exportedDryMassCalculatorPreset());
+    const localDesignId = localDesign && localDesign.id;
+    const beforeIds = dryMassPresetLibrary.map(item => item.id).join("|");
+
+    const snapshotCalculator = exportedDryMassCalculatorPreset();
+    snapshotCalculator.notes = "unsafe built-in snapshot";
+    const snapshotEntry = dryMassPresetExportObject({
+      id: "restored-from-built-in",
+      name: "Unsafe Built-in Snapshot",
+      calculator: snapshotCalculator,
+      createdAt: "2026-06-16T00:00:00.000Z",
+      updatedAt: "2026-06-16T00:00:00.000Z",
+    });
+    const malformedSettings = {
+      format: "ti-engine-chart-preset/v1",
+      lang: "en",
+      metric: "totalMassTons",
+      dryMassTons: 4321,
+      targetDvKps: 22,
+      dryMassCalculator: {
+        ...snapshotCalculator,
+        notes: "built-in calculator applied",
+      },
+      selectedDesignPresetId: localDesignId,
+      designPresetLibrary: [snapshotEntry],
+      dryMassPresetLibrary: [snapshotEntry],
+    };
+    const normalized = normalizeBuiltInChartPresetEntry({
+      id: "unsafe-built-in",
+      name: "Unsafe Built-in",
+      settings: malformedSettings,
+    }, 99);
+    const normalizedHasSnapshots = !!normalized?.settings?.designPresetLibrary
+      || !!normalized?.settings?.dryMassPresetLibrary;
+
+    const applied = applyChartPresetEntry({
+      id: "built-in-chart:unsafe-built-in",
+      name: "Unsafe Built-in",
+      builtIn: true,
+      settings: malformedSettings,
+    }, { showStatus: false });
+    const afterIds = dryMassPresetLibrary.map(item => item.id).join("|");
+    const afterNotes = dryMassPresetLibrary.map(item => item.calculator.notes).join("|");
+    const selectedAfterBuiltIn = document.getElementById("dryMassPresetSelect")?.value || "";
+    const builtInCalculatorApplied = dryMassCalcState.notes === "built-in calculator applied";
+
+    dryMassPresetLibrary = [];
+    saveDryMassPresetLibrary();
+    const userApplied = applyPresetToState({
+      format: "ti-engine-chart-preset/v1",
+      selectedDesignPresetId: "restored-from-built-in",
+      designPresetLibrary: [snapshotEntry],
+    });
+    const userSnapshotRestored = dryMassPresetLibrary.length === 1
+      && dryMassPresetLibrary[0].id === "restored-from-built-in"
+      && dryMassPresetLibrary[0].calculator.notes === "unsafe built-in snapshot";
+
+    localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
+    localStorage.removeItem(CHART_PRESET_STARTUP_STORAGE_KEY);
+    localStorage.removeItem(DRY_MASS_PRESET_STORAGE_KEY);
+    chartPresetLibrary = [];
+    dryMassPresetLibrary = [];
+    setStartupChartPreset("");
+    resetChartStateToDefaults();
+    resetDryMassCalcState();
+    syncUiFromState();
+    renderPresetLibraryControls();
+
+    return {
+      localDesignSaved: !!localDesign,
+      normalizedHasSnapshots,
+      applied,
+      beforeIds,
+      localDesignId,
+      afterIds,
+      afterNotes,
+      selectedAfterBuiltIn,
+      builtInCalculatorApplied,
+      userApplied,
+      userSnapshotRestored,
+    };
+  });
+  expect(builtInSnapshotGuard.localDesignSaved, `${htmlFile}: could not create local design fixture for built-in snapshot guard`);
+  expect(!builtInSnapshotGuard.normalizedHasSnapshots, `${htmlFile}: normalized built-in chart preset kept design library snapshot fields`);
+  expect(builtInSnapshotGuard.applied, `${htmlFile}: malformed built-in chart preset did not apply`);
+  expect(builtInSnapshotGuard.beforeIds === builtInSnapshotGuard.afterIds, `${htmlFile}: built-in chart preset replaced the local design preset library`);
+  expect(/keep local design/.test(builtInSnapshotGuard.afterNotes), `${htmlFile}: built-in chart preset mutated local design preset content`);
+  expect(!/restored-from-built-in/.test(builtInSnapshotGuard.afterIds), `${htmlFile}: built-in chart preset restored an embedded design snapshot`);
+  expect(builtInSnapshotGuard.selectedAfterBuiltIn === builtInSnapshotGuard.localDesignId, `${htmlFile}: built-in chart preset did not preserve selected local design`);
+  expect(builtInSnapshotGuard.builtInCalculatorApplied, `${htmlFile}: built-in chart preset did not apply its dry-mass calculator`);
+  expect(builtInSnapshotGuard.userApplied && builtInSnapshotGuard.userSnapshotRestored, `${htmlFile}: user chart preset snapshot restore behavior regressed`);
 
   const shipAssumptionWorkflow = await page.evaluate(async () => {
     localStorage.removeItem(CHART_PRESET_STORAGE_KEY);
@@ -2137,7 +2828,7 @@ const dryMassActionLayout = await page.evaluate(() => {
     leftPanelLayout = loadLeftPanelLayout();
     applyLeftPanelOrder();
     const displayCard = document.querySelector('.control-card[data-control-card="display"]');
-    const filterCard = document.querySelector('.control-card[data-control-card="filter"]');
+    const filterCard = document.querySelector('.control-card[data-control-card="driveFilter"]');
     displayCard.querySelector("[data-card-toggle]").click();
     filterCard.querySelector('[data-panel-move="up"]').click();
     const stored = JSON.parse(localStorage.getItem(LEFT_PANEL_LAYOUT_STORAGE_KEY));
@@ -2151,7 +2842,7 @@ const dryMassActionLayout = await page.evaluate(() => {
   expect(leftPanelRoundTrip.storedDisplayCollapsed, `${htmlFile}: left panel collapsed state did not persist to localStorage`);
   expect(
     Array.isArray(leftPanelRoundTrip.storedOrder)
-      && leftPanelRoundTrip.storedOrder.indexOf("filter") < leftPanelRoundTrip.storedOrder.indexOf("simulation"),
+      && leftPanelRoundTrip.storedOrder.indexOf("driveFilter") < leftPanelRoundTrip.storedOrder.indexOf("shipDesigner"),
     `${htmlFile}: left panel order change did not persist to localStorage`,
   );
   await page.reload({ waitUntil: "domcontentloaded" });

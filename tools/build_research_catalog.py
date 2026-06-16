@@ -25,7 +25,7 @@ from catalog_utils import (
 
 
 SCHEMA_VERSION = 1
-DEFAULT_JSON_OUTPUT = Path("data/research_catalog.json")
+DEFAULT_JSON_OUTPUT = Path("data/generated/research_catalog.json")
 DEFAULT_MARKDOWN_OUTPUT = Path("docs/research_catalog.md")
 RESEARCH_TEMPLATE_FILES = {
     "tech": "TITechTemplate.json",

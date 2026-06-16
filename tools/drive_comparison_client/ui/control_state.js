@@ -1,7 +1,7 @@
 import { isBandMetric } from "../calc/metrics.js";
 import { isModuleRuleRelevantToDriveChart } from "../calc/module_effects.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, currentModuleEffectAssumptions, localText, normalizePowerResearchView, powerResearchViewLabel, state } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, UI_LANG, connectionLineModeLabel, currentModuleEffectAssumptions, localText, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state } from "../state/core.js";
 import { formatNumber, formatTwrDynamicUnit } from "./formatting.js";
 
 function utilityModuleById(id) {
@@ -111,36 +111,77 @@ function appliedTemplateDisplayName(template) {
   return template.name || "";
 }
 
+function updateInlineHelp(element, text) {
+  if (!element || !text) return;
+  element.dataset.help = text;
+  element.title = text;
+  element.setAttribute("aria-label", text);
+}
+
+
+
+function updateEngineCountControl() {
+  const labelText = document.getElementById("shipEngineCountLabelText");
+  const help = document.getElementById("shipEngineCountHelp");
+  if (labelText) labelText.textContent = localText("함선 엔진 수", "Assumed engine count");
+  updateInlineHelp(
+    help,
+    localText(
+      "엔진 수 제한이 있는 드라이브는 선택값에 가장 가까운 유효 엔진 수로 표시됩니다.",
+      "Drives with engine-count limits are shown at the nearest valid engine count to the selected assumption.",
+    ),
+  );
+}
+
+function appendShipDesignerStatusLine(container, label, value = "") {
+  const line = document.createElement("div");
+  line.className = "ship-designer-status-line";
+  line.textContent = value ? `${label}: ${value}` : label;
+  container.appendChild(line);
+}
+
 export function updateShipDesignerPanel() {
   const title = document.getElementById("shipDesignerTitle");
   const calcButton = document.getElementById("dryMassCalcButton");
+  const actionNote = document.getElementById("shipDesignerActionNote");
   const status = document.getElementById("shipDesignerAppliedTemplate");
   if (title) title.textContent = localText("함선 설계", "Ship Designer");
+  if (actionNote) {
+    actionNote.textContent = localText(
+      "함선, 장갑, 모듈, 건조질량, 기본값을 편집합니다.",
+      "Edit hull, armor, modules, dry mass, and design defaults.",
+    );
+  }
+  const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
+  const dryMassValue = formatNumber(state.dryMassTons, " t");
   if (calcButton) {
-    const openLabel = localText("건조질량 계산기 열기", "Open Dry Mass Calculator");
+    const openLabel = templateName
+      ? localText("함선 설계 편집", "Edit Ship Design")
+      : localText("함선 설계 열기", "Open Ship Designer");
+    calcButton.textContent = openLabel;
     calcButton.setAttribute("aria-label", openLabel);
     calcButton.title = openLabel;
   }
   if (!status) return;
-  const templateName = appliedTemplateDisplayName(state.appliedShipTemplate);
+  status.replaceChildren();
   if (templateName) {
     status.dataset.appliedTemplate = "true";
-    status.textContent = templateName;
+    appendShipDesignerStatusLine(status, localText("적용된 설계", "Applied design"), templateName);
   } else {
     status.dataset.appliedTemplate = "false";
-    status.textContent = localText("적용된 함선 템플릿 없음", "No ship template applied");
+    appendShipDesignerStatusLine(status, localText("적용된 함선 템플릿 없음", "No ship template applied"));
   }
+  appendShipDesignerStatusLine(status, localText("건조질량", "Dry mass"), dryMassValue);
 }
 
 export function updateModuleEffectsPanel() {
   const checkbox = document.getElementById("moduleEffectsEnabled");
   const label = document.getElementById("moduleEffectsEnabledLabel");
-  const summary = document.getElementById("moduleEffectsSummary");
   const chips = document.getElementById("moduleEffectsChips");
   const warnings = document.getElementById("moduleEffectsWarnings");
   const details = document.getElementById("moduleEffectsDetails");
   const detailsSummary = document.getElementById("moduleEffectsDetailsSummary");
-  if (!checkbox || !label || !summary || !chips || !warnings) return;
+  if (!checkbox || !label || !chips || !warnings) return;
 
   const assumptions = currentModuleEffectAssumptions();
   checkbox.checked = !!assumptions.moduleEffectsEnabled;
@@ -149,14 +190,8 @@ export function updateModuleEffectsPanel() {
   chips.innerHTML = "";
   warnings.innerHTML = "";
 
-  const sourceLabel = assumptions.moduleEffectSource === "manual"
-    ? localText("수동 프리셋 목록", "manual preset list")
-    : localText("건조질량 계산기 선택", "dry-mass calculator selection");
   const modules = assumptions.activeModuleIds.map(utilityModuleById).filter(Boolean);
   const effectModules = modules.filter(module => moduleEffectSummaries(module).length);
-  summary.textContent = assumptions.moduleEffectsEnabled
-    ? `${localText("소스", "Source")}: ${sourceLabel} · ${localText("선택", "Selected")} ${modules.length} · ${localText("효과", "Effects")} ${effectModules.length}`
-    : `${localText("비활성", "Disabled")} · ${localText("소스", "Source")}: ${sourceLabel}`;
 
   if (!modules.length) {
     appendChip(chips, localText("성능 모듈 선택 없음", "No performance modules selected"), "is-muted");
@@ -195,6 +230,27 @@ export function updateModuleEffectsPanel() {
   }
 }
 
+export function updateChartActiveSummary() {
+  const root = document.getElementById("chartActiveSummary");
+  if (!root) return;
+  const activeCategories = DATA.categories.filter(category => !!state.categories[category.key]).length;
+  const selectedFamilies = DATA.subfamilies.filter(family => !!state.categories[family.categoryKey] && !!state.families[family.key]).length;
+  const scaleParts = [
+    state.logX ? localText("X 로그", "Log X") : localText("X 선형", "Linear X"),
+    state.logY ? localText("Y 로그", "Log Y") : localText("Y 선형", "Linear Y"),
+  ];
+  const parts = [
+    `${localText("스케일", "Scale")}: ${scaleParts.join(" / ")}`,
+    `${localText("엔진", "Engine")} x${state.thrusters}`,
+    `${activeCategories}/${DATA.categories.length} ${localText("대분류", "categories")}`,
+    `${selectedFamilies}/${DATA.subfamilies.length} ${localText("계열", "families")}`,
+    state.searchTerm ? localText("검색 있음", "Search active") : localText("검색 없음", "No search"),
+    powerResearchActive() ? `${localText("전원", "Power")}: ${powerResearchViewLabel()}` : "",
+    `${localText("연결선", "Lines")}: ${connectionLineModeLabel()}`,
+  ].filter(Boolean);
+  root.textContent = parts.join(" · ");
+}
+
 export function updateChartControls() {
   const fuelUnitBlock = document.getElementById("chartFuelUnit");
   const bandAnalysisControls = document.getElementById("bandAnalysisControls");
@@ -203,13 +259,28 @@ export function updateChartControls() {
   const minTwrControl = document.getElementById("minTwrControl");
   const minDvControl = document.getElementById("minDvControl");
   const powerResearchViewControl = document.getElementById("powerResearchViewControl");
+  const chartScaleControls = document.getElementById("chartScaleControls");
+  const chartOptionsHeading = document.getElementById("chartOptionsHeading");
+  const chartLogX = document.getElementById("chartLogX");
+  const chartLogY = document.getElementById("chartLogY");
+  const chartScaleLabel = document.getElementById("chartScaleLabel");
+  const chartLogXLabel = document.getElementById("chartLogXLabel");
+  const chartLogYLabel = document.getElementById("chartLogYLabel");
   fuelUnitBlock.style.display = state.metric === "fuelEfficiency" ? "" : "none";
   bandAnalysisControls.style.display = isBandMetric() ? "" : "none";
   showTwrInfoRow.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
   showMassInfoRow.style.display = state.metric === "twr" ? "" : "none";
-  minTwrControl.style.display = (state.metric === "totalMassTons" || state.metric === "fuelMassTons") ? "" : "none";
+  minTwrControl.style.display = isBandMetric() ? "" : "none";
   minDvControl.style.display = state.metric === "twr" ? "" : "none";
   powerResearchViewControl.style.display = isBandMetric() ? "" : "none";
+  if (chartOptionsHeading) chartOptionsHeading.textContent = localText("차트 옵션", "Chart options");
+  if (bandAnalysisControls) bandAnalysisControls.setAttribute("aria-label", localText("차트 보조 표시", "Chart overlays"));
+  if (chartScaleControls) chartScaleControls.setAttribute("aria-label", localText("축 스케일", "Axis scale"));
+  if (chartScaleLabel) chartScaleLabel.textContent = localText("축", "Axes");
+  if (chartLogX) chartLogX.checked = !!state.logX;
+  if (chartLogY) chartLogY.checked = !!state.logY;
+  if (chartLogXLabel) chartLogXLabel.textContent = localText("X축 로그", "Log X axis");
+  if (chartLogYLabel) chartLogYLabel.textContent = localText("Y축 로그", "Log Y axis");
   const powerResearchViewSelect = document.getElementById("powerResearchView");
   if (powerResearchViewSelect) {
     [...powerResearchViewSelect.options].forEach(option => {
@@ -219,8 +290,10 @@ export function updateChartControls() {
   }
   const showImpracticalCandidates = document.getElementById("showImpracticalCandidates");
   if (showImpracticalCandidates) showImpracticalCandidates.checked = !!state.showImpracticalCandidates;
+  updateEngineCountControl();
   updateShipDesignerPanel();
   updateModuleEffectsPanel();
+  updateChartActiveSummary();
   syncMinTwrInputs();
   syncMinDvInputs();
 }
@@ -234,7 +307,7 @@ export function syncMinTwrInputs() {
   const exponent = clamp(Math.log10(state.minTwr), Number(slider.min), Number(slider.max));
   slider.value = String(exponent);
   number.value = String(Number(state.minTwr.toPrecision(4)));
-  readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: TWR >= ${formatTwrDynamicUnit(state.minTwr)}`;
+  readout.textContent = `${UI_LANG === "en" ? "Showing" : "표시"}: ${localText("가속도", "acceleration")} >= ${formatTwrDynamicUnit(state.minTwr)}`;
 }
 
 export function syncMinDvInputs() {

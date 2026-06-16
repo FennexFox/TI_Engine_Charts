@@ -1,0 +1,67 @@
+# .graphifyignore for TI_Engine_Charts
+# Goal: focus Graphify on editable source, scripts, tests, and selected
+# human-authored project docs.
+#
+# Intentional inclusions:
+# - tools/ and scripts/ remain visible because they define the build/verify flow.
+# - dev-docs/, README.md, and AGENTS.md remain visible as architecture/context docs.
+# - data/preset_library.json remains visible as the only hand-maintained data file.
+#
+# Intentional exclusions:
+# - docs/ is the generated GitHub Pages output.
+# - data/generated/ contains generated Terra Invicta catalogs.
+# - .github/ contains process/hosting metadata rather than app structure.
+
+# VCS / dependencies / local env
+.git/
+node_modules/
+.venv*/
+.venv/
+__pycache__/
+.pytest_cache/
+.cache/
+.DS_Store
+
+# Generated GitHub Pages output
+/docs/
+
+# Generated Terra Invicta data
+/data/generated/
+
+# GitHub/process metadata noise
+.github/
+
+# Dependency lockfiles are bulky dependency snapshots; package.json is enough
+# for Graphify's project-structure context.
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Human-authored development docs are intentionally kept visible:
+# README.md, AGENTS.md, and dev-docs/ are not ignored.
+
+# Browser/test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# Runtime/build/cache artifacts
+dist/
+build/
+*.map
+*.tmp
+*.temp
+
+# Archives / local transfer artifacts / logs
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Graphify output/cache
+graphify-out/
+.graphify/
