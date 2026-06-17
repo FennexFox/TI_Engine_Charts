@@ -1,4 +1,4 @@
-import { localText } from "../state/core.js";
+import { localText } from "../shared/i18n.js";
 
 export function searchableSelectLabel(select) {
       const selected = select && select.selectedOptions && select.selectedOptions[0];
@@ -200,5 +200,4 @@ export function enhanceSearchableSelects(root = document) {
         });
       }
     }
-
 

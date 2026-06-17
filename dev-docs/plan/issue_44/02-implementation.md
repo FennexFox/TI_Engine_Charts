@@ -66,20 +66,21 @@
 ## Evidence
 
 - Baseline: `localText()` and `UI_LANG` are defined in `state/core.js`; many source modules import them from `state/core.js`.
-- After: TODO
-- Delta: TODO
-- Interpretation: TODO
-- Commit: TODO
-- Commit blocker: TODO
+- After: Added dependency-free `shared/i18n.js`; removed `UI_LANG`, `savedLanguage`, `localText()`, and `setUiLanguage()` definitions from `state/core.js`; updated direct callers to import `UI_LANG`, `localText()`, and `setUiLanguage()` from `shared/i18n.js`.
+- Delta: Dynamic localization state moved behind a shared module boundary without changing call sites or UI copy.
+- Interpretation: Issue #44 source-level acceptance criteria are met before generated output refresh. Targeted searches found no moved definitions in `state/core.js`, no dynamic localization imports from `state/core.js`, and no imports in `shared/i18n.js`. `npm run verify:js` passed.
+- Commit: Pending phase commit after this phase gate.
+- Commit blocker: none known.
 
 ## Progress
 
-- Pending Phase 01 completion.
+- Completed.
 
 ## Decision log
 
-- No decisions recorded yet.
+- Kept `translateText()` and `applyStaticLanguage()` in `state/core.js` because they depend on embedded static translation data and DOM updates.
+- Preserved existing direct `UI_LANG` read pattern by exporting it as a live ES module binding from `shared/i18n.js`.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Implemented and validated source-only localization extraction. Generated published UI output is deferred to Phase 03.
