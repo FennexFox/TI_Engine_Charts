@@ -1,6 +1,7 @@
 import { isBandMetric, optionMetricValue } from "./metrics.js";
 import { evaluateModuleEffectsForDrive } from "./module_effects.js";
-import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, UI_LANG, currentModuleEffectAssumptions, metricDefs, powerResearchActive, state } from "../state/core.js";
+import { UI_LANG } from "../shared/i18n.js";
+import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, currentModuleEffectAssumptions, metricDefs, powerResearchActive, state } from "../state/core.js";
 import { clamp } from "../shared/math.js";
 
 export function rowCategoryLabel(row) {
@@ -490,4 +491,3 @@ export function actualPowerFrontier(row, options) {
       });
       return frontier;
     }
-

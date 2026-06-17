@@ -1,6 +1,7 @@
 import { renderDryMassPresetControls, selectedDryMassPresetEntry, setPresetUiText, setTextById, setupDryMassPresetControls, syncUiFromState } from "../presets/library.js";
-import { ARMOR_OPTIONS, DATA, DEFAULT_MIN_TWR, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, dryMassCalcState, localText, renderRadiatorOptions, state } from "../state/core.js";
+import { ARMOR_OPTIONS, DATA, DEFAULT_MIN_TWR, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, dryMassCalcState, renderRadiatorOptions, state } from "../state/core.js";
 import { escapeHtml, formatCompact, formatNumber, trim } from "../shared/formatting.js";
+import { localText } from "../shared/i18n.js";
 import { clamp } from "../shared/math.js";
 import { updateModuleEffectsPanel, updateShipDesignerPanel } from "./control_state.js";
 import { enhanceSearchableSelects } from "./searchable_select.js";

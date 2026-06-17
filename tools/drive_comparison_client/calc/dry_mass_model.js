@@ -1,4 +1,5 @@
-import { ALL_UTILITY_MODULES, ALL_WEAPON_MODULES, ARMOR_OPTIONS, DATA, DEFAULT_ARMOR_ID, DEFAULT_MIN_TWR, EMPTY_UTILITY_MODULE, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, UI_LANG, dryMassCalcState, state } from "../state/core.js";
+import { UI_LANG } from "../shared/i18n.js";
+import { ALL_UTILITY_MODULES, ALL_WEAPON_MODULES, ARMOR_OPTIONS, DATA, DEFAULT_ARMOR_ID, DEFAULT_MIN_TWR, EMPTY_UTILITY_MODULE, EMPTY_WEAPON_MODULE, SHIP_CLASS_OPTIONS, dryMassCalcState, state } from "../state/core.js";
 import { clamp } from "../shared/math.js";
 
 function cloneJson(value) {

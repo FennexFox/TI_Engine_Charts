@@ -1,10 +1,11 @@
 import { chartMassOptions, chartSummaryMassOptions, effectiveDriveValues, isImpracticalOption, massOptions, rowCategoryLabel, rowFamilyLabel, rowProjectLabel, rowUnlockResearchValue } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
+import { UI_LANG } from "../shared/i18n.js";
 import { currentChartRows, currentDiagnostics } from "../chart/context.js";
 import { dedupeTooltipRefs, defaultTooltipOption, isPinnedTooltipKey, mergePinnedFocusTooltipRefs, mergePinnedTooltipRefs, optionAdditionalResearchValue, optionPowerResearchDelta, pinnedTooltipRefs, pointKey, powerResearchFocusSignature, redrawPowerResearchFocusIfChanged, resolveTooltipRow, setHoverPoints, syncPinnedTooltipOrder, tooltipRef, updateHoverStyles } from "../chart/rendering.js";
 import { localLabel } from "../presets/library.js";
-import { UI_LANG, metricDefs, state, tooltip } from "../state/core.js";
+import { metricDefs, state, tooltip } from "../state/core.js";
 import { backgroundStyle, escapeHtml, formatAxisTick, formatCompact, formatNumber, formatPercent, formatTick, formatTwr, formatTwrDynamicUnit, paintStyle, trim } from "./formatting.js";
 export { backgroundStyle, escapeHtml, formatAxisTick, formatCompact, formatNumber, formatPercent, formatTick, formatTwr, formatTwrDynamicUnit, paintStyle, trim } from "./formatting.js";
 
@@ -1043,5 +1044,4 @@ export function splitRomanSuffix(value) {
       if (!match) return null;
       return { base: match[1], roman: match[2] };
     }
-
 

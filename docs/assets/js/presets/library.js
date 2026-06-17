@@ -1,6 +1,7 @@
 import { syncFilterInputs } from "../calc/filtering.js";
+import { UI_LANG, localText } from "../shared/i18n.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, applyModuleEffectPresetState, localText, metricDefs, normalizeConnectionLineMode, normalizeModuleEffectPresetState, normalizePowerResearchView, state, updateLeftPanelCardSummaries } from "../state/core.js";
+import { DATA, DEFAULT_MIN_TWR, applyModuleEffectPresetState, metricDefs, normalizeConnectionLineMode, normalizeModuleEffectPresetState, normalizePowerResearchView, state, updateLeftPanelCardSummaries } from "../state/core.js";
 import { enhanceSearchableSelect } from "../ui/searchable_select.js";
 import { presetRuntimeApi } from "./runtime.js";
 import {

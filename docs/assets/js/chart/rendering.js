@@ -1,7 +1,8 @@
 import { chartMassOptions, chartSummaryMassOptions, closestDriveRowForThrusterCount, isImpracticalOption, massOptions, rowUnlockResearchValue } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
+import { localText } from "../shared/i18n.js";
 import { clamp } from "../shared/math.js";
-import { DATA, allDriveRowsById, chart, localText, metricDefs, metricLabel, powerResearchActive, state } from "../state/core.js";
+import { DATA, allDriveRowsById, chart, metricDefs, metricLabel, powerResearchActive, state } from "../state/core.js";
 import { formatAxisTick, paintStyle } from "../ui/formatting.js";
 import { buildAxisTickPlan } from "./axis.js";
 import { chartHitTargets, chartLadderHitTargets, chartViewport, currentChartRows } from "./context.js";
@@ -953,4 +954,3 @@ export function svgEl(name, attrs) {
       });
       return el;
     }
-
