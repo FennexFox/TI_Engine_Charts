@@ -1,4 +1,5 @@
 import { formatNumber, formatTwr, formatTwrDynamicUnit } from "../shared/formatting.js";
+import { UI_LANG, localText } from "../shared/i18n.js";
 
 export const DATA = JSON.parse(document.getElementById("ti-data").textContent);
 export const STATIC_TRANSLATIONS = JSON.parse(document.getElementById("ti-static-translations").textContent);
@@ -14,9 +15,6 @@ export function registerMetricCalculationHooks(hooks) {
 }
 export const STANDARD_GRAVITY_MPS2 = 9.80665;
 export const DEFAULT_MIN_TWR = 0.0001;
-export let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
-export const savedLanguage = localStorage.getItem("tiEngineChartLanguage");
-    if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
 export const POWER_RESEARCH_VIEWS = ["focus", "all", "best"];
 export const CONNECTION_LINE_MODES = ["off", "strict", "lineage", "all"];
 export const DEFAULT_CONNECTION_LINE_MODE = "lineage";
@@ -121,10 +119,6 @@ export function translateText(value, lang = UI_LANG) {
           if (from) result = result.split(from).join(to);
         });
       return result;
-    }
-
-export function localText(ko, en) {
-      return UI_LANG === "en" ? en : ko;
     }
 
 export function normalizePowerResearchView(value) {
@@ -464,11 +458,6 @@ export function applyStaticLanguage() {
       });
       const note = document.getElementById("calculationNote");
       if (note) note.innerHTML = NOTE_HTML[UI_LANG] || NOTE_HTML.ko;
-    }
-
-export function setUiLanguage(lang) {
-      UI_LANG = lang === "en" ? "en" : "ko";
-      localStorage.setItem("tiEngineChartLanguage", UI_LANG);
     }
 
 export const metricDefs = {

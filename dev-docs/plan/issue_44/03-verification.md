@@ -59,20 +59,21 @@
 ## Evidence
 
 - Baseline: No source implementation changes before Phase 02.
-- After: TODO
-- Delta: TODO
-- Interpretation: TODO
-- Commit: TODO
-- Commit blocker: TODO
+- After: `npm run build` completed and refreshed published client assets; `npm run verify` completed successfully, including Python compile/tests, JS syntax/effects/import graph, axis ticks, drive links, and browser verification for language switching.
+- Delta: Generated published output now reflects the source localization extraction. No generated catalog data changed.
+- Interpretation: Issue #44 build and verification acceptance criteria are met. Diff scope is limited to plan evidence and `docs/assets/js/**` generated client assets, with unrelated graphify watcher output left unstaged.
+- Commit: Pending generated-output/evidence commit after this phase gate.
+- Commit blocker: none known.
 
 ## Progress
 
-- Pending Phase 02 completion.
+- Completed.
 
 ## Decision log
 
-- No decisions recorded yet.
+- `docs/index.html` was written by `npm run build` but has no resulting git diff.
+- Graphify watcher output is unrelated to issue #44 and remains excluded from commits.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Build and full verification passed. Ready for final audit and generated-output commit.

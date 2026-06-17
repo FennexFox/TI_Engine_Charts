@@ -1,5 +1,6 @@
 import { render } from "../chart/interaction.js";
 import { resetDryMassCalcState } from "../calc/dry_mass.js";
+import { setUiLanguage } from "../shared/i18n.js";
 import { renderDryMassCalcModal } from "../ui/dry_mass_calculator.js";
 import {
   applyHelp,
@@ -13,7 +14,6 @@ import {
   applyStaticLanguage,
   renderRadiatorOptions,
   resetChartStateToDefaults,
-  setUiLanguage,
   state,
   syncMetricGroupLabels,
   updateLeftPanelCardSummaries,
