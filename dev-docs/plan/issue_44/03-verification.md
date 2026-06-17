@@ -45,8 +45,8 @@
 
 - `npm run build`
 - `npm run verify`
-- `python /home/fennexfox/.codex/skills/phased-issue-implementation/scripts/phase_plan_helper.py phase-gate --file dev-docs/plan/issue_44/02-implementation.md`
-- `python /home/fennexfox/.codex/skills/phased-issue-implementation/scripts/phase_plan_helper.py phase-gate --file dev-docs/plan/issue_44/03-verification.md`
+- `python <phased-issue-implementation-skill-dir>/scripts/phase_plan_helper.py phase-gate --file dev-docs/plan/issue_44/02-implementation.md`
+- `python <phased-issue-implementation-skill-dir>/scripts/phase_plan_helper.py phase-gate --file dev-docs/plan/issue_44/03-verification.md`
 
 ## Manual smoke tests
 

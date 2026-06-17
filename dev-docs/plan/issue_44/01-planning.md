@@ -40,8 +40,8 @@
 
 ## Validation commands
 
-- `python /home/fennexfox/.codex/skills/phased-issue-implementation/scripts/phase_plan_helper.py validate --plan-dir dev-docs/plan/issue_44`
-- `python /home/fennexfox/.codex/skills/phased-issue-implementation/scripts/phase_plan_helper.py gate --plan-dir dev-docs/plan/issue_44`
+- `python <phased-issue-implementation-skill-dir>/scripts/phase_plan_helper.py validate --plan-dir dev-docs/plan/issue_44`
+- `python <phased-issue-implementation-skill-dir>/scripts/phase_plan_helper.py gate --plan-dir dev-docs/plan/issue_44`
 
 ## Manual smoke tests
 
