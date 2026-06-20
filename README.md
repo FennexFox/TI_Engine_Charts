@@ -230,6 +230,19 @@ The deploy script only stages these generated files:
 
 Other local changes are left untouched.
 
+## Documentation and planning notes
+
+The repository uses `docs/` as a pure generated Pages/output root. This includes the generated dashboard, published client modules, and generated catalog Markdown files. Do not use `docs/` for durable documentation or planning notes, and do not hand-edit generated `docs/**` artifacts as source.
+
+Durable project guidance lives in:
+
+- `README.md` for setup, build, deploy, dashboard scope, and generated-output policy;
+- `AGENTS.md` for contributor and agent workflow rules;
+- `.github/**` for issue, PR, review, and automation guidance;
+- `dev-docs/architecture.md` for the working client architecture map.
+
+Temporary implementation plans and profiling notes live in `dev-docs/plan/**`. Those folders may be deleted after the related PR is merged, closed, or abandoned. Before deleting a plan folder, promote only still-useful decisions or validated findings into durable documentation or the relevant GitHub issue.
+
 ## License
 
 Project-owned source code, build/test tooling, and documentation are licensed

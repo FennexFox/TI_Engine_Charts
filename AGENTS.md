@@ -116,7 +116,7 @@ workflow and may commit and push generated files.
 ## Search and Review Scope
 
 - Prefer searching source paths first: `tools/**`, `scripts/**`, `README.md`,
-  `.github/**`, and `docs/dev/**`.
+  `.github/**`, `dev-docs/**`, and `data/preset_library.json`.
 - Treat generated paths as opaque for routine work. If they appear in a diff,
   note only that generated artifacts changed when relevant; do not inspect their
   content or request changes based on generated-file churn alone.
