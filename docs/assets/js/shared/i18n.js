@@ -6,7 +6,13 @@ function normalizeLanguage(lang) {
 
 export let UI_LANG = document.documentElement.lang === "en" ? "en" : "ko";
 
-const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+const savedLanguage = (() => {
+  try {
+    return localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+})();
 if (savedLanguage === "en" || savedLanguage === "ko") UI_LANG = savedLanguage;
 
 export function currentLanguage() {
@@ -15,7 +21,11 @@ export function currentLanguage() {
 
 export function setUiLanguage(lang) {
   UI_LANG = normalizeLanguage(lang);
-  localStorage.setItem(LANGUAGE_STORAGE_KEY, UI_LANG);
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, UI_LANG);
+  } catch {
+    // Keep the in-memory language even when persistence is unavailable.
+  }
   return UI_LANG;
 }
 

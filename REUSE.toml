@@ -16,7 +16,7 @@ path = [
   "docs/ship_catalog.md",
   "docs/ship_catalog_test.md",
 ]
-precedence = "aggregate"
+precedence = "override"
 SPDX-FileCopyrightText = "Terra Invicta data and assets are copyright their respective rightsholders"
 SPDX-License-Identifier = "LicenseRef-Terra-Invicta-Data"
 SPDX-FileComment = """
