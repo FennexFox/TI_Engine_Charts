@@ -3,10 +3,13 @@
 ## Build Workflow Terms
 
 - **Default build / UI-only / checked-in data build**: rebuilds `docs/index.html`
-  and `docs/assets/js/**` from source files while reusing the checked-in embedded
-  chart data from the existing generated page. This is the safe normal workflow
-  for UI, CSS, client JavaScript, template, preset-library, and documentation
-  changes. It does not read a local Terra Invicta installation.
+  and `docs/assets/js/**` from source files while using checked-in repo-local
+  generated catalogs such as `data/generated/drive_catalog.json`,
+  `data/generated/research_catalog.json`, and `data/generated/ship_catalog.json`.
+  This is the safe normal workflow for UI, CSS, client JavaScript, template,
+  preset-library, and documentation changes. It does not read a local Terra
+  Invicta installation and must not treat `docs/index.html` embedded `DATA` as
+  the normal source of truth.
 - **Local-game-data rebuild**: explicitly reads a local Terra Invicta
   `TerraInvicta_Data/StreamingAssets/Templates` directory and regenerates the
   research catalog, ship catalog, generated Markdown catalog docs, dashboard,
@@ -41,6 +44,7 @@ work:
 
 - `docs/index.html`
 - `docs/assets/js/**`
+- `data/generated/drive_catalog.json`
 - `data/generated/research_catalog.json`
 - `data/generated/ship_catalog.json`
 - `docs/research_catalog.md`
@@ -54,9 +58,9 @@ client modules instead of spending review budget on these generated artifacts.
 
 - `tools/drive_comparison_client/**` is the source for the browser client.
   `docs/assets/js/**` is only the published copy.
-- `tools/build_drive_comparison.py`, `tools/build_research_catalog.py`,
-  `tools/build_ship_catalog.py`, and `scripts/rebuild_pages.py` own generated
-  page and catalog output.
+- `tools/build_drive_catalog.py`, `tools/build_drive_comparison.py`,
+  `tools/build_research_catalog.py`, `tools/build_ship_catalog.py`, and
+  `scripts/rebuild_pages.py` own generated page and catalog output.
 - `data/preset_library.json` is hand-maintained input data, not generated
   catalog output.
 - `tools/drive_comparison_template.html`, `tools/drive_comparison_styles.css`,
@@ -108,10 +112,25 @@ Use individual builders only when the task specifically targets one catalog:
 
 - `python tools/build_research_catalog.py --templates-dir <Templates>`
 - `python tools/build_ship_catalog.py --templates-dir <Templates>`
+- `python tools/build_drive_catalog.py --templates-dir <Templates>`
 - `python tools/build_drive_comparison.py --templates-dir <Templates>`
 
 Do not use `npm run deploy` for routine validation. It preserves the publishing
 workflow and may commit and push generated files.
+
+## Pull Request Workflow
+
+When creating or updating a PR for this repository, follow the repository's
+checked-in PR rules before writing PR text:
+
+- Read `.github/instructions/pull-request.instructions.md`.
+- Fill `.github/pull_request_template.md` in template order.
+- Use the required Conventional Commit PR title format:
+  `<type>(<scope>): <summary>`.
+- Replace every placeholder with concrete details from the final diff, or remove
+  the placeholder if it does not apply.
+- Call out generated output, deployment impact, validation commands, risks, and
+  rollback/mitigation explicitly.
 
 ## Search and Review Scope
 
