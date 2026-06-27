@@ -892,7 +892,8 @@ export function sortRows(rows) {
           result = String(aValue ?? "").localeCompare(String(bValue ?? ""), undefined, { numeric: true, sensitivity: "base" });
         }
         if (result === 0) {
-          result = rowUnlockResearchValue(a) - rowUnlockResearchValue(b) || rowDriveLabel(a).localeCompare(rowDriveLabel(b));
+          result = rowUnlockResearchValue(a) - rowUnlockResearchValue(b)
+            || rowDriveLabel(a).localeCompare(rowDriveLabel(b), undefined, { numeric: true, sensitivity: "base" });
         }
         return result * direction;
       });
