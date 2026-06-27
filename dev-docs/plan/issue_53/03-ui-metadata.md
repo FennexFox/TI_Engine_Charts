@@ -61,20 +61,22 @@
 ## Evidence
 
 - Baseline: detail-card subtitle is category/family/project oriented and no drive description field is available in row data.
-- After: pending.
-- Delta: pending.
-- Interpretation: pending.
-- Commit: pending.
-- Commit blocker: pending.
+- After: generated drive rows now include `rawDisplayName`, `displayNameLocalized`, `description`, `aliases`, and `rawBaseDisplayName`; `row.displayName` remains a string and prefers localized English when available. Client helpers choose localized labels/descriptions by `UI_LANG`.
+- Delta: generated Poseidon sample has stable `id` `NeutronFluxLanternx1`, `rawDisplayName` `Neutron Flux Lantern x1`, `displayName` `Poseidon Lantern x1`, localized Korean/English names, localized Korean/English description, and aliases containing both raw and localized names. A generated row without description retains category/family/project fallback parts.
+- Interpretation: localized display and description metadata reaches the UI while stable IDs and compatible string display fields remain intact.
+- Commit: pending phase gate.
+- Commit blocker: none.
 
 ## Progress
 
-- Not started.
+- Implemented. Phase gate pending.
 
 ## Decision log
 
 - Decision: keep stable identity in `row.id`/`dataName`; display localization is presentation metadata only.
+- Decision: keep `row.displayName` as a string for compatibility and add `displayNameLocalized` rather than replacing the existing field with a map.
+- Decision: detail-card subtitle renders the localized description when present and otherwise renders the previous category/family/project text.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Implemented. Validation run: `python -m compileall -q tools scripts`; `npm run verify:js`; `npm run build`; targeted generated-data parser for localized Poseidon row and no-description fallback row.

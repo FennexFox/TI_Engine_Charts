@@ -887,6 +887,11 @@ def build_data(
     ship_catalog = load_json_file(ship_catalog_path)
     drive_catalog_data = drive_catalog if drive_catalog is not None else load_drive_catalog(drive_catalog_path or DEFAULT_DRIVE_CATALOG_PATH)
     drive_templates, power_plant_templates, radiator_templates = catalog_templates(drive_catalog_data)
+    drive_catalog_by_name = {
+        str(item.get("dataName") or ""): item
+        for item in drive_catalog_data.get("drives", [])
+        if isinstance(item, dict) and item.get("dataName")
+    }
 
     power_plants = [
         reactor_row(template, research)
@@ -919,10 +924,15 @@ def build_data(
         if template.get("disable"):
             continue
         data_name = str(template.get("dataName") or "")
-        display = str(template.get("friendlyName") or data_name)
-        base_key, base_display, thruster_count = remove_thruster_suffix(data_name, display)
+        catalog_drive = drive_catalog_by_name.get(data_name, {})
+        localized_display = catalog_drive.get("displayName") if isinstance(catalog_drive.get("displayName"), dict) else {}
+        localized_description = catalog_drive.get("description") if isinstance(catalog_drive.get("description"), dict) else {}
+        raw_display = str(catalog_drive.get("rawDisplayName") or template.get("friendlyName") or data_name)
+        display = str(localized_display.get("en") or raw_display)
+        base_key, raw_base_display, thruster_count = remove_thruster_suffix(data_name, raw_display)
         if thruster_count is None:
             continue
+        _, base_display, _ = remove_thruster_suffix(data_name, display)
 
         classification = str(template.get("driveClassification") or "")
         project = str(template.get("requiredProjectName") or "")
@@ -945,7 +955,12 @@ def build_data(
             "id": data_name,
             "baseKey": base_key,
             "displayName": display,
+            "rawDisplayName": raw_display,
+            "displayNameLocalized": localized_display,
+            "description": localized_description,
+            "aliases": catalog_drive.get("aliases") if isinstance(catalog_drive.get("aliases"), list) else [],
             "baseDisplayName": base_display,
+            "rawBaseDisplayName": raw_base_display,
             "thrusterCount": thruster_count,
             "classification": classification,
             "requiredPowerPlantClass": required_power_class,
