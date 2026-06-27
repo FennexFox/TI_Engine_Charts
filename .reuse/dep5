@@ -1,0 +1,17 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: TI Engine Charts
+Source: https://github.com/FennexFox/TI_Engine_Charts
+
+Files:
+ *
+Copyright: 2026 TI Engine Charts contributors
+License: MIT
+
+Files:
+ data/generated/*
+ docs/*
+ docs/assets/js/*
+ docs/assets/js/*/*
+ docs/assets/js/*/*/*
+Copyright: Terra Invicta data and assets are copyright their respective rightsholders
+License: LicenseRef-Terra-Invicta-Data

@@ -15,7 +15,7 @@ Important interpretation notes:
 - `altPrereq0` is represented as an OR alternative for the first `prereqs` entry.
 
 Node count: `867` total, `149` global techs, `718` projects.
-Graph edge count: `1720`.
+Graph edge count: `1718`.
 
 ## Global Techs
 
@@ -60,7 +60,7 @@ Graph edge count: `1720`.
 | Self-Repairing Software | SelfRepairingSoftware | tech | InformationScience | 10000 | AdvancedNeuralNetworks |
 | Quantum Computing | QuantumComputing | tech | InformationScience | 15000 | AdvancedAtomicManipulation + AdvancedNeuralNetworks + AdvancedHeatManagementConcepts |
 | Quantum Encryption | QuantumEncryption | tech | InformationScience | 20000 | QuantumComputing + SelfRepairingSoftware |
-| Applied Artificial Intelligence | AppliedArtificialIntelligence | tech | InformationScience | 25000 | AdvancedNeuralNetworks + QuantumComputing |
+| Applied Artificial Intelligence | AppliedArtificialIntelligence | tech | InformationScience | 25000 | QuantumComputing |
 | White Collar Automation | WhiteCollarAutomation | tech | InformationScience | 40000 | ArrivalInternationalDevelopment + SelfRepairingSoftware + AppliedArtificialIntelligence |
 | Administration Algorithms | AdministrationAlgorithms | tech | InformationScience | 50000 | WhiteCollarAutomation + QuantumEncryption |
 | Future Tech: Information Science | FutureTechInformationScience | tech | InformationScience | 100000 |  |
@@ -750,7 +750,7 @@ Graph edge count: `1720`.
 | Antimatter Microfission Drive | Project_AntimatterMicrofissionDrive | project | SpaceScience | 5000 | AntimatterContainment + FissionPulseDrives |
 | Automated Solar Outpost Kit | Project_AutomatedSolarOutpostKit | project | SpaceScience | 5000 | Project_AutomatedSolarCollector + Project_AutomatedMiningComplex |
 | Burner Drive | Project_BurnerDrive | project | SpaceScience | 5000 | Superalloys + Project_GasCoreFissionReactorII |
-| Dusty Plasma Drive | Project_DustyPlasmaDrive | project | SpaceScience | 5000 | Project_GasCoreFissionReactorI + MagneticNozzles + Project_FissionFragDrive + HighTemperatureSuperconductors |
+| Dusty Plasma Drive | Project_DustyPlasmaDrive | project | SpaceScience | 5000 | MagneticNozzles + Project_GasCoreFissionReactorI + Project_FissionFragDrive |
 | Fission Spinner Drive | Project_FissionSpinnerDrive | project | SpaceScience | 5000 | Project_LarsDrive + Project_MoltenCoreFissionReactorII |
 | Helium-3 Mine | Project_Helium-3Mine | project | SpaceScience | 5000 | Project_RingCore + DeuteriumHelium3Fusion + MissiontoJupiter + SpaceMiningandRefining |
 | Minimag Orion Drive | Project_MinimagOrion | project | SpaceScience | 5000 | Project_Z-pinchMicrofissionDrive |
@@ -866,7 +866,7 @@ Graph edge count: `1720`.
 | Hydra Interrogation | Project_HydraInterrogation | project | Xenology | 20000 | Project_HydraLanguage + Project_AlienContainment + objective:CaptureAHydra + faction:CooperateCouncil/DestroyCouncil/EscapeCouncil/ExploitCouncil/ResistCouncil |
 | Operational Misdirection | Project_OperationalMisdirection | project | Xenology | 20000 | FleetLogistics + Project_StrategicDeception + faction:DestroyCouncil/ResistCouncil/ExploitCouncil/CooperateCouncil/EscapeCouncil/AppeaseCouncil |
 | Pherocyte Exposure Network Tracing | Project_PherocyteExposureNetworkTracing | project | Xenology | 20000 | WhiteCollarAutomation + Project_Pherocytes + faction:DestroyCouncil/ResistCouncil/ExploitCouncil/CooperateCouncil/EscapeCouncil/AppeaseCouncil |
-| Pherocyte Mass Emitter | Project_PherocyteMassEmitter | project | Xenology | 20000 | Project_PherocyteMastery + Project_PherocyteEmitter |
+| Pherocyte Mass Emitter | Project_PherocyteMassEmitter | project | Xenology | 20000 | Project_PherocyteMastery + Project_PherocyteEmitter + faction:ExploitCouncil |
 | Policymaker Behavioral Analysis | Project_PolicymakerBehaviorialAnalysis | project | Xenology | 20000 | ArrivalGovernance + WhiteCollarAutomation + Project_Pherocytes + faction:DestroyCouncil/ResistCouncil/ExploitCouncil/CooperateCouncil/EscapeCouncil/AppeaseCouncil |
 | Predictive Abduction Modeling | Project_PredictiveAbductionModeling | project | Xenology | 20000 | WhiteCollarAutomation + Project_HydraInterrogation + faction:DestroyCouncil/ResistCouncil/ExploitCouncil/CooperateCouncil/EscapeCouncil/AppeaseCouncil |
 | Regional Security Sweeps | Project_RegionalSecuritySweeps | project | Xenology | 20000 | NetworkedGlobalDefense + Project_PherocyteDeconOperations + Project_RapidResponseTeams + faction:DestroyCouncil/ResistCouncil/ExploitCouncil/CooperateCouncil/EscapeCouncil |

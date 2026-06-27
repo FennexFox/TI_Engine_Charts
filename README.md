@@ -4,7 +4,7 @@ GitHub Pages builder and static dashboard for Terra Invicta engine comparison ch
 
 The generated Pages site lives in `docs/index.html`. The page includes a language selector for Korean and English instead of generating one chart per language.
 
-The normal local build is a checked-in-data/UI-only build: it rebuilds the dashboard shell and copied browser modules from source files while reusing the already checked-in catalog data embedded in `docs/index.html`. Rebuilding research, ship, and drive data from a local Terra Invicta installation is supported, but it is an explicit workflow because it depends on machine-local Steam paths and game data.
+The normal local build is a checked-in-data/UI-only build: it rebuilds the dashboard shell and copied browser modules from source files while using the checked-in generated catalogs under `data/generated/`. Rebuilding research, ship, and drive data from a local Terra Invicta installation is supported, but it is an explicit workflow because it depends on machine-local Steam paths and game data.
 
 ## Current dashboard features
 
@@ -21,6 +21,13 @@ Install Node dependencies:
 
 ```powershell
 npm ci
+```
+
+Install Python development tools when you want to run the full verification
+suite, including SPDX/REUSE license checks:
+
+```powershell
+python -m pip install -r requirements-dev.txt
 ```
 
 Playwright's Chromium browser is only required when you run browser verification
@@ -40,13 +47,14 @@ Enable GitHub Pages for the repository and publish the generated `docs/` directo
 
 ## Default checked-in/UI-only build
 
-Use this for normal UI, CSS, JavaScript client, template, preset-library, and documentation work. It does not read the local Terra Invicta installation and does not regenerate the checked-in research or ship catalogs.
+Use this for normal UI, CSS, JavaScript client, template, preset-library, and documentation work. It does not read the local Terra Invicta installation and does not regenerate the checked-in drive, research, or ship catalogs.
 
 ```powershell
 npm run build
 ```
 
-Run verification separately when you need it:
+Run verification separately when you need it. Full verification includes the
+SPDX/REUSE license check:
 
 ```powershell
 npm run verify
@@ -58,7 +66,7 @@ The default build runs:
 python scripts/rebuild_pages.py --ui-only --no-commit --no-push --skip-verify
 ```
 
-`--ui-only` reuses the embedded chart data from the existing generated page. Pass `--input-html-data <path>` directly to `scripts/rebuild_pages.py` if you need to reuse embedded data from another generated HTML file.
+`--ui-only` uses the checked-in repo-local catalogs instead of reading a local Terra Invicta install. Pass `--input-html-data <path>` directly to `scripts/rebuild_pages.py` only for explicit legacy or debug rebuilds that need to reuse embedded data from an existing generated HTML file.
 
 `npm run build:fast` is kept as a compatibility alias for the same no-verification build path.
 
@@ -219,6 +227,30 @@ The deploy script only stages these generated files:
 * `docs/assets/js`
 
 Other local changes are left untouched.
+
+## Documentation and planning notes
+
+The repository uses `docs/` as a pure generated Pages/output root. This includes the generated dashboard, published client modules, and generated catalog Markdown files. Do not use `docs/` for durable documentation or planning notes, and do not hand-edit generated `docs/**` artifacts as source.
+
+Durable project guidance lives in:
+
+- `README.md` for setup, build, deploy, dashboard scope, and generated-output policy;
+- `AGENTS.md` for contributor and agent workflow rules;
+- `.github/**` for issue, PR, review, and automation guidance;
+- `dev-docs/architecture.md` for the working client architecture map.
+
+Temporary implementation plans and profiling notes live in `dev-docs/plan/**`. Those folders may be deleted after the related PR is merged, closed, or abandoned. Before deleting a plan folder, promote only still-useful decisions or validated findings into durable documentation or the relevant GitHub issue.
+
+## License
+
+Project-owned source code, build/test tooling, and documentation are licensed
+under the MIT License. See `LICENSE` and the SPDX metadata in `REUSE.toml`.
+
+Generated catalogs, generated catalog documentation, and generated page bundles
+that contain Terra Invicta-derived identifiers or data are not covered by MIT.
+They are marked with `LicenseRef-Terra-Invicta-Data` in `REUSE.toml` and remain
+subject to the terms and ownership applicable to Terra Invicta and its
+rightsholders.
 
 ## Troubleshooting Windows tools leaking into WSL PATH
 

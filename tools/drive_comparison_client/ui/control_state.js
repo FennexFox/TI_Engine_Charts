@@ -1,7 +1,8 @@
 import { isBandMetric } from "../calc/metrics.js";
 import { isModuleRuleRelevantToDriveChart } from "../calc/module_effects.js";
 import { clamp } from "../shared/math.js";
-import { DATA, DEFAULT_MIN_TWR, UI_LANG, connectionLineModeLabel, currentModuleEffectAssumptions, localText, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state } from "../state/core.js";
+import { UI_LANG, localText } from "../shared/i18n.js";
+import { DATA, DEFAULT_MIN_TWR, connectionLineModeLabel, currentModuleEffectAssumptions, normalizePowerResearchView, powerResearchActive, powerResearchViewLabel, state } from "../state/core.js";
 import { formatNumber, formatTwrDynamicUnit } from "./formatting.js";
 
 function utilityModuleById(id) {

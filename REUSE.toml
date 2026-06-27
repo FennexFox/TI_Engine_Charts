@@ -1,0 +1,26 @@
+version = 1
+SPDX-PackageName = "TI Engine Charts"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 TI Engine Charts contributors"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+  "data/generated/**",
+  "docs/index.html",
+  "docs/assets/js/**",
+  "docs/research_catalog.md",
+  "docs/ship_catalog.md",
+  "docs/ship_catalog_test.md",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Terra Invicta data and assets are copyright their respective rightsholders"
+SPDX-License-Identifier = "LicenseRef-Terra-Invicta-Data"
+SPDX-FileComment = """
+ These files contain data, identifiers, localization, catalog extracts, or
+ generated bundles derived from a local Terra Invicta installation. They are
+ not covered by the repository's MIT license for project-owned code.
+"""

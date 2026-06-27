@@ -1,8 +1,10 @@
-# Client Architecture
+# Working client architecture map
 
-This document describes the editable source layout, generated GitHub Pages assets, module boundaries, and verification rules for the drive comparison client.
+This document describes the editable source layout, generated Pages/output boundary, module boundaries, and verification rules for the drive comparison client.
 
-The project uses native browser ES modules for the published GitHub Pages app. Source modules live under `tools/drive_comparison_client/` and are copied into `docs/assets/js/` during page rebuilds. Treat `docs/index.html` and `docs/assets/js/**` as generated outputs; change source modules and rebuild instead of editing published assets directly.
+It is a working architecture map, not a frozen design contract. Update it when `tools/drive_comparison_client/**`, builders, generated-output boundaries, or verification rules change materially. If it becomes stale, the current source, tests, and generated-output verifiers win.
+
+The project uses native browser ES modules for the published GitHub Pages app. Source modules live under `tools/drive_comparison_client/` and are copied into `docs/assets/js/` during page rebuilds. Treat all of `docs/**` as generated Pages/output, including generated catalog Markdown files such as `docs/research_catalog.md` and `docs/ship_catalog.md`. Change source modules, builders, or source data and rebuild instead of editing published outputs directly.
 
 ## Goals
 
@@ -63,7 +65,7 @@ The dry mass calculator is now split along feature boundaries:
 - `chart/rendering.js` owns line-segment rendering, point visual state helpers, impractical warning rings, and hover/selected/pinned SVG overlays. Calculation modules should only provide numeric values and filtering semantics.
 - `chart/interaction.js` owns legend and compact chart-guide copy because that text must stay synchronized with rendered chart semantics and interaction behavior.
 - `tools/drive_comparison_template.html` owns the Ship Designer grouping inside Simulation Conditions. `ui/dry_mass_calculator.js` continues to own the calculator modal and apply behavior; dry-mass formulas remain in the calculation layer.
-- `docs/assets/js/**` and `docs/index.html` are generated copies. Change source modules and rebuild instead of editing published assets directly.
+- `docs/**` is generated Pages/output. `docs/index.html`, `docs/assets/js/**`, `docs/research_catalog.md`, and `docs/ship_catalog.md` should be changed only by editing source modules/builders/source data and rebuilding.
 
 Some of these boundaries are still transitional. The import graph verifier currently fails on circular imports. Boundary warnings are available on demand with `--show-boundary-warnings`, and future cleanup PRs can promote more warnings to hard failures once the corresponding boundary is fully normalized.
 
@@ -93,18 +95,34 @@ node tools/verify_drive_comparison_import_graph.mjs --strict-boundaries
 
 The strict mode treats current boundary warnings as failures. It is useful while working on a specific boundary cleanup, but it is not yet the default because several planned follow-up PRs still intentionally touch transitional dependencies.
 
-## Generated assets
+## Relationship with planning docs
 
-After source client changes, rebuild the published page assets:
+Per-issue implementation plans, profiling notes, and temporary measurement reports belong under `dev-docs/plan/**`. Promote only durable architecture or boundary decisions back into this file. Do not update this file for one-off measurement rows, temporary prompts, or phase-local notes.
+
+## When to update this file
+
+Update this file when:
+
+- a durable client module boundary changes;
+- a new client source subdirectory becomes part of the architecture;
+- generated-output policy changes;
+- build or verification workflow changes;
+- a performance/refactor issue produces a lasting architectural decision.
+
+Do not update it just because generated `docs/**` outputs were rebuilt.
+
+## Generated Pages/output
+
+After source client changes, rebuild the generated Pages output:
 
 ```bash
 npm run build
 ```
 
-When local Terra Invicta template files are not available, source-only UI refactors can rebuild the generated chart from the already embedded page data instead:
+When local Terra Invicta template files are not available, source-only UI refactors rebuild the generated chart from the checked-in repo-local catalogs instead:
 
 ```bash
 python scripts/rebuild_pages.py --ui-only --skip-verify --no-commit --no-push
 ```
 
-The rebuild should keep `docs/index.html` and `docs/assets/js/` reproducible from the source modules.
+The rebuild should keep `docs/**` reproducible from source modules, builders, and generated/source data. Treat generated catalog Markdown under `docs/` as output, not durable documentation.

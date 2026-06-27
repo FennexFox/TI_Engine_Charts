@@ -30,6 +30,10 @@ def candidate_steamapps_dirs() -> Iterable[Path]:
     yield Path("C:/Program Files/Steam/steamapps")
     yield Path("D:/SteamLibrary/steamapps")
     yield Path("E:/SteamLibrary/steamapps")
+    yield Path("/mnt/c/Program Files (x86)/Steam/steamapps")
+    yield Path("/mnt/c/Program Files/Steam/steamapps")
+    yield Path("/mnt/d/SteamLibrary/steamapps")
+    yield Path("/mnt/e/SteamLibrary/steamapps")
 
 
 def candidate_templates_dirs() -> Iterable[Path]:

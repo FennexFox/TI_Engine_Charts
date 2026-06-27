@@ -1,4 +1,5 @@
-import { HELP_TEXT, UI_LANG, localText } from "../state/core.js";
+import { UI_LANG, localText } from "../shared/i18n.js";
+import { HELP_TEXT } from "../state/core.js";
 
 export function localLabel(item) {
   if (UI_LANG === "en") return item.labelEn || item.label || item.key;

@@ -1,6 +1,7 @@
 import { isBandMetric, optionMetricValue } from "./metrics.js";
 import { evaluateModuleEffectsForDrive } from "./module_effects.js";
-import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, UI_LANG, currentModuleEffectAssumptions, metricDefs, powerResearchActive, state } from "../state/core.js";
+import { UI_LANG } from "../shared/i18n.js";
+import { DATA, EXTREME_MASS_RATIO, HIDDEN_REASON_PRIORITY, MASS_RATIO_OVERFLOW_EXPONENT, STANDARD_GRAVITY_MPS2, currentModuleEffectAssumptions, metricDefs, powerResearchActive, state } from "../state/core.js";
 import { clamp } from "../shared/math.js";
 
 export function rowCategoryLabel(row) {
@@ -15,6 +16,22 @@ export function rowProjectLabel(row) {
       return UI_LANG === "en"
         ? (row.requiredProjectDisplay.en || row.requiredProjectDisplay.ko || row.requiredProject)
         : (row.requiredProjectDisplay.ko || row.requiredProjectDisplay.en || row.requiredProject);
+    }
+
+export function rowDriveLabel(row) {
+      const display = row && row.displayNameLocalized && typeof row.displayNameLocalized === "object"
+        ? row.displayNameLocalized
+        : {};
+      if (UI_LANG === "en") return display.en || row.displayName || row.rawDisplayName || row.id || "";
+      return display.ko || display.kor || display.en || row.displayName || row.rawDisplayName || row.id || "";
+    }
+
+export function rowDriveDescription(row) {
+      const description = row && row.description && typeof row.description === "object"
+        ? row.description
+        : {};
+      if (UI_LANG === "en") return description.en || "";
+      return description.ko || description.kor || description.en || "";
     }
 
 export function syncFilterInputs() {
@@ -234,11 +251,15 @@ export function rowMatchesSearch(row) {
       if (!state.searchTerm) return true;
       const haystack = [
         row.displayName,
+        rowDriveLabel(row),
+        row.rawDisplayName,
         row.baseDisplayName,
+        row.rawBaseDisplayName,
         row.requiredProject,
         rowProjectLabel(row),
         rowCategoryLabel(row),
         rowFamilyLabel(row),
+        ...(Array.isArray(row.aliases) ? row.aliases : []),
       ].join(" ").toLocaleLowerCase();
       return haystack.includes(state.searchTerm);
     }
@@ -490,4 +511,3 @@ export function actualPowerFrontier(row, options) {
       });
       return frontier;
     }
-
