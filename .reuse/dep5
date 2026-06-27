@@ -1,0 +1,14 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: TI Engine Charts
+Source: https://github.com/FennexFox/TI_Engine_Charts
+
+Files:
+ tools/build_drive_catalog.py
+ dev-docs/plan/issue_53/*
+Copyright: 2026 TI Engine Charts contributors
+License: MIT
+
+Files:
+ data/generated/drive_catalog.json
+Copyright: Terra Invicta data and assets are copyright their respective rightsholders
+License: LicenseRef-Terra-Invicta-Data

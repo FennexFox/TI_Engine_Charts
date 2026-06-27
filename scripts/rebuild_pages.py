@@ -47,6 +47,36 @@ def optional_arg(command: list[str], flag: str, value: str | None) -> None:
         command.extend([flag, value])
 
 
+def catalog_source_args(input_html_data: str | None = None) -> list[str]:
+    if input_html_data:
+        return ["--input-html-data", input_html_data]
+    return [
+        "--drive-catalog",
+        DRIVE_CATALOG_JSON,
+        "--research-catalog",
+        RESEARCH_CATALOG_JSON,
+        "--ship-catalog",
+        SHIP_CATALOG_JSON,
+    ]
+
+
+def verify_catalog_source_path() -> None:
+    args = catalog_source_args()
+    expected = [
+        "--drive-catalog",
+        DRIVE_CATALOG_JSON,
+        "--research-catalog",
+        RESEARCH_CATALOG_JSON,
+        "--ship-catalog",
+        SHIP_CATALOG_JSON,
+    ]
+    if args != expected:
+        raise SystemExit(f"Normal chart rebuild source args changed unexpectedly: {args!r}")
+    if "--input-html-data" in args:
+        raise SystemExit("Normal chart rebuild path must not reuse embedded docs/index.html data")
+    print(f"Catalog source verification passed: {DRIVE_CATALOG_JSON}")
+
+
 def generated_paths_changed() -> bool:
     result = run(["git", "status", "--porcelain", "--", *GENERATED_PATHS], capture=True)
     return bool(result.stdout.strip())
@@ -116,17 +146,7 @@ def build_pages(args: argparse.Namespace) -> None:
         optional_arg(drive_catalog_command, "--game-version", args.game_version)
         run(drive_catalog_command)
 
-    if args.input_html_data:
-        common_chart_args.extend(["--input-html-data", args.input_html_data])
-    else:
-        common_chart_args.extend([
-            "--drive-catalog",
-            DRIVE_CATALOG_JSON,
-            "--research-catalog",
-            RESEARCH_CATALOG_JSON,
-            "--ship-catalog",
-            SHIP_CATALOG_JSON,
-        ])
+    common_chart_args.extend(catalog_source_args(args.input_html_data))
 
     run([python, "tools/build_drive_comparison.py", *common_chart_args, "--output", DRIVE_COMPARISON_HTML])
 
@@ -170,6 +190,11 @@ def commit_and_push(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--verify-catalog-source-path",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--templates-dir", help="Path to TerraInvicta_Data/StreamingAssets/Templates.")
     parser.add_argument("--game-version", help="Version label to embed in the generated chart footer.")
     parser.add_argument(
@@ -179,7 +204,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--ui-only",
         action="store_true",
-        help="Rebuild docs/index.html from existing embedded page data without regenerating catalogs.",
+        help="Rebuild docs/index.html from repo-local generated catalogs without reading a local Terra Invicta install.",
     )
     parser.add_argument(
         "--input-html-data",
@@ -196,6 +221,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.verify_catalog_source_path:
+        verify_catalog_source_path()
+        return 0
     build_pages(args)
     commit_and_push(args)
     return 0

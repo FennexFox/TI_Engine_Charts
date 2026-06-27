@@ -38,7 +38,8 @@
       }
     },
     "gameVersion": "1.0.38",
-    "gameVersionSource": "AIDump.txt"
+    "gameVersionSource": "AIDump.txt",
+    "steamBuildId": "23709269"
   },
   "counts": {
     "drives": 541,

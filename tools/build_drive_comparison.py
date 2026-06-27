@@ -846,6 +846,21 @@ def catalog_templates(catalog: dict[str, Any]) -> tuple[
     return drive_templates, power_plant_templates, radiator_templates
 
 
+def catalog_drive_description(
+    catalog_drive: dict[str, Any],
+    base_key: str,
+    drive_catalog_by_name: dict[str, dict[str, Any]],
+) -> dict[str, str]:
+    description = catalog_drive.get("description")
+    if isinstance(description, dict) and description:
+        return description
+    base_drive = drive_catalog_by_name.get(f"{base_key}x1", {})
+    base_description = base_drive.get("description")
+    if isinstance(base_description, dict) and base_description:
+        return base_description
+    return {}
+
+
 def empty_preset_library() -> dict[str, Any]:
     return {
         "format": "ti-engine-chart-built-in-presets/v1",
@@ -926,12 +941,12 @@ def build_data(
         data_name = str(template.get("dataName") or "")
         catalog_drive = drive_catalog_by_name.get(data_name, {})
         localized_display = catalog_drive.get("displayName") if isinstance(catalog_drive.get("displayName"), dict) else {}
-        localized_description = catalog_drive.get("description") if isinstance(catalog_drive.get("description"), dict) else {}
         raw_display = str(catalog_drive.get("rawDisplayName") or template.get("friendlyName") or data_name)
         display = str(localized_display.get("en") or raw_display)
         base_key, raw_base_display, thruster_count = remove_thruster_suffix(data_name, raw_display)
         if thruster_count is None:
             continue
+        localized_description = catalog_drive_description(catalog_drive, base_key, drive_catalog_by_name)
         _, base_display, _ = remove_thruster_suffix(data_name, display)
 
         classification = str(template.get("driveClassification") or "")
@@ -1186,6 +1201,64 @@ def load_embedded_page_data(html_path: Path) -> dict[str, Any]:
     return data
 
 
+def verify_localized_drive_metadata(html_path: Path) -> None:
+    data = load_embedded_page_data(html_path)
+    rows = data.get("drives")
+    if not isinstance(rows, list) or not rows:
+        raise SystemExit(f"No drive rows found in {html_path}")
+
+    row_by_id = {
+        str(row.get("id")): row
+        for row in rows
+        if isinstance(row, dict) and row.get("id")
+    }
+    poseidon = row_by_id.get("NeutronFluxLanternx1")
+    if not poseidon:
+        raise SystemExit("Missing representative stable drive id: NeutronFluxLanternx1")
+    if poseidon.get("displayName") != "Poseidon Lantern x1":
+        raise SystemExit("NeutronFluxLanternx1 no longer exposes localized English display name")
+    if poseidon.get("rawDisplayName") != "Neutron Flux Lantern x1":
+        raise SystemExit("NeutronFluxLanternx1 no longer preserves raw display name")
+    localized = poseidon.get("displayNameLocalized")
+    if not isinstance(localized, dict) or localized.get("en") != "Poseidon Lantern x1":
+        raise SystemExit("NeutronFluxLanternx1 missing displayNameLocalized.en")
+    description = poseidon.get("description")
+    if not isinstance(description, dict) or not description.get("en"):
+        raise SystemExit("NeutronFluxLanternx1 missing localized English description")
+    poseidon_variant = row_by_id.get("NeutronFluxLanternx2")
+    if not poseidon_variant:
+        raise SystemExit("Missing representative inherited-description variant: NeutronFluxLanternx2")
+    variant_description = poseidon_variant.get("description")
+    if not isinstance(variant_description, dict) or variant_description.get("en") != description.get("en"):
+        raise SystemExit("NeutronFluxLanternx2 did not inherit NeutronFluxLanternx1 localized description")
+
+    fallback_row = next(
+        (
+            row
+            for row in rows
+            if isinstance(row, dict)
+            and not row.get("description")
+            and (row.get("categoryLabelEn") or row.get("categoryLabel"))
+            and (row.get("familyLabelEn") or row.get("familyLabel"))
+            and isinstance(row.get("requiredProjectDisplay"), dict)
+        ),
+        None,
+    )
+
+    tooltip_source = (DRIVE_COMPARISON_CLIENT_DIR / "ui" / "tooltip_table.js").read_text(encoding="utf-8")
+    filtering_source = (DRIVE_COMPARISON_CLIENT_DIR / "calc" / "filtering.js").read_text(encoding="utf-8")
+    if "export function rowDriveDescription" not in filtering_source:
+        raise SystemExit("rowDriveDescription helper is missing from filtering.js")
+    if "rowDriveDescription(row)" not in tooltip_source or "driveDescription || fallbackSubtitle" not in tooltip_source:
+        raise SystemExit("Tooltip detail card no longer uses localized drive description with fallback subtitle")
+
+    print(
+        "Localized drive metadata verification passed: "
+        f"{poseidon['id']} -> {poseidon['displayName']}; "
+        f"fallback row {fallback_row.get('id') if fallback_row else 'not present in current generated data'}",
+    )
+
+
 def build_html(data: dict[str, Any], redact_paths: bool = False) -> str:
     if redact_paths:
         data = redact_source_paths(data)
@@ -1229,6 +1302,11 @@ def copy_client_modules(output_html: Path) -> Path:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--verify-localized-drive-metadata",
+        metavar="HTML",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--templates-dir", help="Path to TerraInvicta_Data/StreamingAssets/Templates.")
     parser.add_argument(
         "--drive-catalog",
@@ -1281,6 +1359,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.verify_localized_drive_metadata:
+        verify_localized_drive_metadata(Path(args.verify_localized_drive_metadata).expanduser().resolve())
+        return
     if args.output:
         default_output = Path(args.output)
     else:

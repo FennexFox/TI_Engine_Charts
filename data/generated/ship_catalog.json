@@ -2844,7 +2844,7 @@
         "en": "Mobile Space Science Lab"
       },
       "description": {
-        "kor": "과학팀이 승무원에 합류하여 함선은 접점 궤도에서 우주체에 적합한 기지를 찾을 수 있게 되었고, 함대가 거주지나 지구-달 시스템에 정박하지 않는 한 우주 과학 연구에 {5} 보너스를 얻게 됩니다.",
+        "kor": "과학팀이 승무원에 합류하여 함선은 접점 궤도에서 우주체에 적합한 기지를 찾을 수 있게 되었고, 함대가 거주지나 지구-달 시스템에 도킹하지 않는 한 우주 과학 연구에 {5} 보너스를 얻게 됩니다.",
         "en": "A scientific team joins the crew, enabling the ship to prospect space bodies for suitable base sites from interface orbits and granting a {5} bonus to Space Science research as long as its fleet is not docked at a hab or in the Earth-Luna system."
       },
       "requiredProject": "Project_MobileSpaceScienceLab",
@@ -2976,7 +2976,7 @@
         "en": "Solar Platform Kit"
       },
       "description": {
-        "kor": "함선의 위치에 건설 모듈을 사용하여 태양광 구동 소형 우주 정거장을 건설할 수 있습니다. 태양 주위를 공전하는 지구 궤도 너머에서는 사용이 불가합니다. 조선소에서 함선을 재보급하여 해당 모듈을 보충할 수 있습니다.",
+        "kor": "함선의 위치에 건설 모듈을 사용하여 태양광 구동 소형 우주 스테이션을 건설할 수 있습니다. 태양 주위를 공전하는 지구 궤도 너머에서는 사용이 불가합니다. 조선소에서 함선을 재보급하여 해당 모듈을 보충할 수 있습니다.",
         "en": "Allows creation of a small solar-powered space station with a construction module at the ship's location. Not viable beyond Earth's orbit around the Sun. Can be replenished by resupplying the ship at a shipyard."
       },
       "requiredProject": "Project_SolarPlatformKit",
@@ -3126,7 +3126,7 @@
         "en": "Fission Platform Kit"
       },
       "description": {
-        "kor": "함선의 위치에 건설 모듈을 사용하여 원자력 구동 소형 우주 정거장을 건설할 수 있습니다. 조선소에서 함선을 수리하여 해당 모듈을 보충할 수 있습니다.",
+        "kor": "함선의 위치에 건설 모듈을 사용하여 원자력 구동 소형 우주 스테이션을 건설할 수 있습니다. 조선소에서 함선을 수리하여 해당 모듈을 보충할 수 있습니다.",
         "en": "Allows creation of a small nuclear-powered space station with a construction module at the ship's location. Can be replenished by repairing the ship at a shipyard."
       },
       "requiredProject": "Project_FissionPlatformKit",
@@ -3204,7 +3204,7 @@
         "en": "Fusion Platform Kit"
       },
       "description": {
-        "kor": "함선의 위치에 건설 모듈을 사용하여 핵융합 동력 소형 우주 정거장을 건설할 수 있습니다. 조선소에서 함선을 수리하여 해당 모듈을 보충할 수 있습니다.",
+        "kor": "함선의 위치에 건설 모듈을 사용하여 핵융합 동력 소형 우주 스테이션을 건설할 수 있습니다. 조선소에서 함선을 수리하여 해당 모듈을 보충할 수 있습니다.",
         "en": "Allows creation of a small fusion-powered space station with a construction module at the ship's location. Can be replenished by repairing the ship at a shipyard."
       },
       "requiredProject": "Project_FusionPlatformKit",
@@ -3282,7 +3282,7 @@
         "en": "Repair Bay"
       },
       "description": {
-        "kor": "조선소에서 멀리 떨어져 있어도 더 광범위한 수리를 실행할 수 있는  확장된 피해 통제 팀과 조선소가 있습니다. <br><br/>전투 중 피해 통제 팀의 효율성이 크게 향상됩니다. 전투 중이 아닐 때 수리실을 사용하면 함교, 생명 유지 장치, 배터리, 피해 통제 모듈을 부분적으로 수리할 수 있으며, 파괴된 모듈의 수리 한도가 5%에서 25%로 늘어납니다. <br><br/><h>무기나 유틸리티 모듈과 같은 일부 모듈은 파괴되면 정거장에서만 수리할 수 있습니다.</h>",
+        "kor": "조선소에서 멀리 떨어져 있어도 더 광범위한 수리를 실행할 수 있는  확장된 피해 통제 팀과 조선소가 있습니다. <br><br/>전투 중 피해 통제 팀의 효율성이 크게 향상됩니다. 전투 중이 아닐 때 수리실을 사용하면 함교, 생명 유지 장치, 배터리, 피해 통제 모듈을 부분적으로 수리할 수 있으며, 파괴된 모듈의 수리 한도가 5%에서 25%로 늘어납니다. <br><br/><h>무기나 유틸리티 모듈과 같은 일부 모듈은 파괴되면 우주 스테이션에서만 수리할 수 있습니다.</h>",
         "en": "An expanded damage control team as well as a workshop to conduct more extensive repairs away from the shipyard. <br><br/>Significantly increases the effectiveness of your damage control teams during combat. Out of combat the Repair Bay allows for the Bridge, Life Support, Battery, and Damage Control modules to be partially repaired and increases the repair cap on destroyed modules from 5% to 25%. <br><br/><h>Note that some modules such as weapons and utility modules can only be repaired at a station once destroyed.</h>"
       },
       "requiredProject": "Project_RepairBay",
@@ -4148,7 +4148,7 @@
         "en": "10-inch Cannon"
       },
       "description": {
-        "kor": "우리 전함의 함수에 장착하기 적합하도록 재설계된 해군의 중량 함포입니다.",
+        "kor": "우리 전투 함선의 함수에 장착하기 적합하도록 재설계된 해군의 중량 함포입니다.",
         "en": "A redesigned heavy naval artillery gun suitable for mounting on the nose of many of our combat craft."
       },
       "requiredProject": "Project_Warships",
