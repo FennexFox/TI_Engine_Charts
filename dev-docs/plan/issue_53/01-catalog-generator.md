@@ -61,20 +61,22 @@
 ## Evidence
 
 - Baseline: no `data/generated/drive_catalog.json`; chart builder reads drive/power/radiator templates directly or reuses `docs/index.html` embedded data.
-- After: pending.
-- Delta: pending.
-- Interpretation: pending.
-- Commit: pending.
-- Commit blocker: pending.
+- After: added `tools/build_drive_catalog.py`; generated `data/generated/drive_catalog.json` from `/mnt/c/Program Files (x86)/Steam/steamapps/common/Terra Invicta/TerraInvicta_Data/StreamingAssets/Templates`.
+- Delta: generated catalog reports 541 drives, 523 enabled drives, 61 power plants, 13 radiators, game version `1.0.38`, localization languages `kor,en`; targeted parser found 541 localized drive names and 96 localized descriptions.
+- Interpretation: Phase 1 meets the catalog-generation and localization-metadata requirements. The Poseidon/Neutron Flux sample preserves `dataName` `NeutronFluxLanternx1` and raw display `Neutron Flux Lantern x1` while adding localized English `Poseidon Lantern x1` and Korean `포세이돈 등 x1`.
+- Commit: pending phase gate.
+- Commit blocker: none.
 
 ## Progress
 
-- Not started.
+- Implemented. Phase gate pending.
 
 ## Decision log
 
 - Decision pending: exact schema will follow existing research/ship catalog conventions while preserving current chart row inputs.
+- Decision: catalog schema version 1 uses top-level `drives`, `powerPlants`, `radiators`, `source`, and `counts`; each normalized record keeps `dataName`, raw display, aliases, app-needed numeric fields, and selected source template fields instead of vendoring full raw template files.
+- Decision: only drive template localization is included in this phase because issue #53 explicitly names `TIDriveTemplate.displayName.*` and `TIDriveTemplate.description.*`; power/radiator localization can be a follow-up if needed.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Implemented. Validation run: `python -m compileall -q tools scripts`; `python tools/build_drive_catalog.py --help`; fixture generation with localized display/description; real catalog generation from local Terra Invicta templates.
