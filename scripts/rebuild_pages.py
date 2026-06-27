@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -75,6 +76,50 @@ def verify_catalog_source_path() -> None:
     if "--input-html-data" in args:
         raise SystemExit("Normal chart rebuild path must not reuse embedded docs/index.html data")
     print(f"Catalog source verification passed: {DRIVE_CATALOG_JSON}")
+
+
+def looks_like_local_absolute_path(value: str) -> bool:
+    normalized = value.replace("\\", "/")
+    if normalized.startswith(("/", "~/", "//")):
+        return True
+    return len(value) >= 3 and value[1] == ":" and value[2] in ("/", "\\")
+
+
+def source_metadata_strings(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        strings: list[str] = []
+        for item in value.values():
+            strings.extend(source_metadata_strings(item))
+        return strings
+    if isinstance(value, list):
+        strings = []
+        for item in value:
+            strings.extend(source_metadata_strings(item))
+        return strings
+    return []
+
+
+def verify_drive_catalog_source_metadata() -> None:
+    path = ROOT / DRIVE_CATALOG_JSON
+    data = json.loads(path.read_text(encoding="utf-8"))
+    source = data.get("source")
+    if not isinstance(source, dict):
+        raise SystemExit(f"Drive catalog is missing source metadata: {DRIVE_CATALOG_JSON}")
+    if "templatesDir" in source:
+        raise SystemExit("Drive catalog source metadata must not store local templatesDir paths")
+    absolute_paths = [
+        value
+        for value in source_metadata_strings(source)
+        if looks_like_local_absolute_path(value)
+    ]
+    if absolute_paths:
+        raise SystemExit(
+            "Drive catalog source metadata contains local absolute paths: "
+            + ", ".join(sorted(set(absolute_paths)))
+        )
+    print(f"Drive catalog source metadata path check passed: {DRIVE_CATALOG_JSON}")
 
 
 def generated_paths_changed() -> bool:
@@ -195,6 +240,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=argparse.SUPPRESS,
     )
+    parser.add_argument(
+        "--verify-drive-catalog-source-metadata",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--templates-dir", help="Path to TerraInvicta_Data/StreamingAssets/Templates.")
     parser.add_argument("--game-version", help="Version label to embed in the generated chart footer.")
     parser.add_argument(
@@ -223,6 +273,9 @@ def main() -> int:
     args = parse_args()
     if args.verify_catalog_source_path:
         verify_catalog_source_path()
+        return 0
+    if args.verify_drive_catalog_source_metadata:
+        verify_drive_catalog_source_metadata()
         return 0
     build_pages(args)
     commit_and_push(args)

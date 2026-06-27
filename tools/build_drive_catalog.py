@@ -266,7 +266,8 @@ def source_metadata(
         localization_sources[language] = source_fingerprint(path)
     return clean_value(
         {
-            "templatesDir": str(templates_dir),
+            "sourceRoot": "local Terra Invicta install",
+            "templateRoot": "TerraInvicta_Data/StreamingAssets/Templates",
             "templates": template_sources,
             "localization": {
                 "languages": languages,

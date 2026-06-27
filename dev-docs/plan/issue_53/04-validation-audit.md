@@ -88,3 +88,4 @@
 - Generated-file policy: source files and `data/generated/drive_catalog.json` are committed; `docs/index.html` and `docs/assets/js/**` were regenerated through `npm run build`.
 - Commit audit: plan commit `d1e2315`; phase commits `f8f2fc2`, `2194719`, `b5281c2`; final audit commit pending.
 - Known risks: generated catalog reflects local Terra Invicta version `1.0.38`; future game updates require explicit from-game rebuild.
+- Post-completion cleanup: drive catalog source metadata was adjusted to omit committed local absolute template-install paths while retaining logical source labels, file fingerprints, localization metadata, and game version metadata.

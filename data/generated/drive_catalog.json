@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
   "source": {
-    "templatesDir": "/mnt/c/Program Files (x86)/Steam/steamapps/common/Terra Invicta/TerraInvicta_Data/StreamingAssets/Templates",
+    "sourceRoot": "local Terra Invicta install",
+    "templateRoot": "TerraInvicta_Data/StreamingAssets/Templates",
     "templates": {
       "drive": {
         "file": "TIDriveTemplate.json",
