@@ -119,7 +119,7 @@ After source client changes, rebuild the generated Pages output:
 npm run build
 ```
 
-When local Terra Invicta template files are not available, source-only UI refactors can rebuild the generated chart from the already embedded page data instead:
+When local Terra Invicta template files are not available, source-only UI refactors rebuild the generated chart from the checked-in repo-local catalogs instead:
 
 ```bash
 python scripts/rebuild_pages.py --ui-only --skip-verify --no-commit --no-push

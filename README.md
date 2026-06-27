@@ -1,12 +1,10 @@
-<!-- SPDX-License-Identifier: MIT -->
-
 # Terra Invicta Engine Charts
 
 GitHub Pages builder and static dashboard for Terra Invicta engine comparison charts.
 
 The generated Pages site lives in `docs/index.html`. The page includes a language selector for Korean and English instead of generating one chart per language.
 
-The normal local build is a checked-in-data/UI-only build: it rebuilds the dashboard shell and copied browser modules from source files while reusing the already checked-in catalog data embedded in `docs/index.html`. Rebuilding research, ship, and drive data from a local Terra Invicta installation is supported, but it is an explicit workflow because it depends on machine-local Steam paths and game data.
+The normal local build is a checked-in-data/UI-only build: it rebuilds the dashboard shell and copied browser modules from source files while using the checked-in generated catalogs under `data/generated/`. Rebuilding research, ship, and drive data from a local Terra Invicta installation is supported, but it is an explicit workflow because it depends on machine-local Steam paths and game data.
 
 ## Current dashboard features
 
@@ -49,7 +47,7 @@ Enable GitHub Pages for the repository and publish the generated `docs/` directo
 
 ## Default checked-in/UI-only build
 
-Use this for normal UI, CSS, JavaScript client, template, preset-library, and documentation work. It does not read the local Terra Invicta installation and does not regenerate the checked-in research or ship catalogs.
+Use this for normal UI, CSS, JavaScript client, template, preset-library, and documentation work. It does not read the local Terra Invicta installation and does not regenerate the checked-in drive, research, or ship catalogs.
 
 ```powershell
 npm run build
@@ -68,7 +66,7 @@ The default build runs:
 python scripts/rebuild_pages.py --ui-only --no-commit --no-push --skip-verify
 ```
 
-`--ui-only` reuses the embedded chart data from the existing generated page. Pass `--input-html-data <path>` directly to `scripts/rebuild_pages.py` if you need to reuse embedded data from another generated HTML file.
+`--ui-only` uses the checked-in repo-local catalogs instead of reading a local Terra Invicta install. Pass `--input-html-data <path>` directly to `scripts/rebuild_pages.py` only for explicit legacy or debug rebuilds that need to reuse embedded data from an existing generated HTML file.
 
 `npm run build:fast` is kept as a compatibility alias for the same no-verification build path.
 

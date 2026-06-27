@@ -31,8 +31,9 @@ Options:
       Use an alternate built-in preset library JSON file.
 
   --input-html-data PATH
-      Existing generated HTML page whose embedded chart data should be reused in
-      default checked-in/UI-only mode. Defaults to docs/index.html.
+      Existing generated HTML page whose embedded chart data should be reused
+      for an explicit legacy/debug checked-in/UI-only rebuild. The default
+      checked-in/UI-only mode uses repo-local generated catalogs instead.
 
   --verify
       Also run the build script's Playwright browser verification step. This
