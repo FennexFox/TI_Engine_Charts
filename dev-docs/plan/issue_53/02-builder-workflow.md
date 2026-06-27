@@ -63,20 +63,22 @@
 ## Evidence
 
 - Baseline: `scripts/rebuild_pages.py --ui-only` extends `--input-html-data docs/index.html`; `tools/build_drive_comparison.py` requires templates or embedded HTML data.
-- After: pending.
-- Delta: pending.
-- Interpretation: pending.
-- Commit: pending.
-- Commit blocker: pending.
+- After: `scripts/rebuild_pages.py --ui-only` now invokes `tools/build_drive_comparison.py --drive-catalog data/generated/drive_catalog.json --research-catalog data/generated/research_catalog.json --ship-catalog data/generated/ship_catalog.json`; from-game rebuilds run `tools/build_drive_catalog.py` before the page builder.
+- Delta: focused page-builder command succeeded with `523` drive variants from catalog inputs; `npm run build` succeeded and logged catalog arguments instead of `--input-html-data`; generated chart source metadata contains `driveCatalog: "drive_catalog.json"`, no `driveTemplate`, no `radiatorTemplate`, and game version `1.0.38`.
+- Interpretation: normal builds no longer use `docs/index.html` as primary data input and do not need a local Terra Invicta template directory. Direct `--templates-dir` page builds remain supported by creating an in-memory drive catalog.
+- Commit: pending phase gate.
+- Commit blocker: none.
 
 ## Progress
 
-- Not started.
+- Implemented. Phase gate pending.
 
 ## Decision log
 
 - Decision pending: whether to keep `--input-html-data` as explicit legacy/debug path after normal build stops using it.
+- Decision: keep `--input-html-data` as explicit legacy/debug input, but remove it from the default `npm run build` path.
+- Decision: `tools/build_drive_comparison.py --templates-dir` remains available by building an in-memory drive catalog so individual local-game builder workflows still work.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Implemented. Validation run: `python -m compileall -q tools scripts`; focused `tools/build_drive_comparison.py --drive-catalog ... --output /tmp/ti-drive-catalog-page.html`; `node tools/verify_drive_comparison_client_syntax.mjs`; `npm run build`; targeted parser check of generated chart source metadata.

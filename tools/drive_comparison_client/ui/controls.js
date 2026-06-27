@@ -609,7 +609,12 @@ export function refreshSourceNote() {
         `${localText("게임 버전", "Game version")}: ${DATA.source.gameVersion || "unknown"}`,
       ];
       if (DATA.source.steamBuildId) gameVersionParts.push(`Steam build ${DATA.source.steamBuildId}`);
-      document.getElementById("sourceNote").textContent = `${localText("소스", "Source")}: ${DATA.source.driveTemplate}; ${DATA.source.radiatorTemplate}; ${DATA.source.shipCatalog}; ${gameVersionParts.join("; ")}`;
+      const sourceParts = [
+        DATA.source.driveCatalog || DATA.source.driveTemplate,
+        DATA.source.radiatorTemplate,
+        DATA.source.shipCatalog,
+      ].filter(Boolean);
+      document.getElementById("sourceNote").textContent = `${localText("소스", "Source")}: ${sourceParts.join("; ")}; ${gameVersionParts.join("; ")}`;
     }
 
 export function setupChartInteraction() {

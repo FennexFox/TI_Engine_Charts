@@ -15,6 +15,7 @@ RESEARCH_CATALOG_JSON = "data/generated/research_catalog.json"
 RESEARCH_CATALOG_MARKDOWN = "docs/research_catalog.md"
 SHIP_CATALOG_JSON = "data/generated/ship_catalog.json"
 SHIP_CATALOG_MARKDOWN = "docs/ship_catalog.md"
+DRIVE_CATALOG_JSON = "data/generated/drive_catalog.json"
 DRIVE_COMPARISON_HTML = "docs/index.html"
 DRIVE_COMPARISON_CLIENT_ASSETS = "docs/assets/js"
 GENERATED_PATHS = (
@@ -22,6 +23,7 @@ GENERATED_PATHS = (
     RESEARCH_CATALOG_MARKDOWN,
     SHIP_CATALOG_JSON,
     SHIP_CATALOG_MARKDOWN,
+    DRIVE_CATALOG_JSON,
     DRIVE_COMPARISON_HTML,
     DRIVE_COMPARISON_CLIENT_ASSETS,
 )
@@ -77,10 +79,7 @@ def build_pages(args: argparse.Namespace) -> None:
         common_chart_args.extend(["--game-version", args.game_version])
     optional_arg(common_chart_args, "--preset-library", args.preset_library)
 
-    if args.ui_only:
-        input_html_data = args.input_html_data or DRIVE_COMPARISON_HTML
-        common_chart_args.extend(["--input-html-data", input_html_data])
-    else:
+    if not args.ui_only:
         research_command = [
             python,
             "tools/build_research_catalog.py",
@@ -107,14 +106,27 @@ def build_pages(args: argparse.Namespace) -> None:
         optional_arg(ship_catalog_command, "--templates-dir", args.templates_dir)
         run(ship_catalog_command)
 
+        drive_catalog_command = [
+            python,
+            "tools/build_drive_catalog.py",
+            "--json-output",
+            DRIVE_CATALOG_JSON,
+        ]
+        optional_arg(drive_catalog_command, "--templates-dir", args.templates_dir)
+        optional_arg(drive_catalog_command, "--game-version", args.game_version)
+        run(drive_catalog_command)
+
+    if args.input_html_data:
+        common_chart_args.extend(["--input-html-data", args.input_html_data])
+    else:
         common_chart_args.extend([
+            "--drive-catalog",
+            DRIVE_CATALOG_JSON,
             "--research-catalog",
             RESEARCH_CATALOG_JSON,
             "--ship-catalog",
             SHIP_CATALOG_JSON,
         ])
-        if args.templates_dir:
-            common_chart_args.extend(["--templates-dir", args.templates_dir])
 
     run([python, "tools/build_drive_comparison.py", *common_chart_args, "--output", DRIVE_COMPARISON_HTML])
 

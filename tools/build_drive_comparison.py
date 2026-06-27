@@ -16,7 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ti_chart_core import as_float, detect_game_version, load_named_templates, resolve_templates_dir  # noqa: E402
+from ti_chart_core import as_float, detect_game_version, resolve_templates_dir  # noqa: E402
+from build_drive_catalog import build_catalog as build_drive_catalog_data  # noqa: E402
+from catalog_utils import parse_languages  # noqa: E402
 from drive_comparison_i18n import (  # noqa: E402
     apply_static_english_html,
     client_translation_pairs,
@@ -35,6 +37,7 @@ STANDARD_GRAVITY_MPS2 = 9.80665
 TARGET_DV_KPS = 500.0
 DEFAULT_DRY_MASS_TONS = 10000.0
 DEFAULT_PRESET_LIBRARY_PATH = ROOT / "data" / "preset_library.json"
+DEFAULT_DRIVE_CATALOG_PATH = ROOT / "data" / "generated" / "drive_catalog.json"
 PROJECTED_RESEARCH_DEPENDENCY_LINK_KIND = "projectedResearchDependency"
 REACTOR_LINEAGE_LINK_KIND = "reactorLineageProgression"
 DRIVE_FAMILY_LINEAGE_LINK_KIND = "driveFamilyProgression"
@@ -765,6 +768,84 @@ def load_json_file(path: Path) -> dict[str, Any]:
     return raw
 
 
+def load_drive_catalog(path: Path) -> dict[str, Any]:
+    catalog = load_json_file(path)
+    for key in ("drives", "powerPlants", "radiators"):
+        if not isinstance(catalog.get(key), list):
+            raise ValueError(f"Expected {key} array in drive catalog: {path}")
+    return catalog
+
+
+def catalog_drive_template(item: dict[str, Any]) -> dict[str, Any]:
+    template = dict(item.get("template") or {})
+    template.setdefault("dataName", item.get("dataName"))
+    template.setdefault("friendlyName", item.get("rawDisplayName") or item.get("dataName"))
+    template.setdefault("disable", bool(item.get("disabled")))
+    template.setdefault("alien", bool(item.get("alien")))
+    template.setdefault("requiredProjectName", item.get("requiredProject"))
+    template.setdefault("driveClassification", item.get("classification"))
+    template.setdefault("requiredPowerPlant", item.get("requiredPowerPlantClass"))
+    template.setdefault("thrust_N", item.get("thrustN"))
+    template.setdefault("EV_kps", item.get("exhaustVelocityKps"))
+    template.setdefault("efficiency", item.get("efficiency"))
+    template.setdefault("flatMass_tons", item.get("flatMassTons"))
+    template.setdefault("specificPower_kgMW", item.get("specificPowerKgMW"))
+    template.setdefault("cooling", item.get("cooling"))
+    template.setdefault("propellant", item.get("propellant"))
+    template.setdefault("perTankPropellantMaterials", item.get("perTankPropellantMaterials") or {})
+    return template
+
+
+def catalog_power_plant_template(item: dict[str, Any]) -> dict[str, Any]:
+    template = dict(item.get("template") or {})
+    template.setdefault("dataName", item.get("dataName"))
+    template.setdefault("friendlyName", item.get("rawDisplayName") or item.get("dataName"))
+    template.setdefault("disable", bool(item.get("disabled")))
+    template.setdefault("alien", bool(item.get("alien")))
+    template.setdefault("requiredProjectName", item.get("requiredProject"))
+    template.setdefault("powerPlantClass", item.get("powerPlantClass"))
+    template.setdefault("maxOutput_GW", item.get("maxOutputGW"))
+    template.setdefault("specificPower_tGW", item.get("specificMassTonsPerGW"))
+    template.setdefault("efficiency", item.get("efficiency"))
+    template.setdefault("crew", item.get("crew"))
+    return template
+
+
+def catalog_radiator_template(item: dict[str, Any]) -> dict[str, Any]:
+    template = dict(item.get("template") or {})
+    template.setdefault("dataName", item.get("dataName"))
+    template.setdefault("friendlyName", item.get("rawDisplayName") or item.get("dataName"))
+    template.setdefault("disable", bool(item.get("disabled")))
+    template.setdefault("alien", bool(item.get("alien")))
+    template.setdefault("requiredProjectName", item.get("requiredProject"))
+    template.setdefault("radiatorType", item.get("radiatorType"))
+    template.setdefault("specificPower_2s_KWkg", item.get("specificPowerKWPerKg"))
+    return template
+
+
+def catalog_templates(catalog: dict[str, Any]) -> tuple[
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+]:
+    drive_templates = {
+        str(item.get("dataName") or ""): catalog_drive_template(item)
+        for item in catalog.get("drives", [])
+        if isinstance(item, dict) and item.get("dataName")
+    }
+    power_plant_templates = {
+        str(item.get("dataName") or ""): catalog_power_plant_template(item)
+        for item in catalog.get("powerPlants", [])
+        if isinstance(item, dict) and item.get("dataName")
+    }
+    radiator_templates = {
+        str(item.get("dataName") or ""): catalog_radiator_template(item)
+        for item in catalog.get("radiators", [])
+        if isinstance(item, dict) and item.get("dataName")
+    }
+    return drive_templates, power_plant_templates, radiator_templates
+
+
 def empty_preset_library() -> dict[str, Any]:
     return {
         "format": "ti-engine-chart-built-in-presets/v1",
@@ -796,16 +877,16 @@ def apply_preset_library(data: dict[str, Any], path: Path | None) -> None:
 
 
 def build_data(
-    templates_dir: Path,
+    drive_catalog_path: Path | None,
     research_catalog_path: Path,
     ship_catalog_path: Path,
     game_version: dict[str, str | None] | None = None,
+    drive_catalog: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     research = ResearchCostIndex(research_catalog_path)
     ship_catalog = load_json_file(ship_catalog_path)
-    drive_templates = load_named_templates(templates_dir, "TIDriveTemplate.json")
-    power_plant_templates = load_named_templates(templates_dir, "TIPowerPlantTemplate.json")
-    radiator_templates = load_named_templates(templates_dir, "TIRadiatorTemplate.json")
+    drive_catalog_data = drive_catalog if drive_catalog is not None else load_drive_catalog(drive_catalog_path or DEFAULT_DRIVE_CATALOG_PATH)
+    drive_templates, power_plant_templates, radiator_templates = catalog_templates(drive_catalog_data)
 
     power_plants = [
         reactor_row(template, research)
@@ -986,16 +1067,15 @@ def build_data(
             }
         )
 
+    catalog_source = drive_catalog_data.get("source", {}) if isinstance(drive_catalog_data.get("source"), dict) else {}
     source_files = {
-        "templatesDir": str(templates_dir),
-        "driveTemplate": str(templates_dir / "TIDriveTemplate.json"),
-        "powerPlantTemplate": str(templates_dir / "TIPowerPlantTemplate.json"),
-        "radiatorTemplate": str(templates_dir / "TIRadiatorTemplate.json"),
+        "driveCatalog": str(drive_catalog_path) if drive_catalog_path else "in-memory drive catalog",
+        "driveCatalogGameVersion": catalog_source.get("gameVersion"),
         "researchCatalog": str(research_catalog_path),
         "shipCatalog": str(ship_catalog_path),
-        "gameVersion": (game_version or {}).get("version") or "unknown",
-        "gameVersionSource": (game_version or {}).get("source"),
-        "steamBuildId": (game_version or {}).get("steamBuildId"),
+        "gameVersion": (game_version or {}).get("version") or catalog_source.get("gameVersion") or "unknown",
+        "gameVersionSource": (game_version or {}).get("source") or catalog_source.get("gameVersionSource"),
+        "steamBuildId": (game_version or {}).get("steamBuildId") or catalog_source.get("steamBuildId"),
     }
     drive_links = build_drive_links(drive_rows, research)
     return {
@@ -1136,6 +1216,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--templates-dir", help="Path to TerraInvicta_Data/StreamingAssets/Templates.")
     parser.add_argument(
+        "--drive-catalog",
+        default=str(DEFAULT_DRIVE_CATALOG_PATH),
+        help="Path to generated drive_catalog.json.",
+    )
+    parser.add_argument(
         "--research-catalog",
         default=str(ROOT / "data" / "generated" / "research_catalog.json"),
         help="Path to generated research_catalog.json.",
@@ -1159,8 +1244,13 @@ def parse_args() -> argparse.Namespace:
         "--input-html-data",
         help=(
             "Reuse embedded DATA JSON from an existing generated HTML page. "
-            "This skips template loading and is intended for UI-only rebuilds."
+            "This skips catalog loading and is intended only for explicit legacy/debug rebuilds."
         ),
+    )
+    parser.add_argument(
+        "--catalog-languages",
+        default="kor,en",
+        help="Comma-separated localization languages for in-memory catalog generation with --templates-dir.",
     )
     parser.add_argument(
         "--redact-source-paths",
@@ -1188,17 +1278,27 @@ def main() -> None:
         if args.game_version:
             data.setdefault("source", {})["gameVersion"] = args.game_version
     else:
-        templates_dir = resolve_templates_dir(args.templates_dir)
-        if templates_dir is None:
-            raise SystemExit("Templates directory not found. Pass --templates-dir, or use --input-html-data for UI-only rebuilds.")
         research_catalog = Path(args.research_catalog).expanduser().resolve()
         if not research_catalog.is_file():
             raise SystemExit(f"Research catalog not found: {research_catalog}")
         ship_catalog = Path(args.ship_catalog).expanduser().resolve()
         if not ship_catalog.is_file():
             raise SystemExit(f"Ship catalog not found: {ship_catalog}")
-        game_version = detect_game_version(templates_dir, args.game_version)
-        data = build_data(templates_dir, research_catalog, ship_catalog, game_version)
+        templates_dir = resolve_templates_dir(args.templates_dir) if args.templates_dir else None
+        if templates_dir:
+            game_version = detect_game_version(templates_dir, args.game_version)
+            drive_catalog_data = build_drive_catalog_data(
+                templates_dir,
+                parse_languages(args.catalog_languages),
+                game_version,
+            )
+            data = build_data(None, research_catalog, ship_catalog, game_version, drive_catalog_data)
+        else:
+            drive_catalog = Path(args.drive_catalog).expanduser().resolve()
+            if not drive_catalog.is_file():
+                raise SystemExit(f"Drive catalog not found: {drive_catalog}")
+            game_version = {"version": args.game_version, "source": "argument", "steamBuildId": None} if args.game_version else None
+            data = build_data(drive_catalog, research_catalog, ship_catalog, game_version)
 
     apply_preset_library(data, preset_library)
     html = build_html(data, args.redact_source_paths)
