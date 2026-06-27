@@ -64,12 +64,12 @@
 - After: added `tools/build_drive_catalog.py`; generated `data/generated/drive_catalog.json` from `/mnt/c/Program Files (x86)/Steam/steamapps/common/Terra Invicta/TerraInvicta_Data/StreamingAssets/Templates`.
 - Delta: generated catalog reports 541 drives, 523 enabled drives, 61 power plants, 13 radiators, game version `1.0.38`, localization languages `kor,en`; targeted parser found 541 localized drive names and 96 localized descriptions.
 - Interpretation: Phase 1 meets the catalog-generation and localization-metadata requirements. The Poseidon/Neutron Flux sample preserves `dataName` `NeutronFluxLanternx1` and raw display `Neutron Flux Lantern x1` while adding localized English `Poseidon Lantern x1` and Korean `포세이돈 등 x1`.
-- Commit: pending phase gate.
+- Commit: `f8f2fc2 feat: add generated drive catalog`.
 - Commit blocker: none.
 
 ## Progress
 
-- Implemented. Phase gate pending.
+- Implemented and phase gate passed.
 
 ## Decision log
 

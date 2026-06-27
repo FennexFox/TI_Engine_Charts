@@ -64,12 +64,12 @@
 - After: generated drive rows now include `rawDisplayName`, `displayNameLocalized`, `description`, `aliases`, and `rawBaseDisplayName`; `row.displayName` remains a string and prefers localized English when available. Client helpers choose localized labels/descriptions by `UI_LANG`.
 - Delta: generated Poseidon sample has stable `id` `NeutronFluxLanternx1`, `rawDisplayName` `Neutron Flux Lantern x1`, `displayName` `Poseidon Lantern x1`, localized Korean/English names, localized Korean/English description, and aliases containing both raw and localized names. A generated row without description retains category/family/project fallback parts.
 - Interpretation: localized display and description metadata reaches the UI while stable IDs and compatible string display fields remain intact.
-- Commit: pending phase gate.
+- Commit: `b5281c2 feat: show localized drive metadata`.
 - Commit blocker: none.
 
 ## Progress
 
-- Implemented. Phase gate pending.
+- Implemented and phase gate passed.
 
 ## Decision log
 
