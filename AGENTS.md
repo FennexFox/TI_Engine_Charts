@@ -16,6 +16,22 @@
   clearly named explicit option or script and do not make it part of the default
   build.
 
+## Graphify And Serena Workflow
+
+This repository is large enough that Graphify usually adds structural value. Use `graphify-out/GRAPH_REPORT.md` as a navigation aid before broad refactors, unfamiliar feature work, cross-module changes, chart/preset/dry-mass/module-effect work, or tasks with unclear ownership. Trivial, obvious single-file documentation edits may skip Graphify.
+
+Graphify is a map, not source of truth. Treat inferred or semantic edges as leads only; verify relationships in the actual source before editing or reviewing.
+
+When Serena is available, prefer symbol and reference queries over loading whole large files. In particular, avoid reading generated `docs/index.html`, `docs/assets/js/**`, or large source modules when a focused symbol lookup, reference search, or small source slice is enough.
+
+Suggested Graphify entry points:
+
+- Chart interaction and rendering: `Chart Rendering`, `Chart Pointer Tools`, `Chart Viewport`, and `Axis Ticks`.
+- Filtering, power, and module behavior: `Drive Filtering`, `Module Effects`, and `Core State`.
+- Presets: `Preset Codec`, `Preset Importer`, and `UI Controls`.
+- Dry mass and ship designer work: `Dry Mass Model` and `Ship Designer UI Docs`.
+- Build and catalog work: `Dashboard Builder`, `Research Catalog`, `Template Loading`, `Build Workflow Policy`, `Source Ownership Docs`, and `WSL Build Script`.
+
 ## Generated and External Data
 
 Treat these paths as opaque generated artifacts or parsed external data. Do not
@@ -99,8 +115,8 @@ workflow and may commit and push generated files.
 
 ## Search and Review Scope
 
-- Prefer searching source paths first: `tools/**`, `scripts/**`, `README.md`,
-  `.github/**`, and `docs/dev/**`.
+- Prefer searching source paths first: `tools/**`, `scripts/**`, `.github/**`,
+  `README.md`, `dev-docs/**`, and `data/preset_library.json`.
 - Treat generated paths as opaque for routine work. If they appear in a diff,
   note only that generated artifacts changed when relevant; do not inspect their
   content or request changes based on generated-file churn alone.

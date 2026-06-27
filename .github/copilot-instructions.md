@@ -28,6 +28,12 @@ repository. Task-specific templates are split by topic under
 - Do not propose edits or review comments for `.codex/vendor/**` unless
   the request explicitly targets vendor sync, upstream fixes, or a
   vendoring audit.
+- Do not review generated output, tool-state files, or temporary planning
+  artifacts as product code. This includes `docs/**`, `data/generated/**`,
+  `graphify-out/**`, `.serena/**`, `.chatgpt/**`, `.codex/**`, and
+  `dev-docs/plan/**` unless the request explicitly targets those paths.
+- Use Graphify output, Serena state, Codex task files, and temporary plans
+  only as navigation or handoff context when explicitly relevant.
 
 ## Language & Style Guardrails
 - Prefer short bullets over long paragraphs.

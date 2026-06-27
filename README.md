@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MIT -->
+
 # Terra Invicta Engine Charts
 
 GitHub Pages builder and static dashboard for Terra Invicta engine comparison charts.
@@ -23,6 +25,13 @@ Install Node dependencies:
 npm ci
 ```
 
+Install Python development tools when you want to run the full verification
+suite, including SPDX/REUSE license checks:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
 Playwright's Chromium browser is only required when you run browser verification
 through `npm run verify`, `npm run verify:browser`, or `./scripts/build-wsl.sh --verify`:
 
@@ -46,7 +55,8 @@ Use this for normal UI, CSS, JavaScript client, template, preset-library, and do
 npm run build
 ```
 
-Run verification separately when you need it:
+Run verification separately when you need it. Full verification includes the
+SPDX/REUSE license check:
 
 ```powershell
 npm run verify
@@ -219,6 +229,30 @@ The deploy script only stages these generated files:
 * `docs/assets/js`
 
 Other local changes are left untouched.
+
+## Documentation and planning notes
+
+The repository uses `docs/` as a pure generated Pages/output root. This includes the generated dashboard, published client modules, and generated catalog Markdown files. Do not use `docs/` for durable documentation or planning notes, and do not hand-edit generated `docs/**` artifacts as source.
+
+Durable project guidance lives in:
+
+- `README.md` for setup, build, deploy, dashboard scope, and generated-output policy;
+- `AGENTS.md` for contributor and agent workflow rules;
+- `.github/**` for issue, PR, review, and automation guidance;
+- `dev-docs/architecture.md` for the working client architecture map.
+
+Temporary implementation plans and profiling notes live in `dev-docs/plan/**`. Those folders may be deleted after the related PR is merged, closed, or abandoned. Before deleting a plan folder, promote only still-useful decisions or validated findings into durable documentation or the relevant GitHub issue.
+
+## License
+
+Project-owned source code, build/test tooling, and documentation are licensed
+under the MIT License. See `LICENSE` and the SPDX metadata in `REUSE.toml`.
+
+Generated catalogs, generated catalog documentation, and generated page bundles
+that contain Terra Invicta-derived identifiers or data are not covered by MIT.
+They are marked with `LicenseRef-Terra-Invicta-Data` in `REUSE.toml` and remain
+subject to the terms and ownership applicable to Terra Invicta and its
+rightsholders.
 
 ## Troubleshooting Windows tools leaking into WSL PATH
 
