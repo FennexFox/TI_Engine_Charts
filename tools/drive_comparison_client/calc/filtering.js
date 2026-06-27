@@ -18,6 +18,22 @@ export function rowProjectLabel(row) {
         : (row.requiredProjectDisplay.ko || row.requiredProjectDisplay.en || row.requiredProject);
     }
 
+export function rowDriveLabel(row) {
+      const display = row && row.displayNameLocalized && typeof row.displayNameLocalized === "object"
+        ? row.displayNameLocalized
+        : {};
+      if (UI_LANG === "en") return display.en || row.displayName || row.rawDisplayName || row.id || "";
+      return display.ko || display.kor || display.en || row.displayName || row.rawDisplayName || row.id || "";
+    }
+
+export function rowDriveDescription(row) {
+      const description = row && row.description && typeof row.description === "object"
+        ? row.description
+        : {};
+      if (UI_LANG === "en") return description.en || "";
+      return description.ko || description.kor || description.en || "";
+    }
+
 export function syncFilterInputs() {
       document.querySelectorAll(".category-row").forEach(row => {
         const input = row.querySelector("input");
@@ -235,11 +251,15 @@ export function rowMatchesSearch(row) {
       if (!state.searchTerm) return true;
       const haystack = [
         row.displayName,
+        rowDriveLabel(row),
+        row.rawDisplayName,
         row.baseDisplayName,
+        row.rawBaseDisplayName,
         row.requiredProject,
         rowProjectLabel(row),
         rowCategoryLabel(row),
         rowFamilyLabel(row),
+        ...(Array.isArray(row.aliases) ? row.aliases : []),
       ].join(" ").toLocaleLowerCase();
       return haystack.includes(state.searchTerm);
     }

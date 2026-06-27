@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -15,6 +16,7 @@ RESEARCH_CATALOG_JSON = "data/generated/research_catalog.json"
 RESEARCH_CATALOG_MARKDOWN = "docs/research_catalog.md"
 SHIP_CATALOG_JSON = "data/generated/ship_catalog.json"
 SHIP_CATALOG_MARKDOWN = "docs/ship_catalog.md"
+DRIVE_CATALOG_JSON = "data/generated/drive_catalog.json"
 DRIVE_COMPARISON_HTML = "docs/index.html"
 DRIVE_COMPARISON_CLIENT_ASSETS = "docs/assets/js"
 GENERATED_PATHS = (
@@ -22,6 +24,7 @@ GENERATED_PATHS = (
     RESEARCH_CATALOG_MARKDOWN,
     SHIP_CATALOG_JSON,
     SHIP_CATALOG_MARKDOWN,
+    DRIVE_CATALOG_JSON,
     DRIVE_COMPARISON_HTML,
     DRIVE_COMPARISON_CLIENT_ASSETS,
 )
@@ -43,6 +46,80 @@ def run(command: list[str], *, capture: bool = False) -> subprocess.CompletedPro
 def optional_arg(command: list[str], flag: str, value: str | None) -> None:
     if value:
         command.extend([flag, value])
+
+
+def catalog_source_args(input_html_data: str | None = None) -> list[str]:
+    if input_html_data:
+        return ["--input-html-data", input_html_data]
+    return [
+        "--drive-catalog",
+        DRIVE_CATALOG_JSON,
+        "--research-catalog",
+        RESEARCH_CATALOG_JSON,
+        "--ship-catalog",
+        SHIP_CATALOG_JSON,
+    ]
+
+
+def verify_catalog_source_path() -> None:
+    args = catalog_source_args()
+    expected = [
+        "--drive-catalog",
+        DRIVE_CATALOG_JSON,
+        "--research-catalog",
+        RESEARCH_CATALOG_JSON,
+        "--ship-catalog",
+        SHIP_CATALOG_JSON,
+    ]
+    if args != expected:
+        raise SystemExit(f"Normal chart rebuild source args changed unexpectedly: {args!r}")
+    if "--input-html-data" in args:
+        raise SystemExit("Normal chart rebuild path must not reuse embedded docs/index.html data")
+    print(f"Catalog source verification passed: {DRIVE_CATALOG_JSON}")
+
+
+def looks_like_local_absolute_path(value: str) -> bool:
+    normalized = value.replace("\\", "/")
+    if normalized.startswith(("/", "~/", "//")):
+        return True
+    return len(value) >= 3 and value[1] == ":" and value[2] in ("/", "\\")
+
+
+def source_metadata_strings(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        strings: list[str] = []
+        for item in value.values():
+            strings.extend(source_metadata_strings(item))
+        return strings
+    if isinstance(value, list):
+        strings = []
+        for item in value:
+            strings.extend(source_metadata_strings(item))
+        return strings
+    return []
+
+
+def verify_drive_catalog_source_metadata() -> None:
+    path = ROOT / DRIVE_CATALOG_JSON
+    data = json.loads(path.read_text(encoding="utf-8"))
+    source = data.get("source")
+    if not isinstance(source, dict):
+        raise SystemExit(f"Drive catalog is missing source metadata: {DRIVE_CATALOG_JSON}")
+    if "templatesDir" in source:
+        raise SystemExit("Drive catalog source metadata must not store local templatesDir paths")
+    absolute_paths = [
+        value
+        for value in source_metadata_strings(source)
+        if looks_like_local_absolute_path(value)
+    ]
+    if absolute_paths:
+        raise SystemExit(
+            "Drive catalog source metadata contains local absolute paths: "
+            + ", ".join(sorted(set(absolute_paths)))
+        )
+    print(f"Drive catalog source metadata path check passed: {DRIVE_CATALOG_JSON}")
 
 
 def generated_paths_changed() -> bool:
@@ -77,10 +154,7 @@ def build_pages(args: argparse.Namespace) -> None:
         common_chart_args.extend(["--game-version", args.game_version])
     optional_arg(common_chart_args, "--preset-library", args.preset_library)
 
-    if args.ui_only:
-        input_html_data = args.input_html_data or DRIVE_COMPARISON_HTML
-        common_chart_args.extend(["--input-html-data", input_html_data])
-    else:
+    if not args.ui_only:
         research_command = [
             python,
             "tools/build_research_catalog.py",
@@ -107,14 +181,17 @@ def build_pages(args: argparse.Namespace) -> None:
         optional_arg(ship_catalog_command, "--templates-dir", args.templates_dir)
         run(ship_catalog_command)
 
-        common_chart_args.extend([
-            "--research-catalog",
-            RESEARCH_CATALOG_JSON,
-            "--ship-catalog",
-            SHIP_CATALOG_JSON,
-        ])
-        if args.templates_dir:
-            common_chart_args.extend(["--templates-dir", args.templates_dir])
+        drive_catalog_command = [
+            python,
+            "tools/build_drive_catalog.py",
+            "--json-output",
+            DRIVE_CATALOG_JSON,
+        ]
+        optional_arg(drive_catalog_command, "--templates-dir", args.templates_dir)
+        optional_arg(drive_catalog_command, "--game-version", args.game_version)
+        run(drive_catalog_command)
+
+    common_chart_args.extend(catalog_source_args(args.input_html_data))
 
     run([python, "tools/build_drive_comparison.py", *common_chart_args, "--output", DRIVE_COMPARISON_HTML])
 
@@ -158,6 +235,16 @@ def commit_and_push(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--verify-catalog-source-path",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--verify-drive-catalog-source-metadata",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--templates-dir", help="Path to TerraInvicta_Data/StreamingAssets/Templates.")
     parser.add_argument("--game-version", help="Version label to embed in the generated chart footer.")
     parser.add_argument(
@@ -167,7 +254,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--ui-only",
         action="store_true",
-        help="Rebuild docs/index.html from existing embedded page data without regenerating catalogs.",
+        help="Rebuild docs/index.html from repo-local generated catalogs without reading a local Terra Invicta install.",
     )
     parser.add_argument(
         "--input-html-data",
@@ -184,6 +271,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.verify_catalog_source_path:
+        verify_catalog_source_path()
+        return 0
+    if args.verify_drive_catalog_source_metadata:
+        verify_drive_catalog_source_metadata()
+        return 0
     build_pages(args)
     commit_and_push(args)
     return 0

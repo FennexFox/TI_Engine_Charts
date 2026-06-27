@@ -1,4 +1,4 @@
-import { chartMassOptions, chartSummaryMassOptions, effectiveDriveValues, isImpracticalOption, massOptions, rowCategoryLabel, rowFamilyLabel, rowProjectLabel, rowUnlockResearchValue } from "../calc/filtering.js";
+import { chartMassOptions, chartSummaryMassOptions, effectiveDriveValues, isImpracticalOption, massOptions, rowCategoryLabel, rowDriveDescription, rowDriveLabel, rowFamilyLabel, rowProjectLabel, rowUnlockResearchValue } from "../calc/filtering.js";
 import { isBandMetric, optionMetricValue } from "../calc/metrics.js";
 import { clamp } from "../shared/math.js";
 import { UI_LANG } from "../shared/i18n.js";
@@ -65,6 +65,8 @@ export function unpinTooltipItemByKey(key) {
 export function tooltipHtml(row, option = null, key = "", index = 0, itemCount = 1) {
       const metrics = tooltipMetricsHtml(row, option);
       const powerName = option ? option.displayName : (UI_LANG === "en" ? "No power plant candidate" : "전원 후보 없음");
+      const driveDescription = rowDriveDescription(row);
+      const fallbackSubtitle = `${rowCategoryLabel(row)} / ${rowFamilyLabel(row)} · ${rowProjectLabel(row)}`;
       const pinned = isPinnedTooltipKey(key);
       const pinLabel = UI_LANG === "en" ? (pinned ? "Unpin this card" : "Pin this card") : (pinned ? "이 카드 고정 해제" : "이 카드 고정");
       return `
@@ -77,8 +79,8 @@ export function tooltipHtml(row, option = null, key = "", index = 0, itemCount =
             <button class="tooltip-item-close" type="button" data-tooltip-key="${escapeHtml(key)}" aria-label="항목 삭제">&times;</button>
             <button class="tooltip-item-pin" type="button" data-tooltip-key="${escapeHtml(key)}" aria-label="${escapeHtml(pinLabel)}" aria-pressed="${pinned ? "true" : "false"}">📌</button>
           </div>
-          <h2>${escapeHtml(row.displayName)}<span class="tooltip-title-power">${escapeHtml(powerName)}</span></h2>
-          <div class="muted">${escapeHtml(rowCategoryLabel(row))} / ${escapeHtml(rowFamilyLabel(row))} · ${escapeHtml(rowProjectLabel(row))}</div>
+          <h2>${escapeHtml(rowDriveLabel(row))}<span class="tooltip-title-power">${escapeHtml(powerName)}</span></h2>
+          <div class="muted">${escapeHtml(driveDescription || fallbackSubtitle)}</div>
           ${metrics}
         </section>
       `;
@@ -807,7 +809,7 @@ export function renderTable(rows) {
             : reactorBandLabel(powerOptions))
           : `<span class="warning">없음</span>`;
         tr.innerHTML = `
-          <td><div class="drive-name">${escapeHtml(row.displayName)}</div><div class="project-name">${escapeHtml(rowProjectLabel(row))}</div></td>
+          <td><div class="drive-name">${escapeHtml(rowDriveLabel(row))}</div><div class="project-name">${escapeHtml(rowProjectLabel(row))}</div></td>
           <td><span class="pill"><span class="family-swatch" style="${backgroundStyle(row.familyColor, row.familyColorOklch || row.familyColor)}"></span>${escapeHtml(rowCategoryLabel(row))} / ${escapeHtml(rowFamilyLabel(row))}</span></td>
           <td class="numeric">${researchCell(row, maxResearch)}</td>
           <td class="numeric">${metricCell(row, metricDomain)}</td>
@@ -890,14 +892,15 @@ export function sortRows(rows) {
           result = String(aValue ?? "").localeCompare(String(bValue ?? ""), undefined, { numeric: true, sensitivity: "base" });
         }
         if (result === 0) {
-          result = rowUnlockResearchValue(a) - rowUnlockResearchValue(b) || a.displayName.localeCompare(b.displayName);
+          result = rowUnlockResearchValue(a) - rowUnlockResearchValue(b)
+            || rowDriveLabel(a).localeCompare(rowDriveLabel(b), undefined, { numeric: true, sensitivity: "base" });
         }
         return result * direction;
       });
     }
 
 export function sortValue(row, key) {
-      if (key === "drive") return row.displayName;
+      if (key === "drive") return rowDriveLabel(row);
       if (key === "family") return `${rowCategoryLabel(row)} / ${rowFamilyLabel(row)}`;
       if (key === "research") return rowUnlockResearchValue(row);
       if (key === "metric") return metricDefs[state.metric].value(row);
@@ -1044,4 +1047,3 @@ export function splitRomanSuffix(value) {
       if (!match) return null;
       return { base: match[1], roman: match[2] };
     }
-

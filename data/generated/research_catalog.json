@@ -4,13 +4,13 @@
     "templateRoot": "TerraInvicta_Data/StreamingAssets/Templates",
     "techTemplate": {
       "file": "TITechTemplate.json",
-      "size": 52365,
-      "mtime_ns": 1776893041602093100
+      "size": 52332,
+      "mtime_ns": 1782251027316586100
     },
     "projectTemplate": {
       "file": "TIProjectTemplate.json",
-      "size": 444414,
-      "mtime_ns": 1776892833391078300
+      "size": 444389,
+      "mtime_ns": 1782251008870762400
     },
     "localizationLanguages": [
       "kor",
@@ -39,7 +39,7 @@
       "SpaceScience": 141,
       "Xenology": 95
     },
-    "edges": 1720,
+    "edges": 1718,
     "unknownPrerequisites": 0
   },
   "nodes": [
@@ -314,7 +314,7 @@
       "kind": "tech",
       "friendlyName": "Solid Core Fission Systems",
       "displayName": {
-        "kor": "고제 노심 핵분열 시스템",
+        "kor": "고체 노심 핵분열 시스템",
         "en": "Solid Core Fission Systems"
       },
       "category": "Energy",
@@ -1404,17 +1404,12 @@
       "requirements": {
         "all": [
           {
-            "node": "AdvancedNeuralNetworks",
-            "kind": "tech"
-          },
-          {
             "node": "QuantumComputing",
             "kind": "tech"
           }
         ]
       },
       "prerequisiteNodes": [
-        "AdvancedNeuralNetworks",
         "QuantumComputing"
       ],
       "effects": [
@@ -1947,7 +1942,7 @@
       "kind": "tech",
       "friendlyName": "Mind and Machine",
       "displayName": {
-        "kor": "정신 및 기계",
+        "kor": "정신 그리고 기계",
         "en": "Mind and Machine"
       },
       "category": "LifeScience",
@@ -1987,7 +1982,7 @@
       "kind": "tech",
       "friendlyName": "Orbital Torus Habs",
       "displayName": {
-        "kor": "링형 거주지",
+        "kor": "고리형 거주지",
         "en": "Ring Habs"
       },
       "category": "LifeScience",
@@ -2027,7 +2022,7 @@
       "kind": "tech",
       "friendlyName": "Genies",
       "displayName": {
-        "kor": "유전자",
+        "kor": "지니",
         "en": "Genies"
       },
       "category": "LifeScience",
@@ -2372,7 +2367,7 @@
       "kind": "tech",
       "friendlyName": "Supercapacitors",
       "displayName": {
-        "kor": "슈퍼 커패시터",
+        "kor": "대용량 축전기",
         "en": "Supercapacitors"
       },
       "category": "Materials",
@@ -2704,7 +2699,7 @@
       "kind": "tech",
       "friendlyName": "Ultracapacitors",
       "displayName": {
-        "kor": "울트라 커패시터",
+        "kor": "초고용량 축전기",
         "en": "Ultracapacitors"
       },
       "category": "Materials",
@@ -2779,7 +2774,7 @@
       "kind": "tech",
       "friendlyName": "Titanic Spacecraft",
       "displayName": {
-        "kor": "타이타닉 우주선",
+        "kor": "초거대 우주선",
         "en": "Titanic Spacecraft"
       },
       "category": "Materials",
@@ -2869,7 +2864,7 @@
       "kind": "tech",
       "friendlyName": "Directed Energy Warfare Doctrine",
       "displayName": {
-        "kor": "지향성 에너지 전투 원칙",
+        "kor": "지향성 에너지 전투 교리",
         "en": "Directed Energy Warfare Doctrine"
       },
       "category": "MilitaryScience",
@@ -2899,7 +2894,7 @@
       "kind": "tech",
       "friendlyName": "Kinetics Warfare Doctrine",
       "displayName": {
-        "kor": "운동성 전투 원칙",
+        "kor": "운동성 전투 교리",
         "en": "Kinetics Warfare Doctrine"
       },
       "category": "MilitaryScience",
@@ -2929,7 +2924,7 @@
       "kind": "tech",
       "friendlyName": "Missile Warfare Doctrine",
       "displayName": {
-        "kor": "미사일 전투 원칙",
+        "kor": "미사일 전투 교리",
         "en": "Missile Warfare Doctrine"
       },
       "category": "MilitaryScience",
@@ -13269,7 +13264,7 @@
       "kind": "project",
       "friendlyName": "Ring Core",
       "displayName": {
-        "kor": "링형 거주지 코어",
+        "kor": "고리형 거주지 코어",
         "en": "Ring Core"
       },
       "category": "LifeScience",
@@ -13622,7 +13617,7 @@
       "kind": "project",
       "friendlyName": "High-G Recombinants",
       "displayName": {
-        "kor": "-고중력 재조합",
+        "kor": "고중력 재조합",
         "en": "High-G Recombinants"
       },
       "category": "LifeScience",
@@ -14259,7 +14254,7 @@
       "kind": "project",
       "friendlyName": "Space Dock",
       "displayName": {
-        "kor": "우주 정거장",
+        "kor": "우주 도크",
         "en": "Space Dock"
       },
       "category": "Materials",
@@ -33476,7 +33471,7 @@
       "kind": "project",
       "friendlyName": "Advanced Interplanetary Rockets",
       "displayName": {
-        "kor": "고성능 화학 로켓",
+        "kor": "장거리 화학 로켓",
         "en": "Long-Range Chemical Rockets"
       },
       "category": "SpaceScience",
@@ -33685,25 +33680,20 @@
       "requirements": {
         "all": [
           {
-            "node": "Project_GasCoreFissionReactorI",
-            "kind": "project"
-          },
-          {
             "node": "MagneticNozzles",
             "kind": "tech"
           },
           {
-            "node": "Project_FissionFragDrive",
+            "node": "Project_GasCoreFissionReactorI",
             "kind": "project"
           },
           {
-            "node": "HighTemperatureSuperconductors",
-            "kind": "tech"
+            "node": "Project_FissionFragDrive",
+            "kind": "project"
           }
         ]
       },
       "prerequisiteNodes": [
-        "HighTemperatureSuperconductors",
         "MagneticNozzles",
         "Project_FissionFragDrive",
         "Project_GasCoreFissionReactorI"
@@ -35192,7 +35182,7 @@
       "kind": "project",
       "friendlyName": "Helion Torus Lantern",
       "displayName": {
-        "kor": "헬리온 원한체 등",
+        "kor": "헬리온 원환체 등",
         "en": "Helion Torus Lantern"
       },
       "category": "SpaceScience",
@@ -39766,6 +39756,11 @@
           {
             "node": "Project_PherocyteEmitter",
             "kind": "project"
+          },
+          {
+            "factionAny": [
+              "ExploitCouncil"
+            ]
           }
         ]
       },
@@ -39780,11 +39775,10 @@
         "disable": false
       },
       "availability": {
-        "factionAvailableChance": 20,
+        "factionAvailableChance": 100,
         "initialUnlockChance": 0,
         "deltaUnlockChance": 10,
-        "maxUnlockChance": 100,
-        "factionAlways": "ExploitCouncil"
+        "maxUnlockChance": 100
       },
       "grants": {
         "resources": []
@@ -42577,10 +42571,6 @@
     },
     {
       "from": "AdvancedNeuralNetworks",
-      "to": "AppliedArtificialIntelligence"
-    },
-    {
-      "from": "AdvancedNeuralNetworks",
       "to": "Neutronics"
     },
     {
@@ -44098,10 +44088,6 @@
     {
       "from": "HighTemperatureSuperconductors",
       "to": "Project_CoilgunBatteryMk2"
-    },
-    {
-      "from": "HighTemperatureSuperconductors",
-      "to": "Project_DustyPlasmaDrive"
     },
     {
       "from": "HighTemperatureSuperconductors",
@@ -49174,7 +49160,6 @@
     ],
     "AdvancedNeuralNetworks": [
       "AdvancedMissileWarfareDoctrine",
-      "AppliedArtificialIntelligence",
       "Neutronics",
       "Project_AdministrationNode",
       "Project_ContrabandScanners",
@@ -49657,7 +49642,6 @@
       "MagneticPlasmaConfinementTechniques",
       "Project_CoilCannonMk2",
       "Project_CoilgunBatteryMk2",
-      "Project_DustyPlasmaDrive",
       "Project_SuperconductingCoilBattery"
     ],
     "ImprovedShipbuildingTechniques": [
