@@ -9,6 +9,25 @@ import { metricDefs, state, tooltip } from "../state/core.js";
 import { backgroundStyle, escapeHtml, formatAxisTick, formatCompact, formatNumber, formatPercent, formatTick, formatTwr, formatTwrDynamicUnit, paintStyle, trim } from "./formatting.js";
 export { backgroundStyle, escapeHtml, formatAxisTick, formatCompact, formatNumber, formatPercent, formatTick, formatTwr, formatTwrDynamicUnit, paintStyle, trim } from "./formatting.js";
 
+const PROPELLANT_RESOURCE_LABELS_EN = {
+      water: "Water",
+      volatiles: "Volatiles",
+      metals: "Metals",
+      nobleMetals: "Noble metals",
+      fissiles: "Fissiles",
+      antimatter: "Antimatter",
+      exotics: "Exotics",
+    };
+const PROPELLANT_RESOURCE_LABELS_KO = {
+      water: "물",
+      volatiles: "휘발물",
+      metals: "금속",
+      nobleMetals: "귀금속",
+      fissiles: "핵분열성 물질",
+      antimatter: "반물질",
+      exotics: "외계물질",
+    };
+
 
 export function tooltipPanelHtml(items) {
       const pinnedText = UI_LANG === "en" ? "Pinned" : "고정됨";
@@ -370,6 +389,7 @@ export function tooltipBreakdownHtml(row, option) {
       const componentRows = components.map(([label, value, className, displayValue]) => `
             <span>${label}</span><strong>${displayValue}</strong>
       `).join("");
+      const propellantResources = propellantResourcesHtml(row, option);
       const componentSegments = components.map(([label, value, className]) => {
         const share = clamp(value / total * 100, 0, 100);
         return `<span class="${className}" style="width:${share.toFixed(2)}%" title="${label}: ${formatNumber(value, " t")}"></span>`;
@@ -386,10 +406,58 @@ export function tooltipBreakdownHtml(row, option) {
             <div class="tooltip-stack" aria-hidden="true">
               ${componentSegments}
             </div>
+            ${propellantResources}
             <div class="muted">${UI_LANG === "en" ? "Waste heat" : "폐열"}: ${wasteHeatText}${heatMultiplierText}</div>
           </div>
         </details>
       `;
+    }
+
+function propellantResourcesHtml(row, option) {
+      const propellantTons = Number(option && option.propellantTons);
+      if (!Number.isFinite(propellantTons) || propellantTons <= 0) return "";
+      const materials = row && row.perTankPropellantMaterials && typeof row.perTankPropellantMaterials === "object"
+        ? row.perTankPropellantMaterials
+        : {};
+      const items = Object.entries(materials)
+        .map(([key, coefficient]) => {
+          const amount = propellantTons * Number(coefficient) / 10;
+          if (!Number.isFinite(amount) || amount <= 0) return null;
+          return {
+            key,
+            label: propellantResourceLabel(key),
+            amount,
+          };
+        })
+        .filter(Boolean);
+      if (!items.length) {
+        const propellant = String(row && row.propellant || "").trim();
+        if (!propellant || propellant.toLowerCase() === "anything") return "";
+        return `
+          <details class="tooltip-propellant-resources muted" open>
+            <summary>${escapeHtml(UI_LANG === "en" ? "Resource mix" : "자원 구성")}</summary>
+            <div class="tooltip-propellant-resource-grid">
+              <span>${escapeHtml(propellant)}</span><strong>-</strong>
+            </div>
+          </details>
+        `;
+      }
+      const itemRows = items
+        .map(item => `<span>${escapeHtml(item.label)}</span><strong>${formatNumber(item.amount, UI_LANG === "en" ? " decatons" : " 데카톤")}</strong>`)
+        .join("");
+      return `
+        <details class="tooltip-propellant-resources muted" open>
+          <summary>${escapeHtml(UI_LANG === "en" ? "Resource mix" : "자원 구성")}</summary>
+          <div class="tooltip-propellant-resource-grid">
+            ${itemRows}
+          </div>
+        </details>
+      `;
+    }
+
+function propellantResourceLabel(key) {
+      const labels = UI_LANG === "en" ? PROPELLANT_RESOURCE_LABELS_EN : PROPELLANT_RESOURCE_LABELS_KO;
+      return labels[key] || key;
     }
 
 export function tablePowerStepPinnedRefs() {
