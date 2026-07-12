@@ -2538,6 +2538,29 @@
       font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
+    .tooltip-propellant-resources {
+      margin: -2px 0 7px;
+      overflow-wrap: anywhere;
+    }
+    .tooltip-propellant-resources summary {
+      cursor: pointer;
+      color: #a9b5ad;
+      font-weight: 650;
+      list-style-position: inside;
+    }
+    .tooltip-propellant-resource-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2px 10px;
+      padding: 4px 0 0 18px;
+      align-items: baseline;
+    }
+    .tooltip-propellant-resources strong {
+      color: #d7eadf;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
     .tooltip-stack {
       display: flex;
       height: 7px;

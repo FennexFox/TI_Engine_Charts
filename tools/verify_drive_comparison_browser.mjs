@@ -2912,6 +2912,60 @@ const dryMassActionLayout = await page.evaluate(() => {
   expect(cardCountAfterHover > 0, `${htmlFile}: hover did not create detail card`);
   expect(await page.locator("#chart .point-state-ring.is-hovered").count() > 0, `${htmlFile}: hover did not render a separate point-state overlay`);
 
+  const propellantResourceBreakdown = await page.evaluate(() => {
+    setLanguage("en", { rerender: false });
+    resetChartStateToDefaults();
+    state.metric = "totalMassTons";
+    state.targetDvKps = 50;
+    state.showImpracticalCandidates = true;
+    const candidate = DATA.drives.find(row => (
+      row
+      && row.perTankPropellantMaterials
+      && Object.keys(row.perTankPropellantMaterials).length
+      && chartMassOptions(row).length
+    ));
+    if (!candidate) return { checked: false };
+    const option = chartMassOptions(candidate)[0];
+    const refs = [tooltipRef(candidate.id, option.id)];
+    state.tooltipPinned = false;
+    state.hoverPoints = refs;
+    state.lastTooltipItems = refs;
+    refreshTooltip(DATA.drives);
+    const resourceNode = document.querySelector("#tooltip .tooltip-propellant-resources");
+    const breakdownText = document.querySelector("#tooltip .tooltip-breakdown")?.textContent || "";
+    const initiallyCollapsed = resourceNode ? resourceNode.open === false : false;
+    if (resourceNode) resourceNode.open = true;
+    const resourceText = resourceNode?.textContent || "";
+    const expectedResources = Object.entries(candidate.perTankPropellantMaterials)
+      .filter(([, coefficient]) => Number(coefficient) > 0)
+      .map(([key]) => key);
+    const result = {
+      checked: true,
+      hasPropellantMass: /Propellant/.test(breakdownText) && /[\d,.]+[A-Za-z]*\s*t/.test(breakdownText),
+      hasResourceNode: !!resourceNode,
+      resourceCollapsedByDefault: initiallyCollapsed,
+      hasResourceLabel: /Resource mix/.test(resourceText),
+      includesExpectedResource: expectedResources.some(key => resourceText.toLowerCase().includes(key.toLowerCase()) || (
+        key === "water" && /Water/.test(resourceText)
+      )),
+      includesResourceDecatons: /[\d,.]+[A-Za-z]*\s*decatons/.test(resourceText),
+      omitsResourceTons: !/[\d,.]+[A-Za-z]*\s*t\b/.test(resourceText),
+    };
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    render();
+    return result;
+  });
+  expect(propellantResourceBreakdown.checked, `${htmlFile}: no propellant-resource fixture was available for tooltip verification`);
+  expect(propellantResourceBreakdown.hasPropellantMass, `${htmlFile}: mass breakdown no longer shows propellant mass`);
+  expect(propellantResourceBreakdown.hasResourceNode, `${htmlFile}: mass breakdown does not show propellant resource requirements`);
+  expect(propellantResourceBreakdown.resourceCollapsedByDefault, `${htmlFile}: propellant resource breakdown should be collapsed by default`);
+  expect(propellantResourceBreakdown.hasResourceLabel, `${htmlFile}: propellant resource breakdown is missing its label`);
+  expect(propellantResourceBreakdown.includesExpectedResource, `${htmlFile}: propellant resource breakdown does not name an expected resource`);
+  expect(propellantResourceBreakdown.includesResourceDecatons, `${htmlFile}: propellant resource breakdown does not show resource decatons`);
+  expect(propellantResourceBreakdown.omitsResourceTons, `${htmlFile}: propellant resource breakdown should not show resource values in tons`);
+
   const hoverCardOrderingChecks = await page.evaluate(() => {
     const candidates = currentChartRows
       .filter(row => chartMassOptions(row).length > 0)

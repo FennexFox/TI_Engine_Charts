@@ -370,6 +370,7 @@ export function tooltipBreakdownHtml(row, option) {
       const componentRows = components.map(([label, value, className, displayValue]) => `
             <span>${label}</span><strong>${displayValue}</strong>
       `).join("");
+      const propellantResources = propellantResourcesHtml(row, option);
       const componentSegments = components.map(([label, value, className]) => {
         const share = clamp(value / total * 100, 0, 100);
         return `<span class="${className}" style="width:${share.toFixed(2)}%" title="${label}: ${formatNumber(value, " t")}"></span>`;
@@ -383,6 +384,7 @@ export function tooltipBreakdownHtml(row, option) {
             <div class="tooltip-breakdown-grid">
               ${componentRows}
             </div>
+            ${propellantResources}
             <div class="tooltip-stack" aria-hidden="true">
               ${componentSegments}
             </div>
@@ -390,6 +392,61 @@ export function tooltipBreakdownHtml(row, option) {
           </div>
         </details>
       `;
+    }
+
+function propellantResourcesHtml(row, option) {
+      const propellantTons = Number(option && option.propellantTons);
+      if (!Number.isFinite(propellantTons) || propellantTons <= 0) return "";
+      const materials = row && row.perTankPropellantMaterials && typeof row.perTankPropellantMaterials === "object"
+        ? row.perTankPropellantMaterials
+        : {};
+      const items = Object.entries(materials)
+        .map(([key, coefficient]) => {
+          const amount = propellantTons * Number(coefficient) / 10;
+          if (!Number.isFinite(amount) || amount <= 0) return null;
+          return {
+            key,
+            label: propellantResourceLabel(key),
+            amount,
+          };
+        })
+        .filter(Boolean);
+      if (!items.length) {
+        const propellant = String(row && row.propellant || "").trim();
+        if (!propellant || propellant.toLowerCase() === "anything") return "";
+        return `
+          <details class="tooltip-propellant-resources muted">
+            <summary>${escapeHtml(UI_LANG === "en" ? "Resource mix" : "자원 구성")}</summary>
+            <div class="tooltip-propellant-resource-grid">
+              <span>${escapeHtml(propellant)}</span><strong>-</strong>
+            </div>
+          </details>
+        `;
+      }
+      const itemRows = items
+        .map(item => `<span>${escapeHtml(item.label)}</span><strong>${formatNumber(item.amount, UI_LANG === "en" ? " decatons" : " 데카톤")}</strong>`)
+        .join("");
+      return `
+        <details class="tooltip-propellant-resources muted">
+          <summary>${escapeHtml(UI_LANG === "en" ? "Resource mix" : "자원 구성")}</summary>
+          <div class="tooltip-propellant-resource-grid">
+            ${itemRows}
+          </div>
+        </details>
+      `;
+    }
+
+function propellantResourceLabel(key) {
+      const labels = {
+        water: UI_LANG === "en" ? "Water" : "물",
+        volatiles: UI_LANG === "en" ? "Volatiles" : "휘발물",
+        metals: UI_LANG === "en" ? "Metals" : "금속",
+        nobleMetals: UI_LANG === "en" ? "Noble metals" : "귀금속",
+        fissiles: UI_LANG === "en" ? "Fissiles" : "핵분열성 물질",
+        antimatter: UI_LANG === "en" ? "Antimatter" : "반물질",
+        exotics: UI_LANG === "en" ? "Exotics" : "외계물질",
+      };
+      return labels[key] || key;
     }
 
 export function tablePowerStepPinnedRefs() {
