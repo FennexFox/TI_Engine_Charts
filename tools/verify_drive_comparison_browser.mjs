@@ -2912,6 +2912,112 @@ const dryMassActionLayout = await page.evaluate(() => {
   expect(cardCountAfterHover > 0, `${htmlFile}: hover did not create detail card`);
   expect(await page.locator("#chart .point-state-ring.is-hovered").count() > 0, `${htmlFile}: hover did not render a separate point-state overlay`);
 
+  const propellantResourceBreakdown = await page.evaluate(() => {
+    setLanguage("en", { rerender: false });
+    resetChartStateToDefaults();
+    state.metric = "totalMassTons";
+    state.targetDvKps = 50;
+    state.showImpracticalCandidates = true;
+    const candidate = DATA.drives.find(row => (
+      row
+      && row.perTankPropellantMaterials
+      && Object.values(row.perTankPropellantMaterials).some(coefficient => Number(coefficient) > 0)
+      && chartMassOptions(row).length
+    ));
+    if (!candidate) return { checked: false };
+    const option = chartMassOptions(candidate)[0];
+    const showTooltip = (row, massOption, rows = DATA.drives) => {
+      const refs = [tooltipRef(row.id, massOption.id)];
+      state.tooltipPinned = false;
+      state.hoverPoints = refs;
+      state.lastTooltipItems = refs;
+      refreshTooltip(rows);
+    };
+    showTooltip(candidate, option);
+    let resourceNode = document.querySelector("#tooltip .tooltip-propellant-resources");
+    const breakdownText = document.querySelector("#tooltip .tooltip-breakdown")?.textContent || "";
+    const initiallyOpen = resourceNode ? resourceNode.open === true : false;
+    const followsMassBar = resourceNode?.previousElementSibling?.classList.contains("tooltip-stack") === true;
+    if (resourceNode) resourceNode.open = true;
+    let resourceText = resourceNode?.textContent || "";
+    const expectedResources = Object.entries(candidate.perTankPropellantMaterials)
+      .filter(([, coefficient]) => Number(coefficient) > 0)
+      .map(([key]) => key);
+    const englishLabels = {
+      water: "Water",
+      volatiles: "Volatiles",
+      metals: "Metals",
+      nobleMetals: "Noble metals",
+      fissiles: "Fissiles",
+      antimatter: "Antimatter",
+      exotics: "Exotics",
+    };
+    const koreanLabels = {
+      water: "물",
+      volatiles: "휘발물",
+      metals: "금속",
+      nobleMetals: "귀금속",
+      fissiles: "핵분열성 물질",
+      antimatter: "반물질",
+      exotics: "외계물질",
+    };
+    const result = {
+      checked: true,
+      hasPropellantMass: /Propellant/.test(breakdownText) && /[\d,.]+[A-Za-z]*\s*t/.test(breakdownText),
+      hasResourceNode: !!resourceNode,
+      resourceOpenByDefault: initiallyOpen,
+      followsMassBar,
+      hasResourceLabel: /Resource mix/.test(resourceText),
+      includesExpectedResource: expectedResources.some(key => resourceText.includes(englishLabels[key] || key)),
+      includesResourceDecatons: /[\d,.]+[A-Za-z]*\s*decatons/.test(resourceText),
+      omitsResourceTons: !/[\d,.]+[A-Za-z]*\s*t\b/.test(resourceText),
+    };
+
+    setLanguage("ko", { rerender: false });
+    showTooltip(candidate, option);
+    resourceNode = document.querySelector("#tooltip .tooltip-propellant-resources");
+    resourceText = resourceNode?.textContent || "";
+    result.hasKoreanResourceLabel = /자원 구성/.test(resourceText);
+    result.includesExpectedKoreanResource = expectedResources.some(key => resourceText.includes(koreanLabels[key] || key));
+
+    setLanguage("en", { rerender: false });
+    const fallbackPropellant = "Fallback propellant";
+    const fallbackCandidate = {
+      ...candidate,
+      id: `${candidate.id}__propellant_fallback_fixture`,
+      propellant: fallbackPropellant,
+      perTankPropellantMaterials: {},
+    };
+    const fallbackOption = chartMassOptions(fallbackCandidate)[0];
+    result.hasFallbackFixture = !!fallbackOption;
+    if (fallbackOption) showTooltip(fallbackCandidate, fallbackOption, [fallbackCandidate]);
+    resourceNode = document.querySelector("#tooltip .tooltip-propellant-resources");
+    resourceText = resourceNode?.textContent || "";
+    result.hasFallbackPropellant = resourceText.includes(fallbackPropellant);
+    result.fallbackHasPlaceholder = /-/.test(resourceText);
+    result.fallbackOmitsDecatons = !/decatons/.test(resourceText);
+    resetChartStateToDefaults();
+    setLanguage("en", { rerender: false });
+    syncUiFromState();
+    render();
+    return result;
+  });
+  expect(propellantResourceBreakdown.checked, `${htmlFile}: no propellant-resource fixture was available for tooltip verification`);
+  expect(propellantResourceBreakdown.hasPropellantMass, `${htmlFile}: mass breakdown no longer shows propellant mass`);
+  expect(propellantResourceBreakdown.hasResourceNode, `${htmlFile}: mass breakdown does not show propellant resource requirements`);
+  expect(propellantResourceBreakdown.resourceOpenByDefault, `${htmlFile}: propellant resource breakdown should be open by default`);
+  expect(propellantResourceBreakdown.followsMassBar, `${htmlFile}: propellant resource breakdown should follow the mass bar`);
+  expect(propellantResourceBreakdown.hasResourceLabel, `${htmlFile}: propellant resource breakdown is missing its label`);
+  expect(propellantResourceBreakdown.includesExpectedResource, `${htmlFile}: propellant resource breakdown does not name an expected resource`);
+  expect(propellantResourceBreakdown.hasKoreanResourceLabel, `${htmlFile}: propellant resource breakdown is missing its Korean label`);
+  expect(propellantResourceBreakdown.includesExpectedKoreanResource, `${htmlFile}: propellant resource breakdown does not name an expected Korean resource`);
+  expect(propellantResourceBreakdown.includesResourceDecatons, `${htmlFile}: propellant resource breakdown does not show resource decatons`);
+  expect(propellantResourceBreakdown.omitsResourceTons, `${htmlFile}: propellant resource breakdown should not show resource values in tons`);
+  expect(propellantResourceBreakdown.hasFallbackFixture, `${htmlFile}: synthetic propellant fallback fixture has no mass option`);
+  expect(propellantResourceBreakdown.hasFallbackPropellant, `${htmlFile}: propellant fallback does not show the propellant label`);
+  expect(propellantResourceBreakdown.fallbackHasPlaceholder, `${htmlFile}: propellant fallback does not show its placeholder value`);
+  expect(propellantResourceBreakdown.fallbackOmitsDecatons, `${htmlFile}: propellant fallback should not show resource decatons`);
+
   const hoverCardOrderingChecks = await page.evaluate(() => {
     const candidates = currentChartRows
       .filter(row => chartMassOptions(row).length > 0)
