@@ -9,6 +9,25 @@ import { metricDefs, state, tooltip } from "../state/core.js";
 import { backgroundStyle, escapeHtml, formatAxisTick, formatCompact, formatNumber, formatPercent, formatTick, formatTwr, formatTwrDynamicUnit, paintStyle, trim } from "./formatting.js";
 export { backgroundStyle, escapeHtml, formatAxisTick, formatCompact, formatNumber, formatPercent, formatTick, formatTwr, formatTwrDynamicUnit, paintStyle, trim } from "./formatting.js";
 
+const PROPELLANT_RESOURCE_LABELS_EN = {
+      water: "Water",
+      volatiles: "Volatiles",
+      metals: "Metals",
+      nobleMetals: "Noble metals",
+      fissiles: "Fissiles",
+      antimatter: "Antimatter",
+      exotics: "Exotics",
+    };
+const PROPELLANT_RESOURCE_LABELS_KO = {
+      water: "물",
+      volatiles: "휘발물",
+      metals: "금속",
+      nobleMetals: "귀금속",
+      fissiles: "핵분열성 물질",
+      antimatter: "반물질",
+      exotics: "외계물질",
+    };
+
 
 export function tooltipPanelHtml(items) {
       const pinnedText = UI_LANG === "en" ? "Pinned" : "고정됨";
@@ -437,15 +456,7 @@ function propellantResourcesHtml(row, option) {
     }
 
 function propellantResourceLabel(key) {
-      const labels = {
-        water: UI_LANG === "en" ? "Water" : "물",
-        volatiles: UI_LANG === "en" ? "Volatiles" : "휘발물",
-        metals: UI_LANG === "en" ? "Metals" : "금속",
-        nobleMetals: UI_LANG === "en" ? "Noble metals" : "귀금속",
-        fissiles: UI_LANG === "en" ? "Fissiles" : "핵분열성 물질",
-        antimatter: UI_LANG === "en" ? "Antimatter" : "반물질",
-        exotics: UI_LANG === "en" ? "Exotics" : "외계물질",
-      };
+      const labels = UI_LANG === "en" ? PROPELLANT_RESOURCE_LABELS_EN : PROPELLANT_RESOURCE_LABELS_KO;
       return labels[key] || key;
     }
 
