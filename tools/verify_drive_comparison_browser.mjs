@@ -2933,7 +2933,7 @@ const dryMassActionLayout = await page.evaluate(() => {
     refreshTooltip(DATA.drives);
     const resourceNode = document.querySelector("#tooltip .tooltip-propellant-resources");
     const breakdownText = document.querySelector("#tooltip .tooltip-breakdown")?.textContent || "";
-    const initiallyCollapsed = resourceNode ? resourceNode.open === false : false;
+    const initiallyOpen = resourceNode ? resourceNode.open === true : false;
     if (resourceNode) resourceNode.open = true;
     const resourceText = resourceNode?.textContent || "";
     const expectedResources = Object.entries(candidate.perTankPropellantMaterials)
@@ -2943,7 +2943,7 @@ const dryMassActionLayout = await page.evaluate(() => {
       checked: true,
       hasPropellantMass: /Propellant/.test(breakdownText) && /[\d,.]+[A-Za-z]*\s*t/.test(breakdownText),
       hasResourceNode: !!resourceNode,
-      resourceCollapsedByDefault: initiallyCollapsed,
+      resourceOpenByDefault: initiallyOpen,
       hasResourceLabel: /Resource mix/.test(resourceText),
       includesExpectedResource: expectedResources.some(key => resourceText.toLowerCase().includes(key.toLowerCase()) || (
         key === "water" && /Water/.test(resourceText)
@@ -2960,7 +2960,7 @@ const dryMassActionLayout = await page.evaluate(() => {
   expect(propellantResourceBreakdown.checked, `${htmlFile}: no propellant-resource fixture was available for tooltip verification`);
   expect(propellantResourceBreakdown.hasPropellantMass, `${htmlFile}: mass breakdown no longer shows propellant mass`);
   expect(propellantResourceBreakdown.hasResourceNode, `${htmlFile}: mass breakdown does not show propellant resource requirements`);
-  expect(propellantResourceBreakdown.resourceCollapsedByDefault, `${htmlFile}: propellant resource breakdown should be collapsed by default`);
+  expect(propellantResourceBreakdown.resourceOpenByDefault, `${htmlFile}: propellant resource breakdown should be open by default`);
   expect(propellantResourceBreakdown.hasResourceLabel, `${htmlFile}: propellant resource breakdown is missing its label`);
   expect(propellantResourceBreakdown.includesExpectedResource, `${htmlFile}: propellant resource breakdown does not name an expected resource`);
   expect(propellantResourceBreakdown.includesResourceDecatons, `${htmlFile}: propellant resource breakdown does not show resource decatons`);

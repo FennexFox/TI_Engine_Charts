@@ -415,7 +415,7 @@ function propellantResourcesHtml(row, option) {
         const propellant = String(row && row.propellant || "").trim();
         if (!propellant || propellant.toLowerCase() === "anything") return "";
         return `
-          <details class="tooltip-propellant-resources muted">
+          <details class="tooltip-propellant-resources muted" open>
             <summary>${escapeHtml(UI_LANG === "en" ? "Resource mix" : "자원 구성")}</summary>
             <div class="tooltip-propellant-resource-grid">
               <span>${escapeHtml(propellant)}</span><strong>-</strong>
@@ -427,7 +427,7 @@ function propellantResourcesHtml(row, option) {
         .map(item => `<span>${escapeHtml(item.label)}</span><strong>${formatNumber(item.amount, UI_LANG === "en" ? " decatons" : " 데카톤")}</strong>`)
         .join("");
       return `
-        <details class="tooltip-propellant-resources muted">
+        <details class="tooltip-propellant-resources muted" open>
           <summary>${escapeHtml(UI_LANG === "en" ? "Resource mix" : "자원 구성")}</summary>
           <div class="tooltip-propellant-resource-grid">
             ${itemRows}
