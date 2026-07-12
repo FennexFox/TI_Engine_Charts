@@ -384,10 +384,10 @@ export function tooltipBreakdownHtml(row, option) {
             <div class="tooltip-breakdown-grid">
               ${componentRows}
             </div>
-            ${propellantResources}
             <div class="tooltip-stack" aria-hidden="true">
               ${componentSegments}
             </div>
+            ${propellantResources}
             <div class="muted">${UI_LANG === "en" ? "Waste heat" : "폐열"}: ${wasteHeatText}${heatMultiplierText}</div>
           </div>
         </details>
